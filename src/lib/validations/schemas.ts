@@ -135,10 +135,23 @@ export const customerSchema = z.object({
 // ==========================================
 
 export const salesDraftSchema = z.object({
-    customerId: z.string().optional(),
+    customerId: z.string().min(1, "Customer harus dipilih"),
     vehicleId: z.string().min(1, "Kendaraan harus dipilih"),
     notes: z.string().optional(),
-    validUntil: z.string().datetime().optional()
+    validUntil: z.string().datetime().optional(),
+    pricing: z.object({
+        paymentMethod: z.enum(["cash", "credit"]),
+        vehiclePrice: z.number().positive(),
+        discount: z.number().min(0).optional(),
+        downPayment: z.number().min(0).optional(),
+        tenor: z.number().int().positive().optional(),
+        interestRate: z.number().min(0).optional(),
+        monthlyPayment: z.number().positive().optional(),
+        adminFee: z.number().min(0).optional(),
+        insuranceFee: z.number().min(0).optional(),
+        totalAmount: z.number().positive(),
+        leasingPartnerId: z.string().optional()
+    }).optional()
 });
 
 export const salesDraftPricingSchema = z.object({
