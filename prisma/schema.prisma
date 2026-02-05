@@ -1,0 +1,516 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "mysql"
+}
+
+// ==========================================
+// MULTI-TENANT & USER MANAGEMENT
+// ==========================================
+
+model Tenant {
+  id           String   @id @default(cuid())
+  name         String   // Nama Dealer/Showroom
+  slug         String   @unique
+  logo         String?
+  address      String?  @db.Text
+  phone        String?
+  email        String?
+  website      String?
+  subscription String   @default("trial") // trial, basic, pro, enterprise
+  isActive     Boolean  @default(true)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  // Relations
+  users           User[]
+  vehicles        Vehicle[]
+  customers       Customer[]
+  salesDrafts     SalesDraft[]
+  transactions    Transaction[]
+  leasingPartners LeasingPartner[]
+  vehicleBrands   VehicleBrand[]
+  vehicleModels   VehicleModel[]
+  vehicleVariants VehicleVariant[]
+
+  @@map("tenants")
+}
+
+model User {
+  id        String   @id @default(cuid())
+  tenantId  String?
+  email     String   @unique
+  name      String
+  password  String
+  phone     String?
+  role      String   // super_admin, owner, sales, finance, staff
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relations
+  tenant        Tenant?              @relation(fields: [tenantId], references: [id])
+  salesDrafts   SalesDraft[]
+  internalNotes VehicleInternalNote[]
+  commissions   SalesCommission[]
+
+  @@index([tenantId])
+  @@map("users")
+}
+
+// ==========================================
+// VEHICLE DOMAIN - MASTER DATA
+// ==========================================
+
+model VehicleBrand {
+  id        String   @id @default(cuid())
+  name      String
+  logoUrl   String?
+  scope     String   @default("global") // global, tenant
+  tenantId  String?
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+
+  // Relations
+  tenant Tenant?        @relation(fields: [tenantId], references: [id])
+  models VehicleModel[]
+
+  @@index([tenantId])
+  @@index([scope])
+  @@map("vehicle_brands")
+}
+
+model VehicleModel {
+  id        String   @id @default(cuid())
+  brandId   String
+  name      String
+  category  String   // motor, mobil
+  scope     String   @default("global")
+  tenantId  String?
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+
+  // Relations
+  brand    VehicleBrand     @relation(fields: [brandId], references: [id])
+  tenant   Tenant?          @relation(fields: [tenantId], references: [id])
+  variants VehicleVariant[]
+
+  @@index([brandId])
+  @@index([tenantId])
+  @@map("vehicle_models")
+}
+
+model VehicleVariant {
+  id           String   @id @default(cuid())
+  modelId      String
+  name         String
+  engineCc     Int?
+  transmission String?  // manual, automatic, cvt
+  fuelType     String?  // bensin, diesel, listrik, hybrid
+  scope        String   @default("global")
+  tenantId     String?
+  isActive     Boolean  @default(true)
+  createdAt    DateTime @default(now())
+
+  // Relations
+  model    VehicleModel @relation(fields: [modelId], references: [id])
+  tenant   Tenant?      @relation(fields: [tenantId], references: [id])
+  vehicles Vehicle[]
+
+  @@index([modelId])
+  @@index([tenantId])
+  @@map("vehicle_variants")
+}
+
+// ==========================================
+// VEHICLE DOMAIN - ASSET/INVENTORY
+// ==========================================
+
+model Vehicle {
+  id            String   @id @default(cuid())
+  tenantId      String
+  variantId     String
+  stockCode     String?  // Kode internal dealer
+  year          Int
+  color         String
+  condition     String   // baru, bekas
+  vinNumber     String?  // No Rangka
+  engineNumber  String?  // No Mesin
+  plateNumber   String?  // Nopol
+  purchasePrice Decimal? @db.Decimal(15, 2)
+  sellingPrice  Decimal  @db.Decimal(15, 2)
+  status        String   @default("available") // available, reserved, sold
+  notes         String?  @db.Text
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  // Relations
+  tenant        Tenant                @relation(fields: [tenantId], references: [id])
+  variant       VehicleVariant        @relation(fields: [variantId], references: [id])
+  legal         VehicleLegal?
+  vehicleCondition VehicleCondition?
+  accessories   VehicleAccessory[]
+  photos        VehiclePhoto[]
+  internalNotes VehicleInternalNote[]
+  publication   ShowroomPublication?
+  salesDrafts   SalesDraft[]
+
+  @@index([tenantId])
+  @@index([variantId])
+  @@index([status])
+  @@map("vehicles")
+}
+
+model VehicleLegal {
+  id          String    @id @default(cuid())
+  vehicleId   String    @unique
+  stnkNumber  String?   // Nomor STNK
+  stnkExpiry  DateTime? // Masa berlaku STNK
+  stnkName    String?   // Nama di STNK
+  bpkbNumber  String?   // Nomor BPKB
+  bpkbStatus  String?   // ada, proses, hilang, kosong
+  bpkbName    String?   // Nama di BPKB
+  taxExpiry   DateTime? // Pajak kendaraan
+  legalStatus String    @default("lengkap") // lengkap, tidak_lengkap, proses
+  notes       String?   @db.Text
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  // Relations
+  vehicle Vehicle @relation(fields: [vehicleId], references: [id], onDelete: Cascade)
+
+  @@map("vehicle_legals")
+}
+
+model VehicleCondition {
+  id                  String   @id @default(cuid())
+  vehicleId           String   @unique
+  mileage             Int?     // Kilometer
+  engineCondition     String?  // baik, cukup, kurang
+  bodyCondition       String?
+  interiorCondition   String?
+  electricalCondition String?
+  tireCondition       String?
+  serviceHistory      Boolean  @default(false)
+  repairNotes         String?  @db.Text
+  grade               String?  // A, B, C, D
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
+
+  // Relations
+  vehicle Vehicle @relation(fields: [vehicleId], references: [id], onDelete: Cascade)
+
+  @@map("vehicle_conditions")
+}
+
+model VehicleAccessory {
+  id          String   @id @default(cuid())
+  vehicleId   String
+  name        String   // helm, toolkit, kunci serep, ban serep, dll
+  isAvailable Boolean  @default(true)
+  notes       String?
+  createdAt   DateTime @default(now())
+
+  // Relations
+  vehicle Vehicle @relation(fields: [vehicleId], references: [id], onDelete: Cascade)
+
+  @@index([vehicleId])
+  @@map("vehicle_accessories")
+}
+
+model VehiclePhoto {
+  id         String   @id @default(cuid())
+  vehicleId  String
+  filePath   String
+  fileName   String?
+  category   String   // front, back, left, right, interior, engine, defect, document
+  isPrimary  Boolean  @default(false)
+  visibility String   @default("public") // public, internal
+  sortOrder  Int      @default(0)
+  createdAt  DateTime @default(now())
+
+  // Relations
+  vehicle Vehicle @relation(fields: [vehicleId], references: [id], onDelete: Cascade)
+
+  @@index([vehicleId])
+  @@map("vehicle_photos")
+}
+
+model VehicleInternalNote {
+  id        String   @id @default(cuid())
+  vehicleId String
+  userId    String
+  note      String   @db.Text
+  createdAt DateTime @default(now())
+
+  // Relations
+  vehicle Vehicle @relation(fields: [vehicleId], references: [id], onDelete: Cascade)
+  user    User    @relation(fields: [userId], references: [id])
+
+  @@index([vehicleId])
+  @@map("vehicle_internal_notes")
+}
+
+model ShowroomPublication {
+  id                String    @id @default(cuid())
+  vehicleId         String    @unique
+  isPublished       Boolean   @default(false)
+  publicTitle       String?
+  publicDescription String?   @db.Text
+  highlights        String?   @db.Text // Features yang ditonjolkan
+  hideDefects       Boolean   @default(false)
+  publishedAt       DateTime?
+  views             Int       @default(0)
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+
+  // Relations
+  vehicle Vehicle @relation(fields: [vehicleId], references: [id], onDelete: Cascade)
+
+  @@map("showroom_publications")
+}
+
+// ==========================================
+// CRM & SALES
+// ==========================================
+
+model Customer {
+  id        String   @id @default(cuid())
+  tenantId  String
+  name      String
+  phone     String
+  email     String?
+  address   String?  @db.Text
+  nik       String?  // NIK KTP
+  birthDate DateTime?
+  gender    String?  // L, P
+  job       String?  // Pekerjaan
+  source    String?  // walk-in, referral, online, dll
+  notes     String?  @db.Text
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relations
+  tenant      Tenant       @relation(fields: [tenantId], references: [id])
+  salesDrafts SalesDraft[]
+
+  @@index([tenantId])
+  @@index([phone])
+  @@map("customers")
+}
+
+model SalesDraft {
+  id          String   @id @default(cuid())
+  tenantId    String
+  draftNumber String?  // Nomor urut draft
+  customerId  String?
+  vehicleId   String
+  salesUserId String
+  status      String   @default("draft") // draft, quoted, submitted, approved, rejected, cancelled, completed
+  notes       String?  @db.Text
+  validUntil  DateTime? // Berlaku sampai
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  // Relations
+  tenant   Tenant              @relation(fields: [tenantId], references: [id])
+  customer Customer?           @relation(fields: [customerId], references: [id])
+  vehicle  Vehicle             @relation(fields: [vehicleId], references: [id])
+  sales    User                @relation(fields: [salesUserId], references: [id])
+  pricing  SalesDraftPricing?
+  transaction Transaction?
+
+  @@index([tenantId])
+  @@index([customerId])
+  @@index([vehicleId])
+  @@index([status])
+  @@map("sales_drafts")
+}
+
+model SalesDraftPricing {
+  id               String   @id @default(cuid())
+  salesDraftId     String   @unique
+  paymentType      String   // cash, credit
+  vehiclePrice     Decimal  @db.Decimal(15, 2)
+  discount         Decimal? @db.Decimal(15, 2)
+  netPrice         Decimal  @db.Decimal(15, 2)
+  downPayment      Decimal? @db.Decimal(15, 2)
+  tenor            Int?     // dalam bulan
+  leasingPartnerId String?
+  interestRate     Decimal? @db.Decimal(5, 2) // dalam persen
+  monthlyPayment   Decimal? @db.Decimal(15, 2)
+  totalCredit      Decimal? @db.Decimal(15, 2)
+  adminFee         Decimal? @db.Decimal(15, 2)
+  insuranceFee     Decimal? @db.Decimal(15, 2)
+  otherFees        Decimal? @db.Decimal(15, 2)
+  notes            String?  @db.Text
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  // Relations
+  salesDraft     SalesDraft      @relation(fields: [salesDraftId], references: [id], onDelete: Cascade)
+  leasingPartner LeasingPartner? @relation(fields: [leasingPartnerId], references: [id])
+
+  @@map("sales_draft_pricings")
+}
+
+// ==========================================
+// LEASING & CREDIT
+// ==========================================
+
+model LeasingPartner {
+  id        String   @id @default(cuid())
+  tenantId  String
+  name      String   // Nama leasing (FIF, ADIRA, WOM, dll)
+  code      String   // Kode singkat
+  address   String?  @db.Text
+  phone     String?
+  email     String?
+  picName   String?  // Person in Charge
+  picPhone  String?
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relations
+  tenant   Tenant              @relation(fields: [tenantId], references: [id])
+  rates    LeasingRate[]
+  pricings SalesDraftPricing[]
+
+  @@index([tenantId])
+  @@map("leasing_partners")
+}
+
+model LeasingRate {
+  id               String   @id @default(cuid())
+  leasingPartnerId String
+  tenor            Int      // 12, 24, 36, 48, 60
+  interestRate     Decimal  @db.Decimal(5, 2) // dalam persen flat per tahun
+  vehicleCategory  String   // motor, mobil
+  vehicleCondition String   // baru, bekas
+  minDp            Decimal? @db.Decimal(5, 2) // Min DP dalam persen
+  maxDp            Decimal? @db.Decimal(5, 2) // Max DP dalam persen
+  adminFee         Decimal? @db.Decimal(15, 2)
+  insuranceRate    Decimal? @db.Decimal(5, 2)
+  isActive         Boolean  @default(true)
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  // Relations
+  leasingPartner LeasingPartner @relation(fields: [leasingPartnerId], references: [id], onDelete: Cascade)
+
+  @@index([leasingPartnerId])
+  @@index([vehicleCategory, vehicleCondition])
+  @@map("leasing_rates")
+}
+
+// ==========================================
+// FINANCE & TRANSACTIONS
+// ==========================================
+
+model Transaction {
+  id              String    @id @default(cuid())
+  tenantId        String
+  transactionCode String?   // Kode transaksi
+  salesDraftId    String    @unique
+  transactionDate DateTime  @default(now())
+  totalAmount     Decimal   @db.Decimal(15, 2)
+  paymentMethod   String    // cash, credit
+  status          String    @default("pending") // pending, processing, completed, cancelled
+  completedAt     DateTime?
+  notes           String?   @db.Text
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  // Relations
+  tenant      Tenant            @relation(fields: [tenantId], references: [id])
+  salesDraft  SalesDraft        @relation(fields: [salesDraftId], references: [id])
+  commissions SalesCommission[]
+  payments    Payment[]
+
+  @@index([tenantId])
+  @@index([status])
+  @@map("transactions")
+}
+
+model Payment {
+  id            String   @id @default(cuid())
+  transactionId String
+  amount        Decimal  @db.Decimal(15, 2)
+  paymentDate   DateTime @default(now())
+  paymentMethod String   // cash, transfer, kartu
+  reference     String?  // Nomor referensi/bukti
+  notes         String?
+  createdAt     DateTime @default(now())
+
+  // Relations
+  transaction Transaction @relation(fields: [transactionId], references: [id], onDelete: Cascade)
+
+  @@index([transactionId])
+  @@map("payments")
+}
+
+model SalesCommission {
+  id            String    @id @default(cuid())
+  transactionId String
+  salesUserId   String
+  amount        Decimal   @db.Decimal(15, 2)
+  percentage    Decimal?  @db.Decimal(5, 2)
+  payoutStatus  String    @default("pending") // pending, approved, paid
+  approvedAt    DateTime?
+  paidAt        DateTime?
+  notes         String?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  // Relations
+  transaction Transaction @relation(fields: [transactionId], references: [id], onDelete: Cascade)
+  sales       User        @relation(fields: [salesUserId], references: [id])
+
+  @@index([transactionId])
+  @@index([salesUserId])
+  @@index([payoutStatus])
+  @@map("sales_commissions")
+}
+
+// ==========================================
+// SYSTEM & AUDIT
+// ==========================================
+
+model AuditLog {
+  id        String   @id @default(cuid())
+  tenantId  String?
+  userId    String?
+  action    String   // create, update, delete, login, logout, etc
+  entity    String   // nama model/tabel
+  entityId  String?
+  oldValue  String?  @db.Text
+  newValue  String?  @db.Text
+  ipAddress String?
+  userAgent String?
+  createdAt DateTime @default(now())
+
+  @@index([tenantId])
+  @@index([userId])
+  @@index([entity])
+  @@index([createdAt])
+  @@map("audit_logs")
+}
+
+model Setting {
+  id        String   @id @default(cuid())
+  tenantId  String?  // null = system-wide
+  key       String
+  value     String   @db.Text
+  type      String   @default("string") // string, number, boolean, json
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([tenantId, key])
+  @@map("settings")
+}
