@@ -1,36 +1,76 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Showroom/Dealer SaaS
 
-## Getting Started
+Aplikasi multi-tenant untuk pengelolaan showroom/dealer kendaraan.
 
-First, run the development server:
+## Tech Stack
+
+- **Frontend**: Next.js 16, TypeScript, Tailwind CSS
+- **Backend**: Next.js API Routes
+- **Database**: MySQL with Prisma ORM
+- **Auth**: NextAuth.js (JWT)
+
+## Quick Start (Development)
 
 ```bash
+# Install dependencies
+npm install
+
+# Setup database
+# Edit .env with your MySQL credentials
+cp .env.example .env
+
+# Push schema + seed demo data
+npm run db:push
+npm run db:seed
+
+# Run development server
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+## Demo Credentials
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+| Role | Email | Password |
+|------|-------|----------|
+| Super Admin | admin@showroom.com | admin123 |
+| Owner | owner@demo-dealer.com | owner123 |
+| Sales | sales@demo-dealer.com | sales123 |
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+## Deployment (Coolify)
 
-## Learn More
+### 1. Create Resource
+- New Resource → Docker → Git Repository
+- Repository: `https://github.com/dhikoh/dealer-saas`
+- Branch: `master`
 
-To learn more about Next.js, take a look at the following resources:
+### 2. Environment Variables
+```
+DATABASE_URL=mysql://user:pass@mysql-host:3306/dealer_saas
+NEXTAUTH_SECRET=your-secret-key
+NEXTAUTH_URL=https://your-domain.com
+```
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+### 3. Build Settings
+- Build Pack: **Dockerfile**
+- Port: **3000**
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+### 4. After Deploy
+Run database migration:
+```bash
+npx prisma db push
+npx prisma db seed
+```
 
-## Deploy on Vercel
+## Features
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+- ✅ Multi-tenant (dealer isolation)
+- ✅ Vehicle CRUD with photos
+- ✅ Vehicle Legal (STNK, BPKB)
+- ✅ Vehicle Condition (grading)
+- ✅ Sales Draft & Transaction
+- ✅ Credit Simulation
+- ✅ PDF Export (Quotation, SPK, Invoice)
+- ✅ Commission & Payout tracking
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+## License
+
+Private - All rights reserved
