@@ -217,7 +217,9 @@ export async function DELETE(
         // Check if vehicle is in any active transaction
         const activeTransaction = await prisma.transaction.findFirst({
             where: {
-                vehicleId: id,
+                salesDraft: {
+                    vehicleId: id
+                },
                 status: { in: ["pending", "approved", "processing"] }
             }
         });
