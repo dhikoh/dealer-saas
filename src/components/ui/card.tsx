@@ -36,17 +36,21 @@ export interface CardHeaderProps {
     title: string;
     description?: string;
     action?: ReactNode;
+    icon?: ReactNode;
     className?: string;
 }
 
-export function CardHeader({ title, description, action, className }: CardHeaderProps) {
+export function CardHeader({ title, description, action, icon, className }: CardHeaderProps) {
     return (
         <div className={cn("flex items-start justify-between gap-4 mb-4", className)}>
-            <div className="min-w-0 flex-1">
-                <h3 className="text-lg font-semibold text-slate-900 truncate">{title}</h3>
-                {description && (
-                    <p className="text-sm text-slate-500 mt-0.5">{description}</p>
-                )}
+            <div className="min-w-0 flex-1 flex items-center gap-2">
+                {icon && <span className="text-primary-500 flex-shrink-0">{icon}</span>}
+                <div>
+                    <h3 className="text-lg font-semibold text-slate-900 truncate">{title}</h3>
+                    {description && (
+                        <p className="text-sm text-slate-500 mt-0.5">{description}</p>
+                    )}
+                </div>
             </div>
             {action && <div className="flex-shrink-0">{action}</div>}
         </div>
