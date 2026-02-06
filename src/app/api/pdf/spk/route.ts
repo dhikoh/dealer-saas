@@ -29,30 +29,38 @@ export async function POST(request: Request) {
             );
         }
 
-        // Fetch transaction with all related data
+        // Fetch transaction with salesDraft relations
         const transaction = await prisma.transaction.findFirst({
             where: {
                 id: transactionId,
                 tenantId: session.user.tenantId
             },
             include: {
-                customer: true,
-                vehicle: {
+                tenant: true,
+                salesDraft: {
                     include: {
-                        variant: {
+                        customer: true,
+                        vehicle: {
                             include: {
-                                model: {
+                                variant: {
                                     include: {
-                                        brand: true
+                                        model: {
+                                            include: {
+                                                brand: true
+                                            }
+                                        }
                                     }
                                 }
                             }
+                        },
+                        sales: true,
+                        pricing: {
+                            include: {
+                                leasingPartner: true
+                            }
                         }
                     }
-                },
-                leasingPartner: true,
-                sales: true,
-                tenant: true
+                }
             }
         });
 
@@ -60,6 +68,14 @@ export async function POST(request: Request) {
             return NextResponse.json(
                 { error: "Transaction not found" },
                 { status: 404 }
+            );
+        }
+
+        const salesDraft = transaction.salesDraft;
+        if (!salesDraft?.customer || !salesDraft?.vehicle) {
+            return NextResponse.json(
+                { error: "Transaction data incomplete" },
+                { status: 400 }
             );
         }
 
@@ -76,6 +92,8 @@ export async function POST(request: Request) {
             count
         );
 
+        const pricing = salesDraft.pricing;
+
         // Build SPK data
         const spkData: SPKData = {
             number: documentNumber,
@@ -87,34 +105,34 @@ export async function POST(request: Request) {
                 email: transaction.tenant.email || ""
             },
             customer: {
-                name: transaction.customer.name,
-                address: transaction.customer.address || "",
-                phone: transaction.customer.phone,
-                nik: transaction.customer.nik || undefined
+                name: salesDraft.customer.name,
+                address: salesDraft.customer.address || "",
+                phone: salesDraft.customer.phone,
+                nik: salesDraft.customer.nik || undefined
             },
             vehicle: {
-                brand: transaction.vehicle.variant.model.brand.name,
-                model: transaction.vehicle.variant.model.name,
-                variant: transaction.vehicle.variant.name,
-                year: transaction.vehicle.year,
-                color: transaction.vehicle.color,
-                condition: transaction.vehicle.condition as "baru" | "bekas",
-                vinNumber: transaction.vehicle.vinNumber || undefined,
-                engineNumber: transaction.vehicle.engineNumber || undefined,
-                plateNumber: transaction.vehicle.plateNumber || undefined
+                brand: salesDraft.vehicle.variant.model.brand.name,
+                model: salesDraft.vehicle.variant.model.name,
+                variant: salesDraft.vehicle.variant.name,
+                year: salesDraft.vehicle.year,
+                color: salesDraft.vehicle.color,
+                condition: salesDraft.vehicle.condition as "baru" | "bekas",
+                vinNumber: salesDraft.vehicle.vinNumber || undefined,
+                engineNumber: salesDraft.vehicle.engineNumber || undefined,
+                plateNumber: salesDraft.vehicle.plateNumber || undefined
             },
             pricing: {
-                vehiclePrice: Number(transaction.vehiclePrice),
-                discount: transaction.discount ? Number(transaction.discount) : undefined,
-                downPayment: transaction.downPayment ? Number(transaction.downPayment) : undefined,
-                tenor: transaction.tenor || undefined,
-                monthlyPayment: transaction.monthlyPayment ? Number(transaction.monthlyPayment) : undefined,
+                vehiclePrice: pricing ? Number(pricing.vehiclePrice) : Number(transaction.totalAmount),
+                discount: pricing?.discount ? Number(pricing.discount) : undefined,
+                downPayment: pricing?.downPayment ? Number(pricing.downPayment) : undefined,
+                tenor: pricing?.tenor || undefined,
+                monthlyPayment: pricing?.monthlyPayment ? Number(pricing.monthlyPayment) : undefined,
                 totalAmount: Number(transaction.totalAmount),
                 paymentMethod: transaction.paymentMethod as "cash" | "credit",
-                leasingPartner: transaction.leasingPartner?.name || undefined
+                leasingPartner: pricing?.leasingPartner?.name || undefined
             },
-            deliveryDate: transaction.deliveryDate || undefined,
-            salesName: transaction.sales.name
+            deliveryDate: transaction.completedAt || undefined,
+            salesName: salesDraft.sales.name
         };
 
         // Generate PDF HTML

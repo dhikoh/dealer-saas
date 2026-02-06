@@ -101,10 +101,10 @@ export async function POST(request: Request) {
                 npwp: draft.tenant.npwp || undefined
             },
             customer: {
-                name: draft.customer.name,
-                address: draft.customer.address || "",
-                phone: draft.customer.phone,
-                email: draft.customer.email || undefined
+                name: draft.customer?.name || "Customer",
+                address: draft.customer?.address || "",
+                phone: draft.customer?.phone || "",
+                email: draft.customer?.email || undefined
             },
             vehicle: {
                 brand: draft.vehicle.variant.model.brand.name,
