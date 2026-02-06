@@ -97,8 +97,7 @@ export async function POST(request: Request) {
                 name: draft.tenant.name,
                 address: draft.tenant.address || "",
                 phone: draft.tenant.phone || "",
-                email: draft.tenant.email || "",
-                npwp: draft.tenant.npwp || undefined
+                email: draft.tenant.email || ""
             },
             customer: {
                 name: draft.customer?.name || "Customer",
