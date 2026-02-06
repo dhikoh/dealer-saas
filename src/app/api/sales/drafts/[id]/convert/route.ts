@@ -84,34 +84,22 @@ export async function POST(
 
         // Calculate commission using kernel
         const commissionAmount = calculateCommission(
-            Number(draft.pricing.totalAmount),
-            draft.pricing.paymentMethod === "credit" ? "credit" : "cash",
+            Number(draft.pricing.netPrice),
+            draft.pricing.paymentType === "credit" ? "credit" : "cash",
             vehicle.condition as "baru" | "bekas"
         );
 
         // Create transaction in a single atomic operation
         const transaction = await prisma.$transaction(async (tx) => {
-            // 1. Create transaction
+            // 1. Create transaction - using correct schema fields
             const newTransaction = await tx.transaction.create({
                 data: {
                     tenantId: session.user.tenantId!,
-                    customerId: draft.customerId,
-                    vehicleId: draft.vehicleId,
-                    salesId: draft.salesId,
+                    salesDraftId: id,
                     transactionDate: new Date(),
-                    paymentMethod: draft.pricing!.paymentMethod,
-                    vehiclePrice: draft.pricing!.vehiclePrice,
-                    discount: draft.pricing!.discount,
-                    downPayment: draft.pricing!.downPayment,
-                    tenor: draft.pricing!.tenor,
-                    interestRate: draft.pricing!.interestRate,
-                    monthlyPayment: draft.pricing!.monthlyPayment,
-                    adminFee: draft.pricing!.adminFee,
-                    insuranceFee: draft.pricing!.insuranceFee,
-                    totalAmount: draft.pricing!.totalAmount,
-                    leasingPartnerId: draft.pricing!.leasingPartnerId,
-                    status: "pending",
-                    paidAmount: 0
+                    paymentMethod: draft.pricing!.paymentType,
+                    totalAmount: draft.pricing!.netPrice,
+                    status: "pending"
                 }
             });
 
@@ -124,18 +112,16 @@ export async function POST(
             // 3. Update draft status to converted
             await tx.salesDraft.update({
                 where: { id },
-                data: { status: "converted" }
+                data: { status: "completed" }
             });
 
-            // 4. Create commission record for sales
-            await tx.commission.create({
+            // 4. Create commission record for sales using SalesCommission model
+            await tx.salesCommission.create({
                 data: {
-                    tenantId: session.user.tenantId!,
                     transactionId: newTransaction.id,
-                    userId: draft.salesId,
-                    commissionType: "sales",
+                    salesUserId: draft.salesUserId,
                     amount: commissionAmount,
-                    status: "pending"
+                    payoutStatus: "pending"
                 }
             });
 
@@ -152,7 +138,7 @@ export async function POST(
                         transactionId: newTransaction.id,
                         vehicleId: draft.vehicleId,
                         customerId: draft.customerId,
-                        totalAmount: draft.pricing!.totalAmount
+                        totalAmount: String(draft.pricing!.netPrice)
                     })
                 }
             });
