@@ -7,7 +7,7 @@
  * @module kernel/credit_calculation
  */
 
-import { Decimal } from "@prisma/client/runtime/library";
+
 
 export interface CreditCalculationInput {
     vehiclePrice: number;
