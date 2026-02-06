@@ -1,16 +1,17 @@
 "use client";
 
-import { forwardRef, InputHTMLAttributes } from "react";
+import { forwardRef, InputHTMLAttributes, ReactNode } from "react";
 import { cn } from "@/lib/utils";
 
 export interface InputProps extends InputHTMLAttributes<HTMLInputElement> {
     label?: string;
     error?: string;
     hint?: string;
+    leftIcon?: ReactNode;
 }
 
 const Input = forwardRef<HTMLInputElement, InputProps>(
-    ({ className, type, label, error, hint, id, ...props }, ref) => {
+    ({ className, type, label, error, hint, leftIcon, id, ...props }, ref) => {
         const inputId = id || props.name;
 
         return (
@@ -23,22 +24,30 @@ const Input = forwardRef<HTMLInputElement, InputProps>(
                         {label}
                     </label>
                 )}
-                <input
-                    type={type}
-                    id={inputId}
-                    className={cn(
-                        "w-full max-w-full px-4 py-2.5 rounded-xl border bg-white",
-                        "text-slate-900 placeholder:text-slate-400",
-                        "transition-all duration-200",
-                        "focus:outline-none focus:ring-2 focus:ring-primary-500/20 focus:border-primary-500",
-                        error
-                            ? "border-red-500 focus:ring-red-500/20 focus:border-red-500"
-                            : "border-slate-200 hover:border-slate-300",
-                        className
+                <div className="relative">
+                    {leftIcon && (
+                        <div className="absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none">
+                            {leftIcon}
+                        </div>
                     )}
-                    ref={ref}
-                    {...props}
-                />
+                    <input
+                        type={type}
+                        id={inputId}
+                        className={cn(
+                            "w-full max-w-full px-4 py-2.5 rounded-xl border bg-white",
+                            "text-slate-900 placeholder:text-slate-400",
+                            "transition-all duration-200",
+                            "focus:outline-none focus:ring-2 focus:ring-primary-500/20 focus:border-primary-500",
+                            error
+                                ? "border-red-500 focus:ring-red-500/20 focus:border-red-500"
+                                : "border-slate-200 hover:border-slate-300",
+                            leftIcon && "pl-10",
+                            className
+                        )}
+                        ref={ref}
+                        {...props}
+                    />
+                </div>
                 {error && (
                     <p className="mt-1.5 text-sm text-red-600">{error}</p>
                 )}
@@ -53,3 +62,4 @@ const Input = forwardRef<HTMLInputElement, InputProps>(
 Input.displayName = "Input";
 
 export { Input };
+
