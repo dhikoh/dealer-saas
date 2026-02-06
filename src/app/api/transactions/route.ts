@@ -39,44 +39,53 @@ export async function GET(request: Request) {
             prisma.transaction.findMany({
                 where,
                 include: {
-                    customer: {
+                    salesDraft: {
                         select: {
                             id: true,
-                            name: true,
-                            phone: true
-                        }
-                    },
-                    vehicle: {
-                        select: {
-                            id: true,
-                            stockCode: true,
-                            year: true,
-                            color: true,
-                            variant: {
+                            customer: {
                                 select: {
+                                    id: true,
                                     name: true,
-                                    model: {
+                                    phone: true
+                                }
+                            },
+                            vehicle: {
+                                select: {
+                                    id: true,
+                                    stockCode: true,
+                                    year: true,
+                                    color: true,
+                                    variant: {
                                         select: {
                                             name: true,
-                                            brand: {
-                                                select: { name: true }
+                                            model: {
+                                                select: {
+                                                    name: true,
+                                                    brand: {
+                                                        select: { name: true }
+                                                    }
+                                                }
                                             }
                                         }
                                     }
                                 }
+                            },
+                            sales: {
+                                select: {
+                                    id: true,
+                                    name: true
+                                }
+                            },
+                            pricing: {
+                                select: {
+                                    leasingPartner: {
+                                        select: {
+                                            id: true,
+                                            name: true
+                                        }
+                                    }
+                                }
                             }
-                        }
-                    },
-                    sales: {
-                        select: {
-                            id: true,
-                            name: true
-                        }
-                    },
-                    leasingPartner: {
-                        select: {
-                            id: true,
-                            name: true
                         }
                     }
                 },
