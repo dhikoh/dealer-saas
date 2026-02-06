@@ -16,7 +16,7 @@ import {
 interface Commission {
     id: string;
     amount: number;
-    status: string;
+    payoutStatus: string;
     paidAt: string | null;
     notes: string | null;
     createdAt: string;
@@ -28,25 +28,27 @@ interface Commission {
         id: string;
         transactionDate: string;
         totalAmount: number;
-        vehicle: {
-            stockCode: string;
-            variant: {
-                model: {
-                    name: string;
-                    brand: { name: string };
+        salesDraft: {
+            vehicle: {
+                stockCode: string;
+                variant: {
+                    model: {
+                        name: string;
+                        brand: { name: string };
+                    };
                 };
             };
-        };
-        customer: {
-            name: string;
+            customer: {
+                name: string;
+            } | null;
         };
     };
 }
 
 const statusConfig: Record<string, { label: string; badge: string; icon: React.ReactNode }> = {
     pending: { label: "Pending", badge: "badge-warning", icon: <Clock className="h-4 w-4" /> },
-    paid: { label: "Dibayar", badge: "badge-success", icon: <CheckCircle className="h-4 w-4" /> },
-    cancelled: { label: "Batal", badge: "badge-error", icon: <Clock className="h-4 w-4" /> }
+    approved: { label: "Disetujui", badge: "badge-info", icon: <CheckCircle className="h-4 w-4" /> },
+    paid: { label: "Dibayar", badge: "badge-success", icon: <CheckCircle className="h-4 w-4" /> }
 };
 
 export default function CommissionsPage() {
@@ -198,7 +200,9 @@ export default function CommissionsPage() {
             ) : (
                 <div className="space-y-4">
                     {commissions.map((comm) => {
-                        const status = statusConfig[comm.status] || statusConfig.pending;
+                        const status = statusConfig[comm.payoutStatus] || statusConfig.pending;
+                        const vehicle = comm.transaction.salesDraft?.vehicle;
+                        const customer = comm.transaction.salesDraft?.customer;
 
                         return (
                             <Card key={comm.id} className="card-hover">
@@ -210,7 +214,7 @@ export default function CommissionsPage() {
                                         <div className="min-w-0 flex-1">
                                             <div className="flex items-center gap-2 flex-wrap">
                                                 <h3 className="font-semibold text-slate-900 truncate">
-                                                    {comm.transaction.vehicle.variant.model.brand.name} {comm.transaction.vehicle.variant.model.name}
+                                                    {vehicle ? `${vehicle.variant.model.brand.name} ${vehicle.variant.model.name}` : "Kendaraan"}
                                                 </h3>
                                                 <span className={`badge ${status.badge} flex items-center gap-1`}>
                                                     {status.icon}
@@ -218,7 +222,7 @@ export default function CommissionsPage() {
                                                 </span>
                                             </div>
                                             <p className="text-sm text-slate-500">
-                                                Customer: {comm.transaction.customer.name}
+                                                Customer: {customer?.name || "-"}
                                             </p>
                                             <div className="flex items-center gap-4 mt-2 text-sm flex-wrap">
                                                 <span className="flex items-center gap-1 text-slate-500">
@@ -242,7 +246,7 @@ export default function CommissionsPage() {
                                                 Dari transaksi {formatRupiah(Number(comm.transaction.totalAmount))}
                                             </p>
                                         </div>
-                                        {canManage && comm.status === "pending" && (
+                                        {canManage && comm.payoutStatus === "pending" && (
                                             <Button
                                                 size="sm"
                                                 onClick={() => handlePayout(comm.id)}

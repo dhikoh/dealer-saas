@@ -28,10 +28,12 @@ export async function PUT(
 
         const body = await request.json();
 
-        const commission = await prisma.commission.findFirst({
+        const commission = await prisma.salesCommission.findFirst({
             where: {
                 id,
-                tenantId: session.user.tenantId
+                transaction: {
+                    tenantId: session.user.tenantId
+                }
             }
         });
 
@@ -42,10 +44,10 @@ export async function PUT(
             );
         }
 
-        const updated = await prisma.commission.update({
+        const updated = await prisma.salesCommission.update({
             where: { id },
             data: {
-                status: body.status,
+                payoutStatus: body.status,
                 paidAt: body.status === "paid" ? new Date() : null,
                 notes: body.notes || commission.notes
             }

@@ -20,24 +20,31 @@ export async function GET(request: Request) {
         const page = parseInt(searchParams.get("page") || "1");
         const limit = parseInt(searchParams.get("limit") || "20");
 
-        const where: Record<string, unknown> = {
+        // Build where clause through transaction relation
+        const whereTransaction: Record<string, unknown> = {
             tenantId: session.user.tenantId
+        };
+
+        const whereCommission: Record<string, unknown> = {
+            transaction: {
+                tenantId: session.user.tenantId
+            }
         };
 
         // Sales can only see their own commissions
         if (session.user.role === "sales") {
-            where.salesId = session.user.id;
+            whereCommission.salesUserId = session.user.id;
         } else if (salesId) {
-            where.salesId = salesId;
+            whereCommission.salesUserId = salesId;
         }
 
         if (status && status !== "all") {
-            where.status = status;
+            whereCommission.payoutStatus = status;
         }
 
         const [commissions, total] = await Promise.all([
-            prisma.commission.findMany({
-                where,
+            prisma.salesCommission.findMany({
+                where: whereCommission,
                 include: {
                     sales: {
                         select: {
@@ -50,24 +57,28 @@ export async function GET(request: Request) {
                             id: true,
                             transactionDate: true,
                             totalAmount: true,
-                            vehicle: {
+                            salesDraft: {
                                 select: {
-                                    stockCode: true,
-                                    variant: {
+                                    vehicle: {
                                         select: {
-                                            model: {
+                                            stockCode: true,
+                                            variant: {
                                                 select: {
-                                                    name: true,
-                                                    brand: { select: { name: true } }
+                                                    model: {
+                                                        select: {
+                                                            name: true,
+                                                            brand: { select: { name: true } }
+                                                        }
+                                                    }
                                                 }
                                             }
                                         }
+                                    },
+                                    customer: {
+                                        select: {
+                                            name: true
+                                        }
                                     }
-                                }
-                            },
-                            customer: {
-                                select: {
-                                    name: true
                                 }
                             }
                         }
@@ -77,23 +88,25 @@ export async function GET(request: Request) {
                 take: limit,
                 skip: (page - 1) * limit
             }),
-            prisma.commission.count({ where })
+            prisma.salesCommission.count({ where: whereCommission })
         ]);
 
         // Calculate totals
-        const totals = await prisma.commission.groupBy({
-            by: ["status"],
+        const totals = await prisma.salesCommission.groupBy({
+            by: ["payoutStatus"],
             where: {
-                tenantId: session.user.tenantId,
-                ...(session.user.role === "sales" ? { salesId: session.user.id } : {})
+                ...(session.user.role === "sales" ? { salesUserId: session.user.id } : {}),
+                transaction: {
+                    tenantId: session.user.tenantId
+                }
             },
             _sum: {
                 amount: true
             }
         });
 
-        const totalPending = totals.find(t => t.status === "pending")?._sum.amount || 0;
-        const totalPaid = totals.find(t => t.status === "paid")?._sum.amount || 0;
+        const totalPending = totals.find(t => t.payoutStatus === "pending")?._sum.amount || 0;
+        const totalPaid = totals.find(t => t.payoutStatus === "paid")?._sum.amount || 0;
 
         return NextResponse.json({
             commissions,
