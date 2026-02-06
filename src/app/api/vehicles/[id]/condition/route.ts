@@ -24,7 +24,7 @@ export async function GET(
                 tenantId: session.user.tenantId
             },
             include: {
-                condition: true
+                vehicleCondition: true
             }
         });
 
@@ -35,7 +35,7 @@ export async function GET(
             );
         }
 
-        return NextResponse.json(vehicle.condition);
+        return NextResponse.json(vehicle.vehicleCondition);
 
     } catch (error) {
         console.error("Error fetching vehicle condition:", error);
