@@ -2,6 +2,7 @@ import NextAuth from "next-auth";
 import CredentialsProvider from "next-auth/providers/credentials";
 import { compare } from "bcryptjs";
 import prisma from "@/lib/prisma";
+import { JWT } from "next-auth/jwt";
 
 export const { handlers, signIn, signOut, auth } = NextAuth({
     providers: [
