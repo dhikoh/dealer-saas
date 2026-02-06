@@ -85,8 +85,7 @@ export async function POST(
         // Calculate commission using kernel
         const commissionAmount = calculateCommission(
             Number(draft.pricing.netPrice),
-            draft.pricing.paymentType === "credit" ? "credit" : "cash",
-            vehicle.condition as "baru" | "bekas"
+            draft.pricing.paymentType === "credit" ? "credit" : "cash"
         );
 
         // Create transaction in a single atomic operation
