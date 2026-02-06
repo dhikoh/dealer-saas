@@ -89,7 +89,7 @@ export async function POST(
         );
 
         // Create transaction in a single atomic operation
-        const transaction = await prisma.$transaction(async (tx: typeof prisma) => {
+        const transaction = await prisma.$transaction(async (tx) => {
             // 1. Create transaction - using correct schema fields
             const newTransaction = await tx.transaction.create({
                 data: {
