@@ -38,7 +38,7 @@ export async function GET(
                     orderBy: { sortOrder: "asc" }
                 },
                 legal: true,
-                condition: true,
+                vehicleCondition: true,
                 accessories: true,
                 internalNotes: {
                     include: {
