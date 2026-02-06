@@ -123,8 +123,8 @@ export async function POST(request: Request) {
                 monthlyPayment: draft.pricing.monthlyPayment ? Number(draft.pricing.monthlyPayment) : undefined,
                 adminFee: draft.pricing.adminFee ? Number(draft.pricing.adminFee) : undefined,
                 insuranceFee: draft.pricing.insuranceFee ? Number(draft.pricing.insuranceFee) : undefined,
-                totalAmount: Number(draft.pricing.totalAmount),
-                paymentMethod: draft.pricing.paymentMethod as "cash" | "credit",
+                totalAmount: Number(draft.pricing.netPrice),
+                paymentMethod: draft.pricing.paymentType as "cash" | "credit",
                 leasingPartner: draft.pricing.leasingPartner?.name || undefined
             },
             notes: draft.notes || undefined,
