@@ -130,29 +130,29 @@ export async function PUT(
                 pricing: body.pricing ? {
                     upsert: {
                         create: {
-                            paymentMethod: body.pricing.paymentMethod,
+                            paymentType: body.pricing.paymentMethod,
                             vehiclePrice: body.pricing.vehiclePrice,
                             discount: body.pricing.discount,
+                            netPrice: body.pricing.totalAmount,
                             downPayment: body.pricing.downPayment,
                             tenor: body.pricing.tenor,
                             interestRate: body.pricing.interestRate,
                             monthlyPayment: body.pricing.monthlyPayment,
                             adminFee: body.pricing.adminFee,
                             insuranceFee: body.pricing.insuranceFee,
-                            totalAmount: body.pricing.totalAmount,
                             leasingPartnerId: body.pricing.leasingPartnerId
                         },
                         update: {
-                            paymentMethod: body.pricing.paymentMethod,
+                            paymentType: body.pricing.paymentMethod,
                             vehiclePrice: body.pricing.vehiclePrice,
                             discount: body.pricing.discount,
+                            netPrice: body.pricing.totalAmount,
                             downPayment: body.pricing.downPayment,
                             tenor: body.pricing.tenor,
                             interestRate: body.pricing.interestRate,
                             monthlyPayment: body.pricing.monthlyPayment,
                             adminFee: body.pricing.adminFee,
                             insuranceFee: body.pricing.insuranceFee,
-                            totalAmount: body.pricing.totalAmount,
                             leasingPartnerId: body.pricing.leasingPartnerId
                         }
                     }

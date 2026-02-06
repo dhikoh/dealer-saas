@@ -47,8 +47,8 @@ interface SalesDraft {
         name: string;
     };
     pricing: {
-        paymentMethod: string;
-        totalAmount: number;
+        paymentType: string;
+        netPrice: number;
     } | null;
 }
 
@@ -239,10 +239,10 @@ export default function SalesDraftsPage() {
                                     <div className="flex flex-col md:items-end gap-3">
                                         <div className="text-right">
                                             <p className="text-xl font-bold text-primary-600">
-                                                {draft.pricing ? formatRupiah(Number(draft.pricing.totalAmount)) : formatRupiah(draft.vehicle.sellingPrice)}
+                                                {draft.pricing ? formatRupiah(Number(draft.pricing.netPrice)) : formatRupiah(draft.vehicle.sellingPrice)}
                                             </p>
                                             <p className="text-xs text-slate-500">
-                                                {draft.pricing?.paymentMethod === "credit" ? "Kredit" : "Tunai"}
+                                                {draft.pricing?.paymentType === "credit" ? "Kredit" : "Tunai"}
                                             </p>
                                         </div>
                                         <div className="flex gap-2">

@@ -78,8 +78,8 @@ export async function GET(request: Request) {
                     },
                     pricing: {
                         select: {
-                            paymentMethod: true,
-                            totalAmount: true
+                            paymentType: true,
+                            netPrice: true
                         }
                     }
                 },
@@ -191,16 +191,16 @@ export async function POST(request: Request) {
                 notes: data.notes,
                 pricing: data.pricing ? {
                     create: {
-                        paymentMethod: data.pricing.paymentMethod,
+                        paymentType: data.pricing.paymentMethod,
                         vehiclePrice: data.pricing.vehiclePrice,
                         discount: data.pricing.discount,
+                        netPrice: data.pricing.totalAmount,
                         downPayment: data.pricing.downPayment,
                         tenor: data.pricing.tenor,
                         interestRate: data.pricing.interestRate,
                         monthlyPayment: data.pricing.monthlyPayment,
                         adminFee: data.pricing.adminFee,
                         insuranceFee: data.pricing.insuranceFee,
-                        totalAmount: data.pricing.totalAmount,
                         leasingPartnerId: data.pricing.leasingPartnerId
                     }
                 } : undefined
