@@ -54,11 +54,11 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
     callbacks: {
         async jwt({ token, user }) {
             if (user) {
-                token.id = user.id;
-                token.role = user.role || "user";
-                token.tenantId = user.tenantId || null;
-                token.tenantName = user.tenantName || null;
-                token.tenantSlug = user.tenantSlug || null;
+                token.id = user.id as string;
+                token.role = (user.role as string) || "user";
+                token.tenantId = (user.tenantId as string) || null;
+                token.tenantName = (user.tenantName as string) || null;
+                token.tenantSlug = (user.tenantSlug as string) || null;
             }
             return token;
         },
