@@ -90,7 +90,7 @@ export async function POST(request: Request) {
         );
 
         // Calculate payment status
-        const paidAmount = transaction.payments.reduce((sum, p) => sum + Number(p.amount), 0);
+        const paidAmount = transaction.payments.reduce((sum: number, p: { amount: unknown }) => sum + Number(p.amount), 0);
         const totalAmount = Number(transaction.totalAmount);
         let paymentStatus: "unpaid" | "partial" | "paid" = "unpaid";
 
