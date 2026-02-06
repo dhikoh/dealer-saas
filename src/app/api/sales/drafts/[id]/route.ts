@@ -23,7 +23,7 @@ export async function GET(
                 id,
                 tenantId: session.user.tenantId,
                 // Sales can only see their own drafts
-                ...(session.user.role === "sales" ? { salesId: session.user.id } : {})
+                ...(session.user.role === "sales" ? { salesUserId: session.user.id } : {})
             },
             include: {
                 customer: true,
@@ -98,7 +98,7 @@ export async function PUT(
             where: {
                 id,
                 tenantId: session.user.tenantId,
-                ...(session.user.role === "sales" ? { salesId: session.user.id } : {})
+                ...(session.user.role === "sales" ? { salesUserId: session.user.id } : {})
             }
         });
 
@@ -209,7 +209,7 @@ export async function DELETE(
             where: {
                 id,
                 tenantId: session.user.tenantId,
-                ...(session.user.role === "sales" ? { salesId: session.user.id } : {})
+                ...(session.user.role === "sales" ? { salesUserId: session.user.id } : {})
             }
         });
 

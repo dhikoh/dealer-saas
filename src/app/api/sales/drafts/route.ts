@@ -186,7 +186,7 @@ export async function POST(request: Request) {
                 tenantId: session.user.tenantId,
                 customerId: data.customerId,
                 vehicleId: data.vehicleId,
-                salesId: session.user.id,
+                salesUserId: session.user.id,
                 status: "draft",
                 notes: data.notes,
                 pricing: data.pricing ? {
