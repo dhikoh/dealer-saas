@@ -89,7 +89,8 @@ export async function POST(
         );
 
         // Create transaction in a single atomic operation
-        const transaction = await prisma.$transaction(async (tx) => {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const transaction = await prisma.$transaction(async (tx: any) => {
             // 1. Create transaction - using correct schema fields
             const newTransaction = await tx.transaction.create({
                 data: {
