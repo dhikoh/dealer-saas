@@ -1,0 +1,438 @@
+/* --- MAIN CONTAINER --- */
+.container {
+    position: relative;
+    width: 350px;
+    padding: 30px;
+}
+
+/* --- DECORATIVE BACKGROUND TEXT --- */
+.bgDecoText {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    font-size: 15rem;
+    font-weight: 900;
+    color: var(--text-main);
+    z-index: 0;
+    opacity: 0.03;
+    /* Very subtle watermark */
+    pointer-events: none;
+    white-space: nowrap;
+    user-select: none;
+}
+
+/* --- LANGUAGE SELECTOR --- */
+.langSelectorWrapper {
+    position: absolute;
+    top: 20px;
+    right: 20px;
+    z-index: 50;
+    display: flex;
+    align-items: center;
+}
+
+.langSelect {
+    appearance: none;
+    -webkit-appearance: none;
+    background-color: var(--bg-color);
+    border: none;
+    border-radius: 20px;
+    /* Capsule shape */
+    padding: 8px 30px 8px 15px;
+    /* Extra padding right for icon */
+    font-size: 0.85rem;
+    font-weight: 600;
+    color: var(--text-main);
+    cursor: pointer;
+    box-shadow: 3px 3px 6px var(--shadow-dark),
+        -3px -3px 6px var(--shadow-light);
+    /* Outset Neumorphism */
+    outline: none;
+    transition: all 0.3s ease;
+}
+
+.langSelect:hover {
+    box-shadow: 2px 2px 4px var(--shadow-dark),
+        -2px -2px 4px var(--shadow-light);
+    transform: translateY(1px);
+}
+
+.langArrow {
+    position: absolute;
+    right: 12px;
+    font-size: 0.7rem;
+    color: var(--text-sub);
+    pointer-events: none;
+}
+
+
+/* --- LOGIN CARD --- */
+.loginCard {
+    position: relative;
+    border-radius: 20px;
+    padding: 40px 30px;
+    box-shadow: 9px 9px 16px var(--shadow-dark),
+        -9px -9px 16px var(--shadow-light);
+    /* Soft outer shadow */
+    background-color: var(--bg-color);
+    z-index: 10;
+    text-align: center;
+    overflow: hidden;
+    /* For container query style logic if needed */
+}
+
+/* --- LOGO CONTAINER & ANIMATION --- */
+.logoContainer {
+    width: 130px;
+    height: 130px;
+    margin: 0 auto 10px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background-color: var(--bg-color);
+    box-shadow: 7px 7px 10px var(--shadow-dark),
+        -7px -7px 10px var(--shadow-light);
+    color: #333;
+    position: relative;
+    z-index: 10;
+    perspective: 1000px;
+    overflow: hidden;
+}
+
+.animatingFlip {
+    animation: rotateFlip 0.6s cubic-bezier(0.45, 0.05, 0.55, 0.95);
+}
+
+@keyframes rotateFlip {
+    0% {
+        transform: rotateY(0deg);
+    }
+
+    50% {
+        transform: rotateY(90deg);
+    }
+
+    100% {
+        transform: rotateY(0deg);
+    }
+}
+
+.logoGroup {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    opacity: 0;
+    transition: opacity 0.3s ease;
+    /* Smooth fade for direct changes */
+    pointer-events: none;
+}
+
+.logoGroup.active {
+    opacity: 1;
+}
+
+.customLogoSvg {
+    width: 100%;
+    height: 100%;
+    padding: 20px;
+    /* Inner padding for logo breathing room */
+}
+
+
+/* --- BRANDING TEXT --- */
+.brandName {
+    font-size: 1.8rem;
+    font-weight: 800;
+    /* Extra Bold */
+    color: var(--text-main);
+    /* Dark Grey */
+    letter-spacing: 1px;
+    margin-top: 10px;
+    text-shadow: 1px 1px 1px #fff;
+}
+
+.subName {
+    font-size: 0.75rem;
+    font-weight: 500;
+    color: var(--text-sub);
+    /* Lighter Grey */
+    text-transform: uppercase;
+    letter-spacing: 2px;
+    margin-bottom: 30px;
+}
+
+
+/* --- FORM WRAPPER & TRANSITIONS --- */
+.formWrapper {
+    position: relative;
+    /* Min-height ensures the card doesn't jump too much if form sizes differ */
+    min-height: 280px;
+}
+
+.formSection {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    transition: all 0.6s cubic-bezier(0.68, -0.55, 0.265, 1.55);
+    opacity: 0;
+    transform: translateX(100px);
+    /* Default start off-screen right */
+    visibility: hidden;
+}
+
+.formSection.active {
+    opacity: 1;
+    transform: translateX(0);
+    visibility: visible;
+    position: relative;
+    /* Take up flow space when active */
+}
+
+/* Logic for "leave" animation would require React interaction or simpler replacement. 
+   Here we use a simple overwrite logic: non-active are hidden. 
+   To make it slide smoothly, we rely on the .active class application.
+   If switching FROM left to right is needed, logic gets complex in CSS only.
+   For this requested "Flip" vibe, usually simple fade/slide or just opacity is enough.
+   Let's stick to the requested "Range waktu sama" */
+
+
+/* --- INPUT FIELDS --- */
+.inputGroup {
+    position: relative;
+    margin-bottom: 20px;
+    text-align: left;
+}
+
+.inputIcon {
+    position: absolute;
+    left: 15px;
+    top: 50%;
+    transform: translateY(-50%);
+    color: var(--text-sub);
+    font-size: 0.9rem;
+    transition: color 0.3s ease;
+}
+
+.formInput {
+    width: 100%;
+    background-color: var(--bg-color);
+    border: none;
+    outline: none;
+    padding: 12px 15px 12px 45px;
+    /* Left padding for icon */
+    border-radius: 25px;
+    /* Capsule inputs */
+    font-size: 0.9rem;
+    color: var(--text-main);
+    box-shadow: inset 2px 2px 5px var(--shadow-dark),
+        inset -5px -5px 10px var(--shadow-light);
+    /* Deep inner shadow */
+    transition: all 0.3s ease;
+}
+
+.formInput::placeholder {
+    color: #aaa;
+    font-weight: 400;
+}
+
+.formInput:focus {
+    box-shadow: inset 1px 1px 2px var(--shadow-dark),
+        inset -1px -1px 2px var(--shadow-light);
+    /* Shallower inner shadow */
+}
+
+.formInput:focus+.inputIcon,
+.inputGroup:focus-within .inputIcon {
+    color: var(--teal-btn);
+    /* Highlight icon on focus */
+}
+
+.formInput.invalid {
+    box-shadow: inset 2px 2px 5px #d1d9e6,
+        inset -2px -2px 5px #fff,
+        0 0 0 2px #ff6b6b;
+    /* Red Error Border */
+}
+
+.errorMessage {
+    color: #ff6b6b;
+    font-size: 0.7rem;
+    margin-top: 5px;
+    /* Moved down a bit */
+    margin-left: 15px;
+    height: 0;
+    overflow: hidden;
+    opacity: 0;
+    transition: all 0.3s ease;
+}
+
+.errorMessage.show {
+    height: auto;
+    opacity: 1;
+    margin-top: 5px;
+}
+
+
+/* --- BUTTONS --- */
+.btnAction {
+    width: 100%;
+    padding: 12px;
+    border-radius: 25px;
+    border: none;
+    background-color: var(--teal-btn);
+    /* Teal Primary */
+    color: #fff;
+    font-weight: 700;
+    font-size: 0.9rem;
+    letter-spacing: 1px;
+    cursor: pointer;
+    box-shadow: 3px 3px 6px rgba(0, 191, 165, 0.4),
+        /* Colored shadow */
+        -2px -2px 5px var(--shadow-light);
+    transition: all 0.3s ease;
+    outline: none;
+    margin-top: 10px;
+}
+
+.btnAction:hover:not(:disabled) {
+    background-color: #00a891;
+    /* Darker Teal */
+    transform: translateY(-2px);
+    box-shadow: 5px 5px 10px rgba(0, 191, 165, 0.3),
+        -2px -2px 5px var(--shadow-light);
+}
+
+.btnAction:active:not(:disabled) {
+    transform: translateY(1px);
+    box-shadow: inset 2px 2px 5px rgba(0, 0, 0, 0.2);
+}
+
+.btnAction:disabled {
+    background-color: #ccc;
+    cursor: not-allowed;
+    box-shadow: none;
+}
+
+/* Secondary Button (Cancel) */
+.btnAction.secondary {
+    background-color: transparent;
+    color: var(--text-main);
+    box-shadow: 3px 3px 6px var(--shadow-dark),
+        -3px -3px 6px var(--shadow-light);
+    /* Button Neumorphism */
+    margin-top: 15px;
+}
+
+.btnAction.secondary:hover {
+    background-color: rgba(255, 255, 255, 0.5);
+}
+
+
+/* --- LINKS & FOOTER --- */
+.linkText {
+    color: var(--teal-btn);
+    /* Teal Link */
+    font-weight: 600;
+    cursor: pointer;
+    text-decoration: none;
+    transition: color 0.2s ease;
+}
+
+.linkText:hover {
+    text-decoration: underline;
+    color: #008f7a;
+}
+
+.footerLinks {
+    margin-top: 25px;
+    font-size: 0.8rem;
+    color: var(--text-sub);
+}
+
+
+/* --- CORNER BRAND --- */
+.cornerBrand {
+    position: absolute;
+    bottom: 20px;
+    left: 20px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    opacity: 0.6;
+}
+
+.cornerLogo {
+    width: 35px;
+    height: 35px;
+    background-color: #333;
+    color: #fff;
+    /* White Text */
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: 900;
+    font-size: 1.2rem;
+    box-shadow: 2px 2px 5px var(--shadow-dark);
+}
+
+/* --- REMEMBER ME CHECKBOX --- */
+.checkboxGroup {
+    display: flex;
+    align-items: center;
+    margin-bottom: 20px;
+    font-size: 0.85rem;
+    color: var(--text-main);
+    cursor: pointer;
+    user-select: none;
+}
+
+.customCheckbox {
+    width: 24px;
+    height: 24px;
+    min-width: 24px;
+    /* Prevent shrinking */
+    background-color: var(--bg-color);
+    border-radius: 6px;
+    /* Deep Neumorphic Inset */
+    box-shadow: inset 3px 3px 6px var(--shadow-dark),
+        inset -3px -3px 6px var(--shadow-light);
+    margin-right: 12px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.2s ease;
+}
+
+/* Active State styling handled via React class .checked if needed, 
+   but inner icon presence is main indicator. 
+   We can add a subtle border or inner glow when checked. */
+.customCheckbox.checked {
+    box-shadow: inset 2px 2px 4px var(--shadow-dark),
+        inset -2px -2px 4px var(--shadow-light);
+}
+
+/* The icon itself */
+.checkIcon {
+    color: var(--teal-btn);
+    font-size: 0.9rem;
+    filter: drop-shadow(0 0 2px rgba(0, 191, 165, 0.4));
+    animation: popIn 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+}
+
+@keyframes popIn {
+    0% {
+        transform: scale(0);
+        opacity: 0;
+    }
+
+    100% {
+        transform: scale(1);
+        opacity: 1;
+    }
+}

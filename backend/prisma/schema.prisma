@@ -1,0 +1,113 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model Tenant {
+  id             String   @id @default(uuid())
+  name           String
+  slug           String   @unique
+  planTier       String   @default("BASIC") // BASIC, PRO
+  subscriptionStatus String @default("ACTIVE")
+  validUntil     DateTime?
+  
+  users          User[]
+  vehicles       Vehicle[]
+  customers      Customer[]
+  transactions   Transaction[]
+  
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  @@map("tenants")
+}
+
+model User {
+  id              String   @id @default(uuid())
+  tenantId        String
+  tenant          Tenant   @relation(fields: [tenantId], references: [id])
+  name            String
+  email           String   @unique
+  password        String
+  role            String   @default("STAFF") // OWNER, STAFF
+  
+  transactions    Transaction[]
+
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  @@map("users")
+}
+
+model Vehicle {
+  id          String   @id @default(uuid())
+  tenantId    String
+  tenant      Tenant   @relation(fields: [tenantId], references: [id])
+  
+  category    String   // CAR, BIKE, TRUCK
+  make        String
+  model       String
+  year        Int
+  color       String
+  price       Decimal
+  status      String   @default("AVAILABLE") // AVAILABLE, BOOKED, SOLD
+  
+  specs       String   // Flexible JSONB data (Stored as String in SQLite)
+  images      String?  // Array of image URLs (Stored as String in SQLite)
+  
+  transactions Transaction[]
+
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@map("vehicles")
+}
+
+model Customer {
+  id          String   @id @default(uuid())
+  tenantId    String
+  tenant      Tenant   @relation(fields: [tenantId], references: [id])
+  
+  name        String
+  phone       String
+  email       String?
+  address     String?
+  
+  transactions Transaction[]
+
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@map("customers")
+}
+
+model Transaction {
+  id            String   @id @default(uuid())
+  tenantId      String
+  tenant        Tenant   @relation(fields: [tenantId], references: [id])
+  
+  vehicleId     String
+  vehicle       Vehicle  @relation(fields: [vehicleId], references: [id])
+  
+  customerId    String
+  customer      Customer @relation(fields: [customerId], references: [id])
+  
+  salesPersonId String
+  salesPerson   User     @relation(fields: [salesPersonId], references: [id])
+  
+  finalPrice    Decimal
+  date          DateTime @default(now())
+  status        String   @default("PENDING") // PENDING, PAID, CANCELLED
+
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  @@map("transactions")
+}
