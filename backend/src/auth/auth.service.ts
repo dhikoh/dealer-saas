@@ -14,68 +14,81 @@ export class AuthService {
   ) { }
 
   async register(createAuthDto: CreateAuthDto, tenantId?: string) {
-    const { email, password, name, role = 'STAFF' } = createAuthDto;
+    const { email, password, username, role = 'STAFF' } = createAuthDto;
 
-    // Normalize email to lowercase
+    // Normalize inputs to lowercase
     const normalizedEmail = email.toLowerCase();
+    const normalizedUsername = username.toLowerCase();
 
-    // Check if user exists
-    const existingUser = await this.prisma.user.findUnique({
-      where: { email: normalizedEmail },
+    // Check if user exists (by email or username)
+    const existingUser = await this.prisma.user.findFirst({
+      where: {
+        OR: [
+          { email: normalizedEmail },
+          { username: normalizedUsername }
+        ]
+      }
     });
 
     if (existingUser) {
       if (existingUser.isVerified) {
-        throw new BadRequestException('Email already in use');
+        throw new BadRequestException('Email or Username already in use');
       }
 
-      // If user exists but NOT verified, we overwrite/resend OTP
-      const hashedPassword = await bcrypt.hash(password, 10);
-      const verificationCode = Math.floor(100000 + Math.random() * 900000).toString();
-      const verificationCodeExpiresAt = new Date(Date.now() + 15 * 60 * 1000); // 15 minutes
+      // If user exists but NOT verified, we verify if it is the same email
+      // CAUTION: Handling unverified users with conflicting usernames is complex.
+      // For simplicity in this iteration: if verified, block. If not, maybe we should delete or update?
+      // Let's stick to simple "Already in use" for now to be safe, unless it's the exact same email trying to register again.
+      if (existingUser.email === normalizedEmail && !existingUser.isVerified) {
+        // Resend OTP logic for same unverified email
+        const hashedPassword = await bcrypt.hash(password, 10);
+        const verificationCode = Math.floor(100000 + Math.random() * 900000).toString();
+        const verificationCodeExpiresAt = new Date(Date.now() + 15 * 60 * 1000);
 
-      const updatedUser = await this.prisma.user.update({
-        where: { email: normalizedEmail },
-        data: {
-          password: hashedPassword,
-          name,
-          verificationCode,
-          verificationCodeExpiresAt,
-          isVerified: false,
-          onboardingCompleted: false
-        }
-      });
+        const updatedUser = await this.prisma.user.update({
+          where: { email: normalizedEmail },
+          data: {
+            password: hashedPassword,
+            username: normalizedUsername, // Update username just in case
+            name: normalizedUsername,   // Reset name to username until onboarding
+            verificationCode,
+            verificationCodeExpiresAt,
+            isVerified: false,
+            onboardingCompleted: false
+          }
+        });
 
-      // Send Verification Email
-      await this.emailService.sendVerificationEmail(normalizedEmail, verificationCode);
+        await this.emailService.sendVerificationEmail(normalizedEmail, verificationCode);
+        return this.createToken(updatedUser);
+      }
 
-      return this.createToken(updatedUser);
+      throw new BadRequestException('Email or Username already in use');
     }
 
     let targetTenantId = tenantId;
 
     if (!targetTenantId) {
       // Create a new Tenant for this Owner
+      // Use username for dealership name temporarily
       const newTenant = await this.prisma.tenant.create({
         data: {
-          name: `${name}'s Dealership`,
-          slug: name.toLowerCase().replace(/ /g, '-') + '-' + Math.floor(Math.random() * 1000),
+          name: `${normalizedUsername}'s Dealership`,
+          slug: normalizedUsername.replace(/ /g, '-') + '-' + Math.floor(Math.random() * 1000),
         }
       });
       targetTenantId = newTenant.id;
     }
 
     const hashedPassword = await bcrypt.hash(password, 10);
-
-    // Generate 6-digit OTP
     const verificationCode = Math.floor(100000 + Math.random() * 900000).toString();
-    const verificationCodeExpiresAt = new Date(Date.now() + 15 * 60 * 1000); // 15 minutes
+    const verificationCodeExpiresAt = new Date(Date.now() + 15 * 60 * 1000);
 
     const user = await this.prisma.user.create({
       data: {
         email: normalizedEmail,
+        username: normalizedUsername,
         password: hashedPassword,
-        name,
+        name: normalizedUsername, // Use username as initial name
         role,
         tenantId: targetTenantId,
         verificationCode,
@@ -85,7 +98,6 @@ export class AuthService {
       }
     });
 
-    // Send Verification Email
     await this.emailService.sendVerificationEmail(normalizedEmail, verificationCode);
 
     return this.createToken(user);
@@ -175,36 +187,22 @@ export class AuthService {
       include: { tenant: true }
     });
 
-    // Re-issue token with updated info if needed, or just return success
-    // Usually frontend needs updated user info
-    const payload = {
-      userId: user.id,
-      email: user.email,
-      role: user.role,
-      tenantId: user.tenantId,
-      onboardingCompleted: true
-    };
-
-    return {
-      access_token: this.jwtService.sign(payload),
-      user: {
-        id: user.id,
-        name: user.name,
-        email: user.email,
-        role: user.role, // role might be passed in payload
-        tenant: user.tenant,
-        onboardingCompleted: true
-      }
-    };
+    // Re-issue token with updated info using the standard method
+    return this.createToken(user);
   }
 
   async login(loginDto: any) {
-    const { email, password } = loginDto;
-    const normalizedEmail = email.toLowerCase();
+    const { email, password } = loginDto; // email field contains identifier (email or username)
+    const normalizedIdentifier = email.toLowerCase();
 
-    const user = await this.prisma.user.findUnique({
-      where: { email: normalizedEmail },
-    });
+    const isEmail = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(normalizedIdentifier);
+
+    let user;
+    if (isEmail) {
+      user = await this.prisma.user.findUnique({ where: { email: normalizedIdentifier } });
+    } else {
+      user = await this.prisma.user.findUnique({ where: { username: normalizedIdentifier } });
+    }
 
     if (!user) {
       throw new UnauthorizedException('Invalid credentials');
@@ -240,5 +238,11 @@ export class AuthService {
         onboardingCompleted: user.onboardingCompleted
       },
     };
+  }
+
+  private generateVerificationCode(): { code: string; expiresAt: Date } {
+    const code = Math.floor(100000 + Math.random() * 900000).toString();
+    const expiresAt = new Date(Date.now() + 15 * 60 * 1000); // 15 minutes
+    return { code, expiresAt };
   }
 }

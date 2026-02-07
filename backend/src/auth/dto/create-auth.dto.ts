@@ -1,6 +1,6 @@
 export class CreateAuthDto {
     email: string;
     password: string;
-    name: string;
+    username: string; // Changed from name to username
     role?: string;
 }

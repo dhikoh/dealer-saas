@@ -254,7 +254,19 @@ export default function AuthPage() {
                 continue;
             }
 
-            // 3. Check Password Length (Signup only)
+            // 3. Check Username (Signup only)
+            if (input.name === 'signup_username' && input.value.trim().length < 3) {
+                isValid = false;
+                setErrors(prev => ({ ...prev, [input.name]: true }));
+
+                if (!firstErrorFound) {
+                    toast.error('Username terlalu pendek', { description: 'Minimal 3 karakter.' });
+                    firstErrorFound = true;
+                }
+                continue;
+            }
+
+            // 4. Check Password Length (Signup only)
             if (input.name === 'signup_pass' && input.value.length < 6) {
                 isValid = false;
                 setErrors(prev => ({ ...prev, [input.name]: true }));
@@ -266,7 +278,7 @@ export default function AuthPage() {
                 continue;
             }
 
-            // 4. Check Password Confirmation (Signup)
+            // 5. Check Password Confirmation (Signup)
             if (input.name === 'signup_confirm_pass') {
                 const passInput = form.elements.namedItem('signup_pass') as HTMLInputElement;
                 if (input.value !== passInput.value) {
@@ -289,8 +301,8 @@ export default function AuthPage() {
 
         try {
             if (type === 'login') {
-                const emailRaw = (form.elements.namedItem('login_email') as HTMLInputElement).value;
-                const email = emailRaw.toLowerCase(); // Ensure lowercase
+                const identifierRaw = (form.elements.namedItem('login_email') as HTMLInputElement).value;
+                const email = identifierRaw.toLowerCase(); // Treat as generic identifier (email or username)
                 const password = (form.elements.namedItem('login_password') as HTMLInputElement).value;
 
                 const res = await fetch(`${API_URL}/auth/login`, {
@@ -319,7 +331,7 @@ export default function AuthPage() {
 
             }
             else if (type === 'signup') {
-                const name = (form.elements.namedItem('signup_name') as HTMLInputElement).value;
+                const username = (form.elements.namedItem('signup_username') as HTMLInputElement).value;
                 const emailRaw = (form.elements.namedItem('signup_email') as HTMLInputElement).value;
                 const email = emailRaw.toLowerCase(); // Ensure lowercase
                 const password = (form.elements.namedItem('signup_pass') as HTMLInputElement).value;
@@ -327,7 +339,7 @@ export default function AuthPage() {
                 const res = await fetch(`${API_URL}/auth/register`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ name, email, password }),
+                    body: JSON.stringify({ username, email, password }),
                 });
 
                 if (!res.ok) {
@@ -471,7 +483,7 @@ export default function AuthPage() {
                                         type="text"
                                         name="login_email"
                                         className={`${styles.formInput} ${errors['login_email'] ? styles.invalid : ''}`}
-                                        placeholder={t.ph_user_email}
+                                        placeholder="Email / Username"
                                         required
                                         onChange={() => setErrors({ ...errors, login_email: false })}
                                     />
@@ -530,11 +542,11 @@ export default function AuthPage() {
                                     <FontAwesomeIcon icon={faUserReg} className={styles.inputIcon} />
                                     <input
                                         type="text"
-                                        name="signup_name"
-                                        className={`${styles.formInput} ${errors['signup_name'] ? styles.invalid : ''}`}
-                                        placeholder={t.ph_fullname}
+                                        name="signup_username"
+                                        className={`${styles.formInput} ${errors['signup_username'] ? styles.invalid : ''}`}
+                                        placeholder="Username"
                                         required
-                                        onChange={() => setErrors({ ...errors, signup_name: false })}
+                                        onChange={() => setErrors({ ...errors, signup_username: false })}
                                     />
                                 </div>
                                 <div className={styles.inputGroup}>
