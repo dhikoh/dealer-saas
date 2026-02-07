@@ -3,7 +3,7 @@
 import React, { useState, useEffect } from 'react';
 import styles from './auth.module.css';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faChevronDown, faLock, faCheck } from '@fortawesome/free-solid-svg-icons';
+import { faChevronDown, faLock, faCheck, faEye, faEyeSlash } from '@fortawesome/free-solid-svg-icons';
 import { faEnvelope as faEnvelopeReg, faUser as faUserReg } from '@fortawesome/free-regular-svg-icons';
 import { useRouter } from 'next/navigation';
 import { toast } from 'sonner';
@@ -142,25 +142,62 @@ const TRANSLATIONS: Record<LangCode, any> = {
 export default function AuthPage() {
     const [mounted, setMounted] = useState(false);
     const [currentLang, setCurrentLang] = useState<LangCode>('id');
+    const [isLangOpen, setIsLangOpen] = useState(false); // NEW STATE
     const [activeForm, setActiveForm] = useState<FormType>('login');
+
+    const LANG_OPTIONS = [
+        { code: 'id', label: 'ID', flag: 'id' },
+        { code: 'en', label: 'EN', flag: 'us' },
+        { code: 'th', label: 'TH', flag: 'th' },
+        { code: 'ph', label: 'PH', flag: 'ph' },
+        { code: 'vi', label: 'VI', flag: 'vn' },
+    ];
     const [isAnimating, setIsAnimating] = useState(false);
     const [errors, setErrors] = useState<Record<string, boolean>>({});
     const [apiError, setApiError] = useState<string | null>(null);
     const [isLoading, setIsLoading] = useState(false);
     const [rememberMe, setRememberMe] = useState(false);
 
+    // NEW STATE FOR VISIBILITY
+    const [showPassword, setShowPassword] = useState(false);
+    // Removed redundant showSignupPass state
+    const [showConfirmPass, setShowConfirmPass] = useState(false);
+
+    // DYNAMIC HEIGHT REF
+    const [wrapperHeight, setWrapperHeight] = useState<number | 'auto'>('auto');
+    const loginRef = React.useRef<HTMLDivElement>(null);
+    const signupRef = React.useRef<HTMLDivElement>(null);
+    const forgotRef = React.useRef<HTMLDivElement>(null);
+
     const router = useRouter();
     const t = TRANSLATIONS[currentLang];
-    const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000';
+    const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
+
+    // ANIMATE HEIGHT ON FORM SWITCH
+    useEffect(() => {
+        let activeRef = loginRef;
+        if (activeForm === 'signup') activeRef = signupRef;
+        if (activeForm === 'forgot') activeRef = forgotRef;
+
+        if (activeRef.current) {
+            setWrapperHeight(activeRef.current.offsetHeight);
+        }
+    }, [activeForm, mounted, errors]); // Update when form changes or errors (validation msg) appear
 
     useEffect(() => {
         setMounted(true);
         const savedToken = localStorage.getItem('access_token');
+
         const savedRemember = localStorage.getItem('remember_me') === 'true';
         if (savedToken && savedRemember) {
             router.push('/app');
         }
     }, [router]);
+
+    // EMAIL REGEX VALIDATION
+    const isValidEmail = (email: string) => {
+        return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
+    };
 
     const switchForm = (formName: FormType) => {
         if (activeForm === formName) return;
@@ -177,111 +214,155 @@ export default function AuthPage() {
         }, 600);
     };
 
-    const handleLanguageChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
-        setCurrentLang(e.target.value as LangCode);
-    };
+
 
     const handleSubmit = async (e: React.FormEvent, type: FormType) => {
         e.preventDefault();
         const form = e.target as HTMLFormElement;
         const inputs = Array.from(form.elements) as HTMLInputElement[];
         let isValid = true;
+        let firstErrorFound = false; // Flag to prevent multiple toasts
 
-        setErrors({}); // Reset error highlights (red borders)
+        setErrors({});
 
-        inputs.forEach(input => {
-            if (input.tagName === 'INPUT' && input.hasAttribute('required') && !input.value.trim()) {
+        // SINGLE PASS VALIDATION LOOP
+        for (const input of inputs) {
+            if (input.tagName !== 'INPUT') continue;
+
+            // 1. Check Required
+            if (input.hasAttribute('required') && !input.value.trim()) {
                 isValid = false;
                 setErrors(prev => ({ ...prev, [input.name]: true }));
-            }
-        });
 
-        // TOAST NOTIFICATION FOR VALIDATION ERROR
-        if (!isValid) {
-            toast.error(t.err_required, {
-                position: 'bottom-center',
-                style: { backgroundColor: '#fff', color: '#ff6b6b', border: '1px solid #ff6b6b' }
-            });
-            return;
+                // Only show toast if it's the first error
+                if (!firstErrorFound) {
+                    toast.error(`${t.err_required}: ${input.placeholder || input.name}`, { description: 'Mohon lengkapi data.' });
+                    firstErrorFound = true;
+                }
+                continue; // Continue to mark other fields as red, but don't show more toasts
+            }
+
+            // 2. Check Email Format
+            if (input.type === 'email' && input.value && !isValidEmail(input.value)) {
+                isValid = false;
+                setErrors(prev => ({ ...prev, [input.name]: true }));
+
+                if (!firstErrorFound) {
+                    toast.error('Format Email Salah', { description: 'Contoh: user@domain.com' });
+                    firstErrorFound = true;
+                }
+                continue;
+            }
+
+            // 3. Check Password Length (Signup only)
+            if (input.name === 'signup_pass' && input.value.length < 6) {
+                isValid = false;
+                setErrors(prev => ({ ...prev, [input.name]: true }));
+
+                if (!firstErrorFound) {
+                    toast.error('Password terlalu pendek', { description: 'Minimal 6 karakter.' });
+                    firstErrorFound = true;
+                }
+                continue;
+            }
+
+            // 4. Check Password Confirmation (Signup)
+            if (input.name === 'signup_confirm_pass') {
+                const passInput = form.elements.namedItem('signup_pass') as HTMLInputElement;
+                if (input.value !== passInput.value) {
+                    isValid = false;
+                    setErrors(prev => ({ ...prev, [input.name]: true }));
+
+                    if (!firstErrorFound) {
+                        toast.error('Password Tidak Cocok', { description: 'Pastikan konfirmasi password sama.' });
+                        firstErrorFound = true;
+                    }
+                    continue;
+                }
+            }
         }
 
+        if (!isValid) return; // Stop here if any validation failed
+
         setApiError(null);
+        setIsLoading(true);
 
-        if (isValid) {
-            setIsLoading(true);
-            try {
-                if (type === 'login') {
-                    const email = (form.elements.namedItem('login_email') as HTMLInputElement).value;
-                    const password = (form.elements.namedItem('login_password') as HTMLInputElement).value;
+        try {
+            if (type === 'login') {
+                const emailRaw = (form.elements.namedItem('login_email') as HTMLInputElement).value;
+                const email = emailRaw.toLowerCase(); // Ensure lowercase
+                const password = (form.elements.namedItem('login_password') as HTMLInputElement).value;
 
-                    const res = await fetch(`${API_URL}/auth/login`, {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ email, password }),
-                    });
+                const res = await fetch(`${API_URL}/auth/login`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ email, password }),
+                });
 
-                    if (!res.ok) throw new Error(t.err_login_failed);
+                if (!res.ok) throw new Error(t.err_login_failed);
 
-                    const data = await res.json();
+                const data = await res.json();
+                localStorage.setItem('access_token', data.access_token);
+                localStorage.setItem('user_info', JSON.stringify(data.user));
 
-                    localStorage.setItem('access_token', data.access_token);
-                    localStorage.setItem('user_info', JSON.stringify(data.user));
-
-                    if (rememberMe) {
-                        localStorage.setItem('remember_me', 'true');
-                    } else {
-                        localStorage.removeItem('remember_me');
-                    }
-
-                    toast.success(`Welcome ${data.user.name}!`);
-
-                    setTimeout(() => {
-                        router.push('/app');
-                    }, 1000);
-
-                }
-                else if (type === 'signup') {
-                    const name = (form.elements.namedItem('signup_name') as HTMLInputElement).value;
-                    const email = (form.elements.namedItem('signup_email') as HTMLInputElement).value;
-                    const password = (form.elements.namedItem('signup_pass') as HTMLInputElement).value;
-
-                    const res = await fetch(`${API_URL}/auth/register`, {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ name, email, password }),
-                    });
-
-                    if (!res.ok) throw new Error(t.err_signup_failed);
-
-                    const data = await res.json();
-                    localStorage.setItem('access_token', data.access_token);
-                    localStorage.setItem('user_info', JSON.stringify(data.user));
-
-                    toast.success(t.alert_signup);
-
-                    setTimeout(() => {
-                        router.push('/app');
-                    }, 1000);
-                }
-                else if (type === 'forgot') {
-                    toast.info(t.alert_forgot);
-                    switchForm('login');
+                if (rememberMe) {
+                    localStorage.setItem('remember_me', 'true');
+                } else {
+                    localStorage.removeItem('remember_me');
                 }
 
-                if (type !== 'login') form.reset();
-            } catch (err: any) {
-                toast.error(err.message || 'An error occurred');
-                setApiError(err.message || 'An error occurred');
-            } finally {
-                setIsLoading(false);
+                toast.success(`Welcome ${data.user.name}!`);
+
+                setTimeout(() => {
+                    router.push('/app');
+                }, 1000);
+
             }
+            else if (type === 'signup') {
+                const name = (form.elements.namedItem('signup_name') as HTMLInputElement).value;
+                const emailRaw = (form.elements.namedItem('signup_email') as HTMLInputElement).value;
+                const email = emailRaw.toLowerCase(); // Ensure lowercase
+                const password = (form.elements.namedItem('signup_pass') as HTMLInputElement).value;
+
+                const res = await fetch(`${API_URL}/auth/register`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ name, email, password }),
+                });
+
+                if (!res.ok) {
+                    const errorData = await res.json();
+                    throw new Error(errorData.message || t.err_signup_failed);
+                }
+
+                const data = await res.json();
+                localStorage.setItem('access_token', data.access_token);
+                localStorage.setItem('user_info', JSON.stringify(data.user));
+
+                toast.success(t.alert_signup);
+
+                setTimeout(() => {
+                    router.push(`/auth/verify?email=${email}`);
+                }, 1000);
+            }
+            else if (type === 'forgot') {
+                toast.info(t.alert_forgot);
+                switchForm('login');
+            }
+
+            if (type !== 'login') form.reset();
+        } catch (err: any) {
+            toast.error(err.message || 'An error occurred');
+            setApiError(err.message || 'An error occurred');
+        } finally {
+            setIsLoading(false);
         }
     };
 
     if (!mounted) return <div className="min-h-screen bg-[#ecf0f3]" />;
 
     return (
-        <div className="flex justify-center items-center min-h-screen bg-[#ecf0f3] overflow-hidden py-5 font-poppins text-gray-700 select-none">
+        <div className="flex justify-center items-start min-h-screen bg-[#ecf0f3] overflow-hidden py-5 pt-[5vh] font-poppins text-gray-700 select-none">
             <style jsx global>{`
                 :root {
                     --bg-color: #ecf0f3;
@@ -297,18 +378,40 @@ export default function AuthPage() {
             `}</style>
 
             <div className={styles.langSelectorWrapper}>
-                <select
-                    className={styles.langSelect}
-                    value={currentLang}
-                    onChange={handleLanguageChange}
+                <div
+                    className={styles.langTrigger}
+                    onClick={() => setIsLangOpen(!isLangOpen)}
                 >
-                    <option value="id">🇮🇩 ID</option>
-                    <option value="en">🇺🇸 EN</option>
-                    <option value="th">🇹🇭 TH</option>
-                    <option value="ph">🇵🇭 PH</option>
-                    <option value="vi">🇻🇳 VI</option>
-                </select>
-                <FontAwesomeIcon icon={faChevronDown} className={styles.langArrow} />
+                    <div className="flex items-center gap-2">
+                        <img
+                            src={`https://flagcdn.com/w40/${LANG_OPTIONS.find(l => l.code === currentLang)?.flag}.png`}
+                            alt="flag"
+                            className="w-5 h-auto rounded-sm shadow-sm opacity-80"
+                        />
+                        <span>{LANG_OPTIONS.find(l => l.code === currentLang)?.label}</span>
+                    </div>
+                    <FontAwesomeIcon icon={faChevronDown} className={`text-xs text-[#999] transition-transform ${isLangOpen ? 'rotate-180' : ''}`} />
+                </div>
+
+                <div className={`${styles.langDropdown} ${isLangOpen ? styles.open : ''}`}>
+                    {LANG_OPTIONS.map((opt) => (
+                        <div
+                            key={opt.code}
+                            className={`${styles.langOption} ${currentLang === opt.code ? styles.selected : ''}`}
+                            onClick={() => {
+                                setCurrentLang(opt.code as LangCode);
+                                setIsLangOpen(false);
+                            }}
+                        >
+                            <img
+                                src={`https://flagcdn.com/w40/${opt.flag}.png`}
+                                alt={opt.label}
+                                className="w-5 h-auto rounded-sm"
+                            />
+                            {opt.label}
+                        </div>
+                    ))}
+                </div>
             </div>
 
             <div className={styles.bgDecoText}>OTOHUB</div>
@@ -356,10 +459,12 @@ export default function AuthPage() {
 
                     {apiError && <div className="text-red-500 mb-4 text-sm font-bold bg-red-100 p-2 rounded">{apiError}</div>}
 
-                    <div className={styles.formWrapper}>
+                    {apiError && <div className="text-red-500 mb-4 text-sm font-bold bg-red-100 p-2 rounded">{apiError}</div>}
+
+                    <div className={styles.formWrapper} style={{ height: wrapperHeight }}>
                         {/* 1. FORM LOGIN */}
-                        <div className={`${styles.formSection} ${activeForm === 'login' ? styles.active : ''}`}>
-                            <form onSubmit={(e) => handleSubmit(e, 'login')}>
+                        <div ref={loginRef} className={`${styles.formSection} ${activeForm === 'login' ? styles.active : ''}`}>
+                            <form onSubmit={(e) => handleSubmit(e, 'login')} noValidate>
                                 <div className={styles.inputGroup}>
                                     <FontAwesomeIcon icon={faEnvelopeReg} className={styles.inputIcon} />
                                     <input
@@ -374,12 +479,17 @@ export default function AuthPage() {
                                 <div className={styles.inputGroup}>
                                     <FontAwesomeIcon icon={faLock} className={styles.inputIcon} />
                                     <input
-                                        type="password"
+                                        type={showPassword ? "text" : "password"}
                                         name="login_password"
                                         className={`${styles.formInput} ${errors['login_password'] ? styles.invalid : ''}`}
                                         placeholder={t.ph_password}
                                         required
                                         onChange={() => setErrors({ ...errors, login_password: false })}
+                                    />
+                                    <FontAwesomeIcon
+                                        icon={showPassword ? faEyeSlash : faEye}
+                                        className={styles.passwordToggle}
+                                        onClick={() => setShowPassword(!showPassword)}
                                     />
                                 </div>
 
@@ -414,8 +524,8 @@ export default function AuthPage() {
                         </div>
 
                         {/* 2. FORM SIGNUP */}
-                        <div className={`${styles.formSection} ${activeForm === 'signup' ? styles.active : ''}`}>
-                            <form onSubmit={(e) => handleSubmit(e, 'signup')}>
+                        <div ref={signupRef} className={`${styles.formSection} ${activeForm === 'signup' ? styles.active : ''}`}>
+                            <form onSubmit={(e) => handleSubmit(e, 'signup')} noValidate>
                                 <div className={styles.inputGroup}>
                                     <FontAwesomeIcon icon={faUserReg} className={styles.inputIcon} />
                                     <input
@@ -441,12 +551,28 @@ export default function AuthPage() {
                                 <div className={styles.inputGroup}>
                                     <FontAwesomeIcon icon={faLock} className={styles.inputIcon} />
                                     <input
-                                        type="password"
+                                        type={showConfirmPass ? "text" : "password"}
                                         name="signup_pass"
                                         className={`${styles.formInput} ${errors['signup_pass'] ? styles.invalid : ''}`}
                                         placeholder={t.ph_create_pass}
                                         required
                                         onChange={() => setErrors({ ...errors, signup_pass: false })}
+                                    />
+                                </div>
+                                <div className={styles.inputGroup}>
+                                    <FontAwesomeIcon icon={faLock} className={styles.inputIcon} />
+                                    <input
+                                        type={showConfirmPass ? "text" : "password"}
+                                        name="signup_confirm_pass"
+                                        className={`${styles.formInput} ${errors['signup_confirm_pass'] ? styles.invalid : ''}`}
+                                        placeholder="Konfirmasi Password"
+                                        required
+                                        onChange={() => setErrors({ ...errors, signup_confirm_pass: false })}
+                                    />
+                                    <FontAwesomeIcon
+                                        icon={showConfirmPass ? faEyeSlash : faEye}
+                                        className={styles.passwordToggle}
+                                        onClick={() => setShowConfirmPass(!showConfirmPass)}
                                     />
                                 </div>
 
@@ -461,11 +587,11 @@ export default function AuthPage() {
                         </div>
 
                         {/* 3. FORM FORGOT */}
-                        <div className={`${styles.formSection} ${activeForm === 'forgot' ? styles.active : ''}`}>
+                        <div ref={forgotRef} className={`${styles.formSection} ${activeForm === 'forgot' ? styles.active : ''}`}>
                             <div style={{ marginBottom: '20px', fontSize: '0.9rem', color: '#666' }}>
                                 {t.forgot_desc}
                             </div>
-                            <form onSubmit={(e) => handleSubmit(e, 'forgot')}>
+                            <form onSubmit={(e) => handleSubmit(e, 'forgot')} noValidate>
                                 <div className={styles.inputGroup}>
                                     <FontAwesomeIcon icon={faEnvelopeReg} className={styles.inputIcon} />
                                     <input

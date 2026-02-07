@@ -23,47 +23,92 @@
 }
 
 /* --- LANGUAGE SELECTOR --- */
+/* --- LANGUAGE SELECTOR --- */
 .langSelectorWrapper {
     position: absolute;
     top: 20px;
     right: 20px;
     z-index: 50;
-    display: flex;
-    align-items: center;
+    min-width: 100px;
 }
 
-.langSelect {
-    appearance: none;
-    -webkit-appearance: none;
+.langTrigger {
     background-color: var(--bg-color);
-    border: none;
     border-radius: 20px;
-    /* Capsule shape */
-    padding: 8px 30px 8px 15px;
-    /* Extra padding right for icon */
+    padding: 8px 15px;
     font-size: 0.85rem;
     font-weight: 600;
     color: var(--text-main);
     cursor: pointer;
     box-shadow: 3px 3px 6px var(--shadow-dark),
         -3px -3px 6px var(--shadow-light);
-    /* Outset Neumorphism */
-    outline: none;
     transition: all 0.3s ease;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    user-select: none;
 }
 
-.langSelect:hover {
+.langTrigger:hover {
     box-shadow: 2px 2px 4px var(--shadow-dark),
         -2px -2px 4px var(--shadow-light);
     transform: translateY(1px);
 }
 
-.langArrow {
+.langTrigger:active {
+    box-shadow: inset 2px 2px 5px var(--shadow-dark),
+        inset -2px -2px 5px var(--shadow-light);
+}
+
+.langDropdown {
     position: absolute;
-    right: 12px;
-    font-size: 0.7rem;
-    color: var(--text-sub);
+    top: 120%;
+    right: 0;
+    width: 100%;
+    background-color: var(--bg-color);
+    border-radius: 15px;
+    padding: 10px;
+    box-shadow: 5px 5px 10px var(--shadow-dark),
+        -5px -5px 10px var(--shadow-light);
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+    opacity: 0;
+    transform: translateY(-10px);
     pointer-events: none;
+    transition: all 0.2s ease;
+}
+
+.langDropdown.open {
+    opacity: 1;
+    transform: translateY(0);
+    pointer-events: auto;
+}
+
+.langOption {
+    padding: 8px 10px;
+    border-radius: 10px;
+    cursor: pointer;
+    font-size: 0.85rem;
+    color: var(--text-main);
+    transition: all 0.2s ease;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.langOption:hover {
+    background-color: rgba(0, 0, 0, 0.03);
+    color: var(--teal-btn);
+}
+
+.langOption.selected {
+    box-shadow: inset 2px 2px 5px var(--shadow-dark),
+        inset -2px -2px 5px var(--shadow-light);
+    color: var(--teal-btn);
+    font-weight: 700;
 }
 
 
@@ -171,6 +216,8 @@
     position: relative;
     /* Min-height ensures the card doesn't jump too much if form sizes differ */
     min-height: 280px;
+    transition: height 0.6s cubic-bezier(0.68, -0.55, 0.265, 1.55);
+    /* Smooth height resize logic */
 }
 
 .formSection {
@@ -223,8 +270,8 @@
     background-color: var(--bg-color);
     border: none;
     outline: none;
-    padding: 12px 15px 12px 45px;
-    /* Left padding for icon */
+    padding: 12px 45px 12px 45px;
+    /* Left padding for icon, Right for toggle */
     border-radius: 25px;
     /* Capsule inputs */
     font-size: 0.9rem;
@@ -233,6 +280,35 @@
         inset -5px -5px 10px var(--shadow-light);
     /* Deep inner shadow */
     transition: all 0.3s ease;
+}
+
+.passwordToggle {
+    position: absolute;
+    right: 15px;
+    top: 50%;
+    transform: translateY(-50%);
+    cursor: pointer;
+    color: var(--text-sub);
+    font-size: 1rem;
+    padding: 8px;
+    border-radius: 50%;
+    transition: all 0.2s ease;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.passwordToggle:hover {
+    color: var(--teal-btn);
+    background-color: rgba(255, 255, 255, 0.5);
+    box-shadow: 2px 2px 5px var(--shadow-dark),
+        -2px -2px 5px var(--shadow-light);
+}
+
+.passwordToggle:active {
+    transform: translateY(-50%) scale(0.95);
+    box-shadow: inset 2px 2px 5px var(--shadow-dark),
+        inset -2px -2px 5px var(--shadow-light);
 }
 
 .formInput::placeholder {

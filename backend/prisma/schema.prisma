@@ -17,7 +17,8 @@ model Tenant {
   planTier       String   @default("BASIC") // BASIC, PRO
   subscriptionStatus String @default("ACTIVE")
   validUntil     DateTime?
-  
+  address        String?  // Office Address
+
   users          User[]
   vehicles       Vehicle[]
   customers      Customer[]
@@ -37,6 +38,18 @@ model User {
   email           String   @unique
   password        String
   role            String   @default("STAFF") // OWNER, STAFF
+  
+  // PROFILE
+  phone           String?
+  birthDate       DateTime?
+  address         String?  // Domicile Address
+  language        String   @default("id") // id, en, th, ph
+
+  // VERIFICATION & ONBOARDING
+  isVerified              Boolean   @default(false)
+  verificationCode        String?
+  verificationCodeExpiresAt DateTime?
+  onboardingCompleted     Boolean   @default(false)
   
   transactions    Transaction[]
 
