@@ -325,8 +325,13 @@ export default function AuthPage() {
 
                 toast.success(`Welcome ${data.user.name}!`);
 
+                // Role-based redirect
                 setTimeout(() => {
-                    router.push('/app');
+                    if (data.user.role === 'SUPERADMIN') {
+                        router.push('/superadmin');
+                    } else {
+                        router.push('/app');
+                    }
                 }, 1000);
 
             }
@@ -468,8 +473,6 @@ export default function AuthPage() {
 
                     <div className={styles.brandName}>OTOHUB</div>
                     <div className={styles.subName}>Smart System</div>
-
-                    {apiError && <div className="text-red-500 mb-4 text-sm font-bold bg-red-100 p-2 rounded">{apiError}</div>}
 
                     {apiError && <div className="text-red-500 mb-4 text-sm font-bold bg-red-100 p-2 rounded">{apiError}</div>}
 

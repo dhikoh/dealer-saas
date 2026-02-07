@@ -28,6 +28,12 @@ export default function DashboardLayout({
             try {
                 const user = JSON.parse(userInfoStr);
 
+                // 0. Check if SUPERADMIN - redirect to superadmin dashboard
+                if (user.role === 'SUPERADMIN') {
+                    router.push('/superadmin');
+                    return;
+                }
+
                 // 1. Check Verification
                 if (!user.isVerified) {
                     router.push(`/auth/verify?email=${user.email}`);

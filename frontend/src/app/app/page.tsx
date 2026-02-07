@@ -1,83 +1,324 @@
 'use client';
 
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faFilter, faFileExport, faGasPump, faMapMarkerAlt, faBookmark } from '@fortawesome/free-solid-svg-icons';
+import {
+    faCar,
+    faMoneyBillWave,
+    faUsers,
+    faExclamationTriangle,
+    faCalendarAlt,
+    faCreditCard,
+    faBan,
+    faChevronRight,
+    faSpinner,
+} from '@fortawesome/free-solid-svg-icons';
+import { useLanguage } from '@/hooks/useLanguage';
+import Link from 'next/link';
 
-// DUMMY DATA FOR LISTING
-const CARS = [
-    { id: 1, name: "Hyundai S Turbo uMT", price: "$285,892", km: "1028 KM", fuel: "Petrol", loc: "Dubai", seller: "Jonson Hussain", img: "https://images.unsplash.com/photo-1549317661-bd32c8ce0db2?auto=format&fit=crop&q=80&w=300&h=200" },
-    { id: 2, name: "Bentley Flying Spur", price: "$285,892", km: "5891 KM", fuel: "Petrol", loc: "Dubai", seller: "Albert Jack", img: "https://images.unsplash.com/photo-1617788138017-80ad40651399?auto=format&fit=crop&q=80&w=300&h=200" },
-    { id: 3, name: "Porsche Taycan", price: "Call for Price", km: "369 KM", fuel: "Electric", loc: "Dubai", seller: "Robert Rome", img: "https://images.unsplash.com/photo-1503376763036-066120622c74?auto=format&fit=crop&q=80&w=300&h=200" },
-    { id: 4, name: "Hyundai S Turbo uMT", price: "$285,892", km: "2180 KM", fuel: "Petrol", loc: "Dubai", seller: "Smith Hasan", img: "https://images.unsplash.com/photo-1552519507-da3b142c6e3d?auto=format&fit=crop&q=80&w=300&h=200" },
-    { id: 5, name: "Bentley Flying Spur", price: "$285,892", km: "3690 KM", fuel: "Petrol", loc: "China", seller: "Hussain Jahan", img: "https://images.unsplash.com/photo-1583121274602-3e2820c69888?auto=format&fit=crop&q=80&w=300&h=200" },
-    { id: 6, name: "Panamera Platinum", price: "$285,892", km: "1471 KM", fuel: "Petrol", loc: "Dubai", seller: "Amit Rahman", img: "https://images.unsplash.com/photo-1619682817481-e994891cd1f5?auto=format&fit=crop&q=80&w=300&h=200" },
-];
+interface Reminder {
+    tax: {
+        expiring: any[];
+        expired: any[];
+    };
+    credit: {
+        duesSoon: any[];
+        overdue: any[];
+    };
+    summary: {
+        taxExpiringCount: number;
+        taxExpiredCount: number;
+        creditDueCount: number;
+        creditOverdueCount: number;
+        totalAlerts: number;
+    };
+}
+
+interface VehicleStats {
+    total: number;
+    available: number;
+    sold: number;
+    repair: number;
+}
 
 export default function DashboardPage() {
+    const { t } = useLanguage();
+    const [reminders, setReminders] = useState<Reminder | null>(null);
+    const [stats, setStats] = useState<VehicleStats | null>(null);
+    const [loading, setLoading] = useState(true);
+
+    useEffect(() => {
+        const fetchData = async () => {
+            const token = localStorage.getItem('token');
+            if (!token) return;
+
+            try {
+                const [reminderRes, statsRes] = await Promise.all([
+                    fetch(`${process.env.NEXT_PUBLIC_API_URL}/reminders`, {
+                        headers: { Authorization: `Bearer ${token}` },
+                    }),
+                    fetch(`${process.env.NEXT_PUBLIC_API_URL}/vehicles/stats`, {
+                        headers: { Authorization: `Bearer ${token}` },
+                    }),
+                ]);
+
+                if (reminderRes.ok) {
+                    setReminders(await reminderRes.json());
+                }
+                if (statsRes.ok) {
+                    setStats(await statsRes.json());
+                }
+            } catch (error) {
+                console.error('Failed to fetch dashboard data:', error);
+            } finally {
+                setLoading(false);
+            }
+        };
+
+        fetchData();
+    }, []);
+
+    // KPI Cards Data
+    const kpiCards = [
+        {
+            label: t.totalVehicles,
+            value: stats?.total || 0,
+            icon: faCar,
+            color: 'from-blue-500 to-blue-600',
+            href: '/app/inventory',
+        },
+        {
+            label: t.available,
+            value: stats?.available || 0,
+            icon: faCar,
+            color: 'from-green-500 to-green-600',
+            href: '/app/inventory?status=AVAILABLE',
+        },
+        {
+            label: t.sold,
+            value: stats?.sold || 0,
+            icon: faMoneyBillWave,
+            color: 'from-purple-500 to-purple-600',
+            href: '/app/inventory?status=SOLD',
+        },
+        {
+            label: t.repair || 'Perbaikan',
+            value: stats?.repair || 0,
+            icon: faCar,
+            color: 'from-orange-500 to-orange-600',
+            href: '/app/inventory?condition=REPAIR',
+        },
+    ];
+
+    // Alert Cards Data
+    const alertCards = [
+        {
+            label: 'Pajak Akan Expired',
+            count: reminders?.summary?.taxExpiringCount || 0,
+            icon: faCalendarAlt,
+            color: 'bg-yellow-500',
+            textColor: 'text-yellow-600',
+            bgColor: 'bg-yellow-50',
+            href: '/app/inventory?taxExpiring=true',
+        },
+        {
+            label: 'Pajak Sudah Expired',
+            count: reminders?.summary?.taxExpiredCount || 0,
+            icon: faExclamationTriangle,
+            color: 'bg-red-500',
+            textColor: 'text-red-600',
+            bgColor: 'bg-red-50',
+            href: '/app/inventory?taxExpired=true',
+        },
+        {
+            label: 'Cicilan Jatuh Tempo',
+            count: reminders?.summary?.creditDueCount || 0,
+            icon: faCreditCard,
+            color: 'bg-orange-500',
+            textColor: 'text-orange-600',
+            bgColor: 'bg-orange-50',
+            href: '/app/credit?due=soon',
+        },
+        {
+            label: 'Cicilan Overdue',
+            count: reminders?.summary?.creditOverdueCount || 0,
+            icon: faBan,
+            color: 'bg-red-600',
+            textColor: 'text-red-700',
+            bgColor: 'bg-red-100',
+            href: '/app/credit?overdue=true',
+        },
+    ];
+
+    if (loading) {
+        return (
+            <div className="flex items-center justify-center min-h-[400px]">
+                <FontAwesomeIcon icon={faSpinner} className="w-8 h-8 text-[#00bfa5] animate-spin" />
+            </div>
+        );
+    }
+
     return (
-        <div>
+        <div className="space-y-8">
             {/* PAGE HEADER */}
-            <div className="flex items-center justify-between mb-8">
-                <div>
-                    <h1 className="text-2xl font-bold text-gray-800">Vehicle Listing</h1>
-                    <p className="text-sm text-gray-500 mt-1">Get your latest update for the last 7 days</p>
-                </div>
-                <div className="flex gap-4">
-                    <button className="px-6 py-2 rounded-xl bg-[#ecf0f3] text-gray-600 font-medium shadow-[3px_3px_6px_#cbced1,-3px_-3px_6px_#ffffff] hover:text-[#00bfa5] active:shadow-[inset_2px_2px_5px_#cbced1,inset_-2px_-2px_5px_#ffffff] transition-all flex items-center gap-2">
-                        <FontAwesomeIcon icon={faFilter} size="sm" />
-                        Filter By
-                    </button>
-                    <button className="px-6 py-2 rounded-xl bg-[#00bfa5] text-white font-medium shadow-[3px_3px_6px_#cbced1,-3px_-3px_6px_#ffffff] hover:bg-[#00a891] active:translate-y-[1px] transition-all flex items-center gap-2">
-                        <FontAwesomeIcon icon={faFileExport} size="sm" />
-                        Export
-                    </button>
-                </div>
+            <div>
+                <h1 className="text-2xl font-bold text-gray-800">{t.dashboard}</h1>
+                <p className="text-sm text-gray-500 mt-1">Ringkasan bisnis dan peringatan penting</p>
             </div>
 
-            {/* LISTING GRID */}
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-                {CARS.map((car) => (
-                    <div key={car.id} className="bg-[#ecf0f3] rounded-2xl p-4 shadow-[9px_9px_16px_#cbced1,-9px_-9px_16px_#ffffff] hover:shadow-[5px_5px_10px_#cbced1,-5px_-5px_10px_#ffffff] transition-all duration-300 group">
-                        {/* SELLER INFO */}
-                        <div className="flex items-center justify-between mb-4">
-                            <div className="flex items-center gap-3">
-                                <img src={`https://ui-avatars.com/api/?name=${car.seller}&background=random`} className="w-8 h-8 rounded-full shadow-sm" alt="Seller" />
-                                <span className="text-sm font-semibold text-gray-700">{car.seller}</span>
-                            </div>
-                            <FontAwesomeIcon icon={faBookmark} className="text-gray-400 hover:text-[#00bfa5] cursor-pointer" />
+            {/* ALERT SECTION */}
+            {reminders && reminders.summary.totalAlerts > 0 && (
+                <div className="bg-gradient-to-r from-red-50 to-orange-50 rounded-2xl p-6 shadow-[5px_5px_10px_#cbced1,-5px_-5px_10px_#ffffff]">
+                    <div className="flex items-center gap-3 mb-4">
+                        <div className="w-10 h-10 rounded-full bg-red-500 flex items-center justify-center">
+                            <FontAwesomeIcon icon={faExclamationTriangle} className="text-white" />
                         </div>
-
-                        {/* CAR IMAGE */}
-                        <div className="h-40 rounded-xl overflow-hidden mb-4 shadow-[inset_2px_2px_5px_#cbced1,inset_-2px_-2px_5px_#ffffff] relative">
-                            {/* eslint-disable-next-line @next/next/no-img-element */}
-                            <img src={car.img} alt={car.name} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" />
-                        </div>
-
-                        {/* DETAILS */}
-                        <h3 className="text-lg font-bold text-gray-800 mb-2">{car.name}</h3>
-
-                        <div className="flex items-center gap-4 text-xs text-gray-500 mb-4">
-                            <div className="flex items-center gap-1">
-                                <span className="w-4 h-4 rounded-full border border-gray-300 flex items-center justify-center text-[0.6rem] text-[#00bfa5]">Km</span>
-                                {car.km}
-                            </div>
-                            <div className="flex items-center gap-1">
-                                <FontAwesomeIcon icon={faGasPump} className="text-[#00bfa5]" />
-                                {car.fuel}
-                            </div>
-                            <div className="flex items-center gap-1">
-                                <FontAwesomeIcon icon={faMapMarkerAlt} className="text-[#00bfa5]" />
-                                {car.loc}
-                            </div>
-                        </div>
-
-                        <div className="border-t border-gray-300 pt-3 flex items-center justify-between">
-                            <div className="text-xs text-gray-400">Fixed Price</div>
-                            <div className="text-lg font-bold text-[#00bfa5]">{car.price}</div>
+                        <div>
+                            <h2 className="font-bold text-gray-800">Perhatian Diperlukan</h2>
+                            <p className="text-sm text-gray-500">{reminders.summary.totalAlerts} item membutuhkan tindakan</p>
                         </div>
                     </div>
+
+                    <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                        {alertCards.map((alert, index) => (
+                            <Link key={index} href={alert.href}>
+                                <div className={`${alert.bgColor} rounded-xl p-4 cursor-pointer hover:shadow-md transition-all`}>
+                                    <div className="flex items-center gap-3">
+                                        <div className={`w-8 h-8 rounded-full ${alert.color} flex items-center justify-center`}>
+                                            <FontAwesomeIcon icon={alert.icon} className="text-white text-sm" />
+                                        </div>
+                                        <div>
+                                            <div className={`text-2xl font-bold ${alert.textColor}`}>{alert.count}</div>
+                                            <div className="text-xs text-gray-600">{alert.label}</div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </Link>
+                        ))}
+                    </div>
+                </div>
+            )}
+
+            {/* KPI CARDS */}
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
+                {kpiCards.map((card, index) => (
+                    <Link key={index} href={card.href}>
+                        <div className="bg-[#ecf0f3] rounded-2xl p-6 shadow-[9px_9px_16px_#cbced1,-9px_-9px_16px_#ffffff] hover:shadow-[5px_5px_10px_#cbced1,-5px_-5px_10px_#ffffff] transition-all cursor-pointer group">
+                            <div className={`w-12 h-12 rounded-xl bg-gradient-to-br ${card.color} flex items-center justify-center mb-4 shadow-lg`}>
+                                <FontAwesomeIcon icon={card.icon} className="text-white text-xl" />
+                            </div>
+                            <div className="text-3xl font-bold text-gray-800 mb-1">{card.value}</div>
+                            <div className="text-sm text-gray-500 flex items-center gap-2">
+                                {card.label}
+                                <FontAwesomeIcon icon={faChevronRight} className="text-xs opacity-0 group-hover:opacity-100 transition-opacity" />
+                            </div>
+                        </div>
+                    </Link>
                 ))}
+            </div>
+
+            {/* TAX EXPIRING VEHICLES */}
+            {reminders && reminders.tax.expiring.length > 0 && (
+                <div className="bg-[#ecf0f3] rounded-2xl p-6 shadow-[9px_9px_16px_#cbced1,-9px_-9px_16px_#ffffff]">
+                    <div className="flex items-center justify-between mb-4">
+                        <h2 className="font-bold text-gray-800 flex items-center gap-2">
+                            <FontAwesomeIcon icon={faCalendarAlt} className="text-yellow-500" />
+                            Pajak Akan Expired (30 Hari)
+                        </h2>
+                        <Link href="/app/inventory?taxExpiring=true" className="text-sm text-[#00bfa5] hover:underline">
+                            Lihat Semua
+                        </Link>
+                    </div>
+                    <div className="space-y-3">
+                        {reminders.tax.expiring.slice(0, 5).map((vehicle: any) => (
+                            <div key={vehicle.id} className="flex items-center justify-between p-3 bg-yellow-50 rounded-xl">
+                                <div className="flex items-center gap-3">
+                                    <div className="w-10 h-10 rounded-lg bg-yellow-100 flex items-center justify-center">
+                                        <FontAwesomeIcon icon={faCar} className="text-yellow-600" />
+                                    </div>
+                                    <div>
+                                        <div className="font-semibold text-gray-800">{vehicle.licensePlate}</div>
+                                        <div className="text-sm text-gray-500">{vehicle.make} {vehicle.model} {vehicle.year}</div>
+                                    </div>
+                                </div>
+                                <div className="text-right">
+                                    <div className="text-sm font-medium text-yellow-600">
+                                        {new Date(vehicle.stnkExpiry).toLocaleDateString('id-ID')}
+                                    </div>
+                                    <div className="text-xs text-gray-400">STNK Expired</div>
+                                </div>
+                            </div>
+                        ))}
+                    </div>
+                </div>
+            )}
+
+            {/* CREDIT DUE SOON */}
+            {reminders && reminders.credit.duesSoon.length > 0 && (
+                <div className="bg-[#ecf0f3] rounded-2xl p-6 shadow-[9px_9px_16px_#cbced1,-9px_-9px_16px_#ffffff]">
+                    <div className="flex items-center justify-between mb-4">
+                        <h2 className="font-bold text-gray-800 flex items-center gap-2">
+                            <FontAwesomeIcon icon={faCreditCard} className="text-orange-500" />
+                            Cicilan Jatuh Tempo (7 Hari)
+                        </h2>
+                        <Link href="/app/credit?due=soon" className="text-sm text-[#00bfa5] hover:underline">
+                            Lihat Semua
+                        </Link>
+                    </div>
+                    <div className="space-y-3">
+                        {reminders.credit.duesSoon.slice(0, 5).map((credit: any) => (
+                            <div key={credit.id} className="flex items-center justify-between p-3 bg-orange-50 rounded-xl">
+                                <div className="flex items-center gap-3">
+                                    <div className="w-10 h-10 rounded-lg bg-orange-100 flex items-center justify-center">
+                                        <FontAwesomeIcon icon={faUsers} className="text-orange-600" />
+                                    </div>
+                                    <div>
+                                        <div className="font-semibold text-gray-800">{credit.transaction?.customer?.name}</div>
+                                        <div className="text-sm text-gray-500">
+                                            {credit.transaction?.vehicle?.make} {credit.transaction?.vehicle?.model}
+                                        </div>
+                                    </div>
+                                </div>
+                                <div className="text-right">
+                                    <div className="text-lg font-bold text-orange-600">
+                                        Rp {Number(credit.monthlyPayment).toLocaleString('id-ID')}
+                                    </div>
+                                    <div className="text-xs text-gray-400">
+                                        Due: {new Date(credit.nextDueDate).toLocaleDateString('id-ID')}
+                                    </div>
+                                </div>
+                            </div>
+                        ))}
+                    </div>
+                </div>
+            )}
+
+            {/* QUICK ACTIONS */}
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                <Link href="/app/inventory">
+                    <div className="bg-[#ecf0f3] rounded-xl p-4 shadow-[5px_5px_10px_#cbced1,-5px_-5px_10px_#ffffff] hover:shadow-[inset_3px_3px_6px_#cbced1,inset_-3px_-3px_6px_#ffffff] transition-all cursor-pointer text-center">
+                        <FontAwesomeIcon icon={faCar} className="text-2xl text-[#00bfa5] mb-2" />
+                        <div className="text-sm font-medium text-gray-700">Inventaris</div>
+                    </div>
+                </Link>
+                <Link href="/app/customers">
+                    <div className="bg-[#ecf0f3] rounded-xl p-4 shadow-[5px_5px_10px_#cbced1,-5px_-5px_10px_#ffffff] hover:shadow-[inset_3px_3px_6px_#cbced1,inset_-3px_-3px_6px_#ffffff] transition-all cursor-pointer text-center">
+                        <FontAwesomeIcon icon={faUsers} className="text-2xl text-[#00bfa5] mb-2" />
+                        <div className="text-sm font-medium text-gray-700">Customer</div>
+                    </div>
+                </Link>
+                <Link href="/app/credit">
+                    <div className="bg-[#ecf0f3] rounded-xl p-4 shadow-[5px_5px_10px_#cbced1,-5px_-5px_10px_#ffffff] hover:shadow-[inset_3px_3px_6px_#cbced1,inset_-3px_-3px_6px_#ffffff] transition-all cursor-pointer text-center">
+                        <FontAwesomeIcon icon={faCreditCard} className="text-2xl text-[#00bfa5] mb-2" />
+                        <div className="text-sm font-medium text-gray-700">Kredit</div>
+                    </div>
+                </Link>
+                <Link href="/app/transactions">
+                    <div className="bg-[#ecf0f3] rounded-xl p-4 shadow-[5px_5px_10px_#cbced1,-5px_-5px_10px_#ffffff] hover:shadow-[inset_3px_3px_6px_#cbced1,inset_-3px_-3px_6px_#ffffff] transition-all cursor-pointer text-center">
+                        <FontAwesomeIcon icon={faMoneyBillWave} className="text-2xl text-[#00bfa5] mb-2" />
+                        <div className="text-sm font-medium text-gray-700">Transaksi</div>
+                    </div>
+                </Link>
             </div>
         </div>
     );

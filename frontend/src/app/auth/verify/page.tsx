@@ -1,12 +1,12 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { toast } from 'sonner';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faCheck, faSpinner, faArrowLeft } from '@fortawesome/free-solid-svg-icons';
 
-export default function VerifyPage() {
+function VerifyPageContent() {
     const router = useRouter();
     const searchParams = useSearchParams();
     const [email, setEmail] = useState('');
@@ -188,5 +188,26 @@ export default function VerifyPage() {
                 </div>
             </div>
         </div>
+    );
+}
+
+// Loading fallback for Suspense
+function VerifyPageLoading() {
+    return (
+        <div className="min-h-screen flex items-center justify-center bg-[#ecf0f3] font-['Poppins']">
+            <div className="w-[400px] p-10 rounded-[20px] bg-[#ecf0f3] shadow-[13px_13px_20px_#cbced1,-13px_-13px_20px_#ffffff] text-center">
+                <FontAwesomeIcon icon={faSpinner} spin className="text-[#00bfa5] text-3xl" />
+                <p className="text-sm text-[#555] mt-4">Memuat...</p>
+            </div>
+        </div>
+    );
+}
+
+// Wrap with Suspense to handle useSearchParams during static generation
+export default function VerifyPage() {
+    return (
+        <Suspense fallback={<VerifyPageLoading />}>
+            <VerifyPageContent />
+        </Suspense>
     );
 }

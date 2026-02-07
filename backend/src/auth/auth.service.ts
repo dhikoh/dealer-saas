@@ -42,8 +42,7 @@ export class AuthService {
       if (existingUser.email === normalizedEmail && !existingUser.isVerified) {
         // Resend OTP logic for same unverified email
         const hashedPassword = await bcrypt.hash(password, 10);
-        const verificationCode = Math.floor(100000 + Math.random() * 900000).toString();
-        const verificationCodeExpiresAt = new Date(Date.now() + 15 * 60 * 1000);
+        const { code: verificationCode, expiresAt: verificationCodeExpiresAt } = this.generateVerificationCode();
 
         const updatedUser = await this.prisma.user.update({
           where: { email: normalizedEmail },
@@ -68,20 +67,23 @@ export class AuthService {
     let targetTenantId = tenantId;
 
     if (!targetTenantId) {
-      // Create a new Tenant for this Owner
-      // Use username for dealership name temporarily
+      // Create a new Tenant for this Owner with DEMO (Trial) plan
+      const trialEndsAt = new Date(Date.now() + 14 * 24 * 60 * 60 * 1000); // 14 days trial
+
       const newTenant = await this.prisma.tenant.create({
         data: {
           name: `${normalizedUsername}'s Dealership`,
           slug: normalizedUsername.replace(/ /g, '-') + '-' + Math.floor(Math.random() * 1000),
+          planTier: 'DEMO',
+          subscriptionStatus: 'TRIAL',
+          trialEndsAt,
         }
       });
       targetTenantId = newTenant.id;
     }
 
     const hashedPassword = await bcrypt.hash(password, 10);
-    const verificationCode = Math.floor(100000 + Math.random() * 900000).toString();
-    const verificationCodeExpiresAt = new Date(Date.now() + 15 * 60 * 1000);
+    const { code: verificationCode, expiresAt: verificationCodeExpiresAt } = this.generateVerificationCode();
 
     const user = await this.prisma.user.create({
       data: {
@@ -141,8 +143,7 @@ export class AuthService {
     if (!user) throw new BadRequestException('User not found');
     if (user.isVerified) throw new BadRequestException('User already verified');
 
-    const newVerificationCode = Math.floor(100000 + Math.random() * 900000).toString();
-    const newDate = new Date(Date.now() + 15 * 60 * 1000);
+    const { code: newVerificationCode, expiresAt: newDate } = this.generateVerificationCode();
 
     await this.prisma.user.update({
       where: { email: normalizedEmail },
@@ -238,6 +239,37 @@ export class AuthService {
         onboardingCompleted: user.onboardingCompleted
       },
     };
+  }
+
+  // Change password for authenticated user
+  async changePassword(userId: string, currentPassword: string, newPassword: string) {
+    const user = await this.prisma.user.findUnique({
+      where: { id: userId },
+    });
+
+    if (!user) {
+      throw new BadRequestException('User tidak ditemukan');
+    }
+
+    // Verify current password
+    const isPasswordValid = await bcrypt.compare(currentPassword, user.password);
+    if (!isPasswordValid) {
+      throw new BadRequestException('Password saat ini salah');
+    }
+
+    // Validate new password
+    if (newPassword.length < 6) {
+      throw new BadRequestException('Password baru minimal 6 karakter');
+    }
+
+    // Hash and update password
+    const hashedPassword = await bcrypt.hash(newPassword, 10);
+    await this.prisma.user.update({
+      where: { id: userId },
+      data: { password: hashedPassword },
+    });
+
+    return { success: true, message: 'Password berhasil diubah' };
   }
 
   private generateVerificationCode(): { code: string; expiresAt: Date } {

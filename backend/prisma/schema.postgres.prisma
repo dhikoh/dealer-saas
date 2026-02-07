@@ -1,0 +1,402 @@
+// PostgreSQL version of Prisma schema for production deployment
+// This is the PRODUCTION schema - replace schema.prisma before deploy
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ==================== TENANT & USER ====================
+
+model Tenant {
+  id                 String   @id @default(uuid())
+  name               String
+  slug               String   @unique
+  
+  // SUBSCRIPTION
+  planTier           String   @default("DEMO") // DEMO, BASIC, PRO, UNLIMITED
+  subscriptionStatus String   @default("ACTIVE") // ACTIVE, TRIAL, SUSPENDED, CANCELLED
+  trialEndsAt        DateTime? // When trial period ends
+  subscriptionStartedAt DateTime? // When paid subscription started
+  subscriptionEndsAt DateTime? // When current billing period ends
+  nextBillingDate    DateTime?
+  monthlyBill        Decimal? @default(0)
+  autoRenew          Boolean  @default(true)
+  
+  // CONTACT
+  address            String?
+  phone              String?
+  email              String?
+
+  users        User[]
+  vehicles     Vehicle[]
+  customers    Customer[]
+  transactions Transaction[]
+  branches     Branch[]
+  vehicleBrands VehicleBrand[]
+  blacklistEntries BlacklistEntry[]
+  invoices     SystemInvoice[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("tenants")
+}
+
+model User {
+  id       String @id @default(uuid())
+  tenantId String? // Optional for SUPERADMIN
+  tenant   Tenant? @relation(fields: [tenantId], references: [id])
+  
+  branchId String?
+  branch   Branch? @relation(fields: [branchId], references: [id])
+
+  name     String
+  username String @unique
+  email    String @unique
+  password String
+  role     String @default("STAFF") // OWNER, STAFF, SUPERADMIN
+
+  // PROFILE
+  phone     String?
+  birthDate DateTime?
+  address   String?
+  language  String   @default("id")
+
+  // VERIFICATION & ONBOARDING
+  isVerified              Boolean   @default(false)
+  verificationCode        String?
+  verificationCodeExpiresAt DateTime?
+  onboardingCompleted     Boolean   @default(false)
+
+  transactions Transaction[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("users")
+}
+
+// ==================== BRANCH (PREMIUM) ====================
+
+model Branch {
+  id       String @id @default(uuid())
+  tenantId String
+  tenant   Tenant @relation(fields: [tenantId], references: [id])
+
+  name    String
+  address String
+  phone   String?
+
+  vehicles Vehicle[]
+  users    User[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("branches")
+}
+
+// ==================== MASTER DATA ====================
+
+model VehicleBrand {
+  id       String @id @default(uuid())
+  tenantId String
+  tenant   Tenant @relation(fields: [tenantId], references: [id])
+
+  name     String   // Toyota, Honda, Yamaha
+  category String   // CAR, MOTORCYCLE, TRUCK
+
+  models VehicleModel[]
+
+  createdAt DateTime @default(now())
+
+  @@unique([tenantId, name, category])
+  @@map("vehicle_brands")
+}
+
+model VehicleModel {
+  id      String       @id @default(uuid())
+  brandId String
+  brand   VehicleBrand @relation(fields: [brandId], references: [id])
+
+  name     String  // Avanza, Beat, Ranger
+  variants String? // JSON array: ["G", "E", "S"]
+
+  createdAt DateTime @default(now())
+
+  @@unique([brandId, name])
+  @@map("vehicle_models")
+}
+
+// ==================== VEHICLE ====================
+
+model Vehicle {
+  id       String @id @default(uuid())
+  tenantId String
+  tenant   Tenant @relation(fields: [tenantId], references: [id])
+
+  branchId String?
+  branch   Branch? @relation(fields: [branchId], references: [id])
+
+  // BASIC INFO
+  category String // CAR, MOTORCYCLE, TRUCK, BUS, OTHER
+  make     String // Brand name
+  model    String // Model name
+  variant  String?
+  year     Int
+  color    String
+
+  // PRICING
+  purchasePrice Decimal? // Harga beli (modal)
+  purchaseDate  DateTime?
+  price         Decimal  // Harga jual
+
+  // STATUS
+  status        String  @default("AVAILABLE") // AVAILABLE, BOOKED, SOLD
+  condition     String  @default("READY")     // READY, REPAIR, RESERVED
+  conditionNote String? // "Perbaikan AC, estimasi 3 hari"
+  isShowroom    Boolean @default(true)
+
+  // IDENTITAS KENDARAAN
+  licensePlate  String?
+  engineNumber  String?
+  chassisNumber String?
+  bpkbNumber    String?  // Nomor BPKB
+
+  // KELENGKAPAN DOKUMEN
+  stnkExpiry      DateTime?
+  bpkbAvailable   Boolean @default(true)
+  fakturAvailable Boolean @default(true)
+  serviceBook     Boolean @default(false)
+  spareKey        Boolean @default(false)
+
+  // FLEXIBLE DATA
+  specs  String? // JSON for additional specs
+  images String? // JSON array of image URLs
+
+  transactions Transaction[]
+  costs        VehicleCost[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("vehicles")
+}
+
+// ==================== CUSTOMER ====================
+
+model Customer {
+  id       String @id @default(uuid())
+  tenantId String
+  tenant   Tenant @relation(fields: [tenantId], references: [id])
+
+  // BASIC INFO - KTP as unique identifier for blacklist
+  ktpNumber String  @unique // Global unique for blacklist system
+  name      String
+  phone     String
+  email     String?
+  address   String?
+
+  // DOKUMEN IDENTITAS
+  ktpImage             String?
+  kkImage              String? // Kartu Keluarga
+  homeProofType        String? // BPKB, ELECTRICITY_BILL
+  homeProofImage       String?
+  salarySlipImage      String?
+  bankStatementImage   String? // Rekening koran 3 bulan
+  businessLicenseImage String? // SIUP/NIB
+
+  transactions Transaction[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("customers")
+}
+
+// ==================== TRANSACTION ====================
+
+model Transaction {
+  id       String @id @default(uuid())
+  tenantId String
+  tenant   Tenant @relation(fields: [tenantId], references: [id])
+
+  vehicleId String
+  vehicle   Vehicle @relation(fields: [vehicleId], references: [id])
+
+  customerId String
+  customer   Customer @relation(fields: [customerId], references: [id])
+
+  salesPersonId String
+  salesPerson   User @relation(fields: [salesPersonId], references: [id])
+
+  // TRANSACTION DETAILS
+  type        String @default("SALE")     // SALE, PURCHASE
+  paymentType String @default("CASH")     // CASH, CREDIT
+  finalPrice  Decimal
+  notes       String?
+
+  date   DateTime @default(now())
+  status String   @default("PENDING") // PENDING, PAID, CANCELLED
+
+  credit Credit?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("transactions")
+}
+
+// ==================== CREDIT / LEASING ====================
+
+model Credit {
+  id            String      @id @default(uuid())
+  transactionId String      @unique
+  transaction   Transaction @relation(fields: [transactionId], references: [id])
+
+  // CREDIT TYPE
+  creditType     String @default("DEALER_CREDIT") // LEASING, DEALER_CREDIT, DEALER_TO_LEASING
+  leasingCompany String? // Nama leasing (Adira, ACC, etc)
+
+  // AMOUNT DETAILS
+  downPayment    Decimal // DP
+  totalAmount    Decimal // Total kredit (setelah DP)
+  interestRate   Decimal // Bunga % per tahun
+  tenorMonths    Int     // 6, 12, 24, 36, 48, 60 atau custom
+  monthlyPayment Decimal // Cicilan per bulan
+
+  // TRACKING
+  nextDueDate DateTime? // Tanggal jatuh tempo berikutnya
+  status      String    @default("ACTIVE") // ACTIVE, COMPLETED, DEFAULTED, TRANSFERRED
+
+  payments CreditPayment[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("credits")
+}
+
+model CreditPayment {
+  id       String @id @default(uuid())
+  creditId String
+  credit   Credit @relation(fields: [creditId], references: [id])
+
+  month  Int     // Cicilan ke-berapa
+  amount Decimal
+  paidAt DateTime
+  status String  @default("PAID") // PAID, LATE
+
+  createdAt DateTime @default(now())
+
+  @@map("credit_payments")
+}
+
+// ==================== BLACKLIST (CROSS-TENANT) ====================
+
+model BlacklistEntry {
+  id       String @id @default(uuid())
+  tenantId String
+  tenant   Tenant @relation(fields: [tenantId], references: [id])
+
+  // Customer Info (stored for when customer lookup)
+  ktpNumber       String
+  customerName    String
+  customerAddress String?
+
+  reason    String
+  createdAt DateTime @default(now())
+
+  @@unique([ktpNumber, tenantId])
+  @@index([ktpNumber])
+  @@map("blacklist_entries")
+}
+
+// ==================== VEHICLE COST TRACKING ====================
+
+model VehicleCost {
+  id        String  @id @default(uuid())
+  vehicleId String
+  vehicle   Vehicle @relation(fields: [vehicleId], references: [id])
+
+  costType    String   // PURCHASE, MAINTENANCE, TAX, INSURANCE, OTHER
+  amount      Decimal
+  description String?
+  date        DateTime
+  receiptImage String?
+
+  createdAt DateTime @default(now())
+
+  @@map("vehicle_costs")
+}
+
+// ==================== SYSTEM INVOICE (SUPERADMIN BILLING) ====================
+
+model SystemInvoice {
+  id        String   @id @default(uuid())
+  tenantId  String
+  tenant    Tenant   @relation(fields: [tenantId], references: [id])
+
+  invoiceNumber String   @unique // INV-2023-001
+  amount        Decimal
+  date          DateTime @default(now())
+  dueDate       DateTime
+  
+  status        String   @default("PENDING") // PENDING, PAID, OVERDUE, CANCELLED, VERIFYING
+  paymentProof  String?  // URL to proof image
+  
+  items         String?  // JSON description of items
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("system_invoices")
+}
+
+// ==================== ADMIN ACTIVITY LOG (AUDIT TRAIL) ====================
+
+model AdminActivityLog {
+  id          String   @id @default(uuid())
+  
+  userId      String   // Admin who performed the action
+  userEmail   String   // For display without join
+  
+  action      String   // LOGIN, TENANT_CREATE, TENANT_UPDATE, TENANT_SUSPEND, INVOICE_VERIFY, etc.
+  entityType  String?  // TENANT, INVOICE, USER, etc.
+  entityId    String?  // ID of affected entity
+  entityName  String?  // Name for display without join
+  
+  details     String?  // JSON with additional context
+  ipAddress   String?
+  
+  createdAt   DateTime @default(now())
+
+  @@index([userId])
+  @@index([action])
+  @@index([createdAt])
+  @@map("admin_activity_logs")
+}
+
+// ==================== NOTIFICATIONS ====================
+
+model Notification {
+  id        String   @id @default(uuid())
+  userId    String
+  
+  title     String
+  message   String
+  type      String   @default("info") // info, success, warning, error
+  link      String?  // Optional link to navigate
+  read      Boolean  @default(false)
+  
+  createdAt DateTime @default(now())
+  
+  @@index([userId])
+  @@index([read])
+  @@map("notifications")
+}

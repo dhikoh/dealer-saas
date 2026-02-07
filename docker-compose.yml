@@ -1,30 +1,88 @@
 version: '3.8'
 
 services:
-  db:
-    image: postgres:15-alpine
-    container_name: otohub_db
-    restart: always
+  # PostgreSQL Database
+  postgres:
+    image: postgres:16-alpine
+    container_name: otohub-db
+    restart: unless-stopped
     environment:
-      POSTGRES_USER: ${DB_USER:-postgres}
-      POSTGRES_PASSWORD: ${DB_PASSWORD:-postgres}
-      POSTGRES_DB: ${DB_NAME:-otohub}
-    ports:
-      - "${DB_PORT:-5432}:5432"
+      POSTGRES_USER: otohub
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-your-secure-password}
+      POSTGRES_DB: otohub
     volumes:
-      - pgdata:/var/lib/postgresql/data
-
-  pgadmin:
-    image: dpage/pgadmin4
-    container_name: otohub_pgadmin
-    restart: always
-    environment:
-      PGADMIN_DEFAULT_EMAIL: admin@admin.com
-      PGADMIN_DEFAULT_PASSWORD: admin
+      - postgres_data:/var/lib/postgresql/data
     ports:
-      - "5050:80"
+      - "5432:5432"
+    healthcheck:
+      test: [ "CMD-SHELL", "pg_isready -U otohub" ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # Backend API (NestJS)
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: otohub-backend
+    restart: unless-stopped
     depends_on:
-      - db
+      postgres:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: postgresql://otohub:${DB_PASSWORD:-your-secure-password}@postgres:5432/otohub?schema=public
+      JWT_SECRET: ${JWT_SECRET:-your-jwt-secret-min-32-chars}
+      SMTP_HOST: ${SMTP_HOST}
+      SMTP_PORT: ${SMTP_PORT:-587}
+      SMTP_USER: ${SMTP_USER}
+      SMTP_PASS: ${SMTP_PASS}
+      CORS_ORIGINS: https://scr.modula.click,http://localhost:3000
+      PORT: 4000
+      NODE_ENV: production
+    ports:
+      - "4000:4000"
+    healthcheck:
+      test: [ "CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:4000/health" ]
+      interval: 30s
+      timeout: 3s
+      retries: 3
+
+  # Frontend (Next.js)
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: otohub-frontend
+    restart: unless-stopped
+    depends_on:
+      - backend
+    environment:
+      NEXT_PUBLIC_API_URL: https://api.scr.modula.click
+    ports:
+      - "3000:3000"
+
+  # Nginx Reverse Proxy (Optional - for single domain with SSL)
+  nginx:
+    image: nginx:alpine
+    container_name: otohub-nginx
+    restart: unless-stopped
+    depends_on:
+      - frontend
+      - backend
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./ssl:/etc/nginx/ssl:ro
+    profiles:
+      - with-nginx
 
 volumes:
-  pgdata:
+  postgres_data:
+
+
+networks:
+  default:
+    name: otohub-network

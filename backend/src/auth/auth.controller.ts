@@ -30,7 +30,7 @@ export class AuthController {
     return this.authService.resendVerificationCode(body.email);
   }
 
-  @UseGuards(JwtAuthGuard) // Protect this route
+  @UseGuards(JwtAuthGuard)
   @Post('onboarding')
   async onboarding(@Body() body: {
     fullName: string;
@@ -50,5 +50,15 @@ export class AuthController {
       officeAddress: body.officeAddress,
       language: body.language
     });
+  }
+
+  @UseGuards(JwtAuthGuard)
+  @HttpCode(HttpStatus.OK)
+  @Post('change-password')
+  async changePassword(
+    @Body() body: { currentPassword: string; newPassword: string },
+    @Request() req
+  ) {
+    return this.authService.changePassword(req.user.sub, body.currentPassword, body.newPassword);
   }
 }

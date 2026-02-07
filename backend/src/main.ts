@@ -1,9 +1,39 @@
-import { NestFactory } from '@nestjs/core';
+import { NestFactory, Reflector } from '@nestjs/core';
 import { AppModule } from './app.module';
+import { ValidationPipe } from '@nestjs/common';
+import helmet from 'helmet';
+import { RolesGuard } from './auth/roles.guard';
+import { TenantGuard } from './auth/tenant.guard';
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
-  app.enableCors(); // Allow all origins for dev simplicity
+
+  // ==================== SECURITY HEADERS ====================
+  app.use(helmet());
+
+  // ==================== CORS CONFIGURATION ====================
+  app.enableCors({
+    origin: process.env.CORS_ORIGINS?.split(',') || ['http://localhost:3000'],
+    methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
+    credentials: true,
+    allowedHeaders: ['Content-Type', 'Authorization', 'X-Tenant-ID'],
+  });
+
+  // ==================== GLOBAL VALIDATION ====================
+  app.useGlobalPipes(
+    new ValidationPipe({
+      whitelist: true, // Strip properties not in DTO
+      forbidNonWhitelisted: true, // Throw error on unknown properties
+      transform: true, // Auto-transform payloads to DTO instances
+    }),
+  );
+
+  // ==================== GLOBAL GUARDS ====================
+  const reflector = app.get(Reflector);
+  app.useGlobalGuards(new RolesGuard(reflector), new TenantGuard());
+
   await app.listen(process.env.PORT ?? 4000);
+  console.log(`🚀 Server running on port ${process.env.PORT ?? 4000}`);
+  console.log(`🔒 Security: Helmet, CORS, Validation, RolesGuard, TenantGuard enabled`);
 }
 bootstrap();
