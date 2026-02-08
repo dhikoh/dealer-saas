@@ -183,7 +183,7 @@ export default function Header() {
         }
     };
 
-    const unreadCount = notifications.filter(n => !n.read).length;
+
 
     const LANGUAGES: { code: Language; name: string; flag: string }[] = [
         { code: 'id', name: 'Indonesia', flag: '🇮🇩' },
