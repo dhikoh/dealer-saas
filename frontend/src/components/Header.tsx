@@ -160,10 +160,10 @@ export default function Header() {
 
         // Mock search results - in production, this would call the API
         const mockResults: SearchResult[] = [
-            { type: 'vehicle', id: '1', title: 'Toyota Avanza 2024', subtitle: 'B 1234 CD - Rp 250.000.000', href: '/app/inventory' },
-            { type: 'vehicle', id: '2', title: 'Honda Jazz RS 2023', subtitle: 'B 5678 EF - Rp 275.000.000', href: '/app/inventory' },
-            { type: 'customer', id: '3', title: 'Budi Santoso', subtitle: '081234567890', href: '/app/customers' },
-            { type: 'transaction', id: '4', title: 'TRX-2024-001', subtitle: 'Penjualan - Rp 250.000.000', href: '/app/transactions' },
+            { type: 'vehicle' as const, id: '1', title: 'Toyota Avanza 2024', subtitle: 'B 1234 CD - Rp 250.000.000', href: '/app/inventory' },
+            { type: 'vehicle' as const, id: '2', title: 'Honda Jazz RS 2023', subtitle: 'B 5678 EF - Rp 275.000.000', href: '/app/inventory' },
+            { type: 'customer' as const, id: '3', title: 'Budi Santoso', subtitle: '081234567890', href: '/app/customers' },
+            { type: 'transaction' as const, id: '4', title: 'TRX-2024-001', subtitle: 'Penjualan - Rp 250.000.000', href: '/app/transactions' },
         ].filter(r => r.title.toLowerCase().includes(query.toLowerCase()));
 
         setSearchResults(mockResults);
