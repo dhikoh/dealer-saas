@@ -21,7 +21,7 @@ export class TransactionService {
             where,
             include: {
                 vehicle: {
-                    select: { id: true, name: true, licensePlate: true, images: true },
+                    select: { id: true, make: true, model: true, licensePlate: true, images: true },
                 },
                 customer: {
                     select: { id: true, name: true, phone: true },
@@ -135,7 +135,7 @@ export class TransactionService {
                 status: 'PENDING',
             },
             include: {
-                vehicle: { select: { id: true, name: true } },
+                vehicle: { select: { id: true, make: true, model: true } },
                 customer: { select: { id: true, name: true } },
             },
         });
@@ -234,7 +234,7 @@ export class TransactionService {
     }
 
     async getMonthlySales(tenantId: string, months: number = 6) {
-        const results = [];
+        const results: { month: string; count: number; revenue: number }[] = [];
         const now = new Date();
 
         for (let i = months - 1; i >= 0; i--) {
