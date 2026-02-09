@@ -12,10 +12,9 @@ export default function DashboardLayout({
     children: React.ReactNode;
 }) {
     const router = useRouter();
-    const [mounted, setMounted] = useState(false); // Changed from authorized to mounted
+    const [mounted, setMounted] = useState(false);
 
     useEffect(() => {
-        // Check for authentication token logic
         const token = localStorage.getItem('access_token');
         const userInfoStr = localStorage.getItem('user_info');
 
@@ -28,34 +27,28 @@ export default function DashboardLayout({
             try {
                 const user = JSON.parse(userInfoStr);
 
-                // 0. Check if SUPERADMIN - redirect to superadmin dashboard
                 if (user.role === 'SUPERADMIN') {
                     router.push('/superadmin');
                     return;
                 }
 
-                // 1. Check Verification
                 if (!user.isVerified) {
                     router.push(`/auth/verify?email=${user.email}`);
                     return;
                 }
 
-                // 2. Check Onboarding
                 if (!user.onboardingCompleted) {
                     router.push('/onboarding');
                     return;
                 }
 
-                // All good
                 setMounted(true);
             } catch (e) {
-                // Invalid user info
                 localStorage.removeItem('access_token');
                 localStorage.removeItem('user_info');
                 router.push('/auth');
             }
         } else {
-            // Token exists but no user info? fetch or logout. For now logout.
             localStorage.removeItem('access_token');
             router.push('/auth');
         }
@@ -63,20 +56,28 @@ export default function DashboardLayout({
     }, [router]);
 
     if (!mounted) {
-        return <div className="min-h-screen bg-[#ecf0f3] flex items-center justify-center text-gray-500">Redirecting...</div>;
+        return (
+            <div className="min-h-screen bg-[#ecf0f3] flex items-center justify-center">
+                <div className="flex flex-col items-center gap-3">
+                    <div className="w-10 h-10 border-4 border-gray-200 border-t-[#00bfa5] rounded-full animate-spin" />
+                    <p className="text-gray-500 text-sm">Memuat...</p>
+                </div>
+            </div>
+        );
     }
 
     return (
         <div className="flex min-h-screen bg-[#ecf0f3] font-poppins text-gray-700">
-            {/* SIDEBAR - Fixed Left */}
+            {/* SIDEBAR - Fixed Left, hidden on mobile */}
             <Sidebar />
 
-            <div className="flex-1 flex flex-col ml-64">
+            {/* Main content area - responsive margin */}
+            <div className="flex-1 flex flex-col lg:ml-64">
                 {/* HEADER - Fixed Top */}
                 <Header />
 
-                {/* MAIN CONTENT - Scrollable */}
-                <main className="flex-1 mt-20 p-8 overflow-y-auto bg-[#ecf0f3]">
+                {/* MAIN CONTENT - Scrollable, responsive padding */}
+                <main className="flex-1 mt-20 p-4 md:p-6 lg:p-8 overflow-y-auto bg-[#ecf0f3]">
                     {children}
                 </main>
             </div>
@@ -86,3 +87,4 @@ export default function DashboardLayout({
         </div>
     );
 }
+
