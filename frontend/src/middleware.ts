@@ -1,6 +1,18 @@
 import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
 
+/**
+ * SECURITY MIDDLEWARE
+ * 
+ * This middleware enforces:
+ * 1. Authentication - Redirect unauthenticated users to login
+ * 2. Flow Order - Enforce verify → onboarding → app sequence
+ * 3. Token Validation - Basic JWT format and expiry check
+ * 
+ * Note: Server-side validation is the ultimate source of truth.
+ * This middleware provides UX improvements and first-line defense.
+ */
+
 // Public routes that don't require authentication
 const PUBLIC_ROUTES = [
     '/auth',
@@ -13,6 +25,11 @@ const ALWAYS_ALLOWED = [
     '/favicon.ico',
     '/api',
 ];
+
+// Routes accessible during specific flow stages
+const ONBOARDING_ROUTE = '/onboarding';
+const APP_ROUTES_PREFIX = '/app';
+const SUPERADMIN_ROUTES_PREFIX = '/superadmin';
 
 export function middleware(request: NextRequest) {
     const { pathname } = request.nextUrl;
@@ -30,8 +47,6 @@ export function middleware(request: NextRequest) {
     // 3. Check for authentication token
     const token = request.cookies.get('auth_token')?.value;
 
-    // Also check localStorage via a custom header (for client-side navigation compatibility)
-    // Note: We'll also set a cookie on login for middleware to work on first request
     if (!token) {
         // No token found - redirect to login
         const loginUrl = new URL('/auth', request.url);
@@ -39,7 +54,8 @@ export function middleware(request: NextRequest) {
         return NextResponse.redirect(loginUrl);
     }
 
-    // 4. Basic token validation (check if it looks like a JWT)
+    // 4. Validate token format and decode payload
+    let payload: any;
     try {
         // JWT format: xxx.xxx.xxx
         const parts = token.split('.');
@@ -47,12 +63,11 @@ export function middleware(request: NextRequest) {
             throw new Error('Invalid token format');
         }
 
-        // Decode payload to check expiration
-        const payload = JSON.parse(atob(parts[1]));
-        const exp = payload.exp;
+        // Decode payload
+        payload = JSON.parse(atob(parts[1]));
 
-        if (exp && Date.now() >= exp * 1000) {
-            // Token expired - clear cookie and redirect
+        // Check expiration
+        if (payload.exp && Date.now() >= payload.exp * 1000) {
             const response = NextResponse.redirect(new URL('/auth', request.url));
             response.cookies.delete('auth_token');
             return response;
@@ -64,7 +79,46 @@ export function middleware(request: NextRequest) {
         return response;
     }
 
-    // 5. Token valid - allow access
+    // 5. FLOW ENFORCEMENT - Based on user state in JWT
+    const { isVerified, onboardingCompleted, role } = payload;
+
+    // SUPERADMIN bypasses flow checks
+    if (role === 'SUPERADMIN') {
+        return NextResponse.next();
+    }
+
+    // === UNVERIFIED USER ===
+    if (!isVerified) {
+        // Unverified users can only access /auth/verify
+        if (pathname !== '/auth/verify' && !pathname.startsWith('/auth')) {
+            return NextResponse.redirect(new URL('/auth/verify', request.url));
+        }
+        return NextResponse.next();
+    }
+
+    // === VERIFIED BUT NOT ONBOARDED ===
+    if (isVerified && !onboardingCompleted) {
+        // Can access: /onboarding only
+        if (pathname !== ONBOARDING_ROUTE) {
+            return NextResponse.redirect(new URL('/onboarding', request.url));
+        }
+        return NextResponse.next();
+    }
+
+    // === FULLY ONBOARDED ===
+    if (isVerified && onboardingCompleted) {
+        // Redirect away from onboarding/verify pages
+        if (pathname === ONBOARDING_ROUTE) {
+            return NextResponse.redirect(new URL('/app', request.url));
+        }
+        if (pathname === '/auth/verify') {
+            return NextResponse.redirect(new URL('/app', request.url));
+        }
+        // Allow access to /app routes
+        return NextResponse.next();
+    }
+
+    // Default: allow access
     return NextResponse.next();
 }
 

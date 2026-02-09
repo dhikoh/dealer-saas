@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Patch, Param, Body, UseGuards } from '@nestjs/common';
+import { Controller, Get, Post, Patch, Param, Body, UseGuards, Request, ForbiddenException } from '@nestjs/common';
 import { BillingService } from './billing.service';
 import { RolesGuard } from '../auth/roles.guard';
 import { Roles } from '../auth/roles.decorator';
@@ -20,7 +20,11 @@ export class BillingController {
     // ==================== AUTHORIZED USERS ====================
 
     @Get('status/:tenantId')
-    async getSubscriptionStatus(@Param('tenantId') tenantId: string) {
+    async getSubscriptionStatus(@Param('tenantId') tenantId: string, @Request() req) {
+        // SECURITY: Validate that user can access this tenant's billing
+        if (req.user.role !== 'SUPERADMIN' && req.user.tenantId !== tenantId) {
+            throw new ForbiddenException('Access denied: Cannot view billing for other tenants');
+        }
         return this.billingService.checkSubscriptionStatus(tenantId);
     }
 

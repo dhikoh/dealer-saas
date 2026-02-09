@@ -2,6 +2,7 @@ import { Controller, Post, Body, HttpCode, HttpStatus, Request } from '@nestjs/c
 import { AuthService } from './auth.service';
 import { CreateAuthDto } from './dto/create-auth.dto';
 import { Public } from './public.decorator';
+import { AllowUnonboarded } from './user-state.decorator';
 
 @Controller('auth')
 export class AuthController {
@@ -34,7 +35,8 @@ export class AuthController {
     return this.authService.resendVerificationCode(body.email);
   }
 
-  // Protected: Requires authentication (handled by global JwtAuthGuard)
+  // Protected: Requires authentication + allows unverified → verified unonboarded users
+  @AllowUnonboarded()
   @Post('onboarding')
   async onboarding(@Body() body: {
     fullName: string;

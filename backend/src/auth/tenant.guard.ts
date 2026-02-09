@@ -1,5 +1,15 @@
 import { Injectable, CanActivate, ExecutionContext, ForbiddenException } from '@nestjs/common';
 
+/**
+ * TenantGuard - Enforces strict tenant isolation
+ * 
+ * Security principle: The user's tenantId from JWT is the TRUSTED source.
+ * The X-Tenant-ID header is only used for SUPERADMIN cross-tenant operations.
+ * 
+ * Rules:
+ * - SUPERADMIN: Can access any tenant via X-Tenant-ID header
+ * - Regular users: ALWAYS use their JWT tenantId, reject mismatched headers
+ */
 @Injectable()
 export class TenantGuard implements CanActivate {
     canActivate(context: ExecutionContext): boolean {
@@ -7,23 +17,32 @@ export class TenantGuard implements CanActivate {
         const user = request.user;
         const headerTenantId = request.headers['x-tenant-id'];
 
-        // Skip for SUPERADMIN - they can access any tenant
-        if (user?.role === 'SUPERADMIN') {
+        // No user = let other guards handle (probably @Public route)
+        if (!user) {
             return true;
         }
 
-        // For regular users, ensure tenant isolation
-        if (user?.tenantId && headerTenantId) {
-            if (user.tenantId !== headerTenantId) {
-                throw new ForbiddenException('Access denied: Tenant mismatch');
-            }
+        // SUPERADMIN: Can access any tenant
+        if (user.role === 'SUPERADMIN') {
+            // For SUPERADMIN, use header tenantId if provided, otherwise null
+            request.tenantId = headerTenantId || null;
+            return true;
         }
 
-        // If user has tenantId, attach it to request for convenience
-        if (user?.tenantId) {
-            request.tenantId = user.tenantId;
+        // Regular users MUST have a tenantId from their JWT
+        if (!user.tenantId) {
+            throw new ForbiddenException('Access denied: No tenant associated with this user');
         }
+
+        // SECURITY: If client sends a different X-Tenant-ID header, reject immediately
+        if (headerTenantId && headerTenantId !== user.tenantId) {
+            throw new ForbiddenException('Access denied: Tenant mismatch');
+        }
+
+        // ALWAYS use the user's tenantId from JWT (trusted source)
+        request.tenantId = user.tenantId;
 
         return true;
     }
 }
+

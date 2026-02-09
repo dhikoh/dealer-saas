@@ -4,6 +4,7 @@ import { ValidationPipe } from '@nestjs/common';
 import helmet from 'helmet';
 import { JwtAuthGuard } from './auth/jwt-auth.guard';
 import { RolesGuard } from './auth/roles.guard';
+import { UserStateGuard } from './auth/user-state.guard';
 import { TenantGuard } from './auth/tenant.guard';
 
 async function bootstrap() {
@@ -30,17 +31,18 @@ async function bootstrap() {
   );
 
   // ==================== GLOBAL GUARDS ====================
-  // Order: JwtAuthGuard (authenticate) → RolesGuard (authorize) → TenantGuard (isolate)
+  // Order: JwtAuthGuard (authenticate) → UserStateGuard (verify flow completion) → RolesGuard (authorize) → TenantGuard (isolate)
   const reflector = app.get(Reflector);
   app.useGlobalGuards(
-    new JwtAuthGuard(reflector),  // First: Authenticate user (checks @Public)
-    new RolesGuard(reflector),    // Second: Check role permissions
-    new TenantGuard()             // Third: Enforce tenant isolation
+    new JwtAuthGuard(reflector),    // First: Authenticate user (checks @Public)
+    new UserStateGuard(reflector),  // Second: Check user state (isVerified, onboardingCompleted)
+    new RolesGuard(reflector),      // Third: Check role permissions
+    new TenantGuard()               // Fourth: Enforce tenant isolation
   );
 
   await app.listen(process.env.PORT ?? 4000);
   console.log(`🚀 Server running on port ${process.env.PORT ?? 4000}`);
-  console.log(`🔒 Security: Helmet, CORS, Validation, JwtAuthGuard (Global), RolesGuard, TenantGuard enabled`);
+  console.log(`🔒 Security: Helmet, CORS, Validation, JwtAuthGuard, UserStateGuard, RolesGuard, TenantGuard enabled`);
 }
 bootstrap();
 

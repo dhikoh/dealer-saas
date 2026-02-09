@@ -214,6 +214,24 @@ export class AuthService {
     officeAddress: string;
     language: string;
   }) {
+    // SECURITY: Verify user state before allowing onboarding
+    const existingUser = await this.prisma.user.findUnique({
+      where: { id: userId },
+      select: { isVerified: true, onboardingCompleted: true }
+    });
+
+    if (!existingUser) {
+      throw new BadRequestException('User not found');
+    }
+
+    if (!existingUser.isVerified) {
+      throw new ForbiddenException('Email must be verified before completing onboarding');
+    }
+
+    if (existingUser.onboardingCompleted) {
+      throw new BadRequestException('Onboarding already completed');
+    }
+
     const user = await this.prisma.user.update({
       where: { id: userId },
       data: {
@@ -244,13 +262,33 @@ export class AuthService {
 
     let user;
     if (isEmail) {
-      user = await this.prisma.user.findUnique({ where: { email: normalizedIdentifier } });
+      user = await this.prisma.user.findUnique({
+        where: { email: normalizedIdentifier },
+        include: { tenant: true }
+      });
     } else {
-      user = await this.prisma.user.findUnique({ where: { username: normalizedIdentifier } });
+      user = await this.prisma.user.findUnique({
+        where: { username: normalizedIdentifier },
+        include: { tenant: true }
+      });
     }
 
     if (!user) {
       throw new UnauthorizedException('Invalid credentials');
+    }
+
+    // SECURITY: Check if user is temporarily blocked (OTP abuse)
+    if (user.otpBlockedUntil && new Date() < user.otpBlockedUntil) {
+      throw new ForbiddenException('Akun Anda dibekukan sementara. Hubungi Admin via WhatsApp: 087712333434');
+    }
+
+    // SECURITY: Check tenant subscription status
+    if (user.tenant && user.tenant.subscriptionStatus === 'SUSPENDED') {
+      throw new ForbiddenException('Akun dealer Anda telah dinonaktifkan. Hubungi Admin untuk informasi lebih lanjut.');
+    }
+
+    if (user.tenant && user.tenant.subscriptionStatus === 'CANCELLED') {
+      throw new ForbiddenException('Langganan dealer Anda telah dibatalkan. Silakan hubungi Admin.');
     }
 
     const isPasswordValid = await bcrypt.compare(password, user.password);
