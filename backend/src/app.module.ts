@@ -18,6 +18,7 @@ import { SuperadminModule } from './superadmin/superadmin.module';
 import { BillingModule } from './billing/billing.module';
 import { NotificationModule } from './notification/notification.module';
 import { TransactionModule } from './transaction/transaction.module';
+import { HealthModule } from './health/health.module';
 
 @Module({
   imports: [
@@ -40,6 +41,7 @@ import { TransactionModule } from './transaction/transaction.module';
     BillingModule,
     NotificationModule,
     TransactionModule,
+    HealthModule,
   ],
   controllers: [AppController],
   providers: [

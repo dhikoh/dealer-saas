@@ -12,6 +12,7 @@ function VerifyPageContent() {
     const [email, setEmail] = useState('');
     const [code, setCode] = useState(['', '', '', '', '', '']);
     const [isLoading, setIsLoading] = useState(false);
+    const [isResending, setIsResending] = useState(false);
     const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
 
     useEffect(() => {
