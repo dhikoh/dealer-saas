@@ -2,6 +2,7 @@ import {
     Controller,
     Get,
     Param,
+    Query,
     Request,
     Res,
 } from '@nestjs/common';
@@ -62,5 +63,38 @@ export class PdfController {
             res,
         );
     }
-}
 
+    /**
+     * Generate Sales Report PDF
+     * Monthly summary with top brands and recent transactions
+     */
+    @Get('reports/sales')
+    async getSalesReport(
+        @Request() req: any,
+        @Res() res: any,
+        @Query('months') months?: string,
+    ) {
+        return this.pdfService.generateSalesReport(
+            req.user.tenantId,
+            months ? parseInt(months) : 6,
+            res,
+        );
+    }
+
+    /**
+     * Export Sales Data as CSV
+     * Excel-compatible CSV with UTF-8 BOM
+     */
+    @Get('export/sales-csv')
+    async exportSalesCSV(
+        @Request() req: any,
+        @Res() res: any,
+        @Query('months') months?: string,
+    ) {
+        return this.pdfService.generateSalesCSV(
+            req.user.tenantId,
+            months ? parseInt(months) : 6,
+            res,
+        );
+    }
+}

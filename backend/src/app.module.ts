@@ -21,6 +21,7 @@ import { NotificationModule } from './notification/notification.module';
 import { TransactionModule } from './transaction/transaction.module';
 import { HealthModule } from './health/health.module';
 import { UploadModule } from './upload/upload.module';
+import { AnalyticsModule } from './analytics/analytics.module';
 import { configValidationSchema } from './config/config.validation';
 
 @Module({
@@ -54,6 +55,7 @@ import { configValidationSchema } from './config/config.validation';
     TransactionModule,
     HealthModule,
     UploadModule,
+    AnalyticsModule,
   ],
   controllers: [AppController],
   providers: [

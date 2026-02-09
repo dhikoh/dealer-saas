@@ -494,4 +494,223 @@ export class PdfService {
 
         doc.end();
     }
+
+    /**
+     * Generate Sales Report PDF
+     * Monthly sales, top brands, revenue, and performance metrics
+     */
+    async generateSalesReport(
+        tenantId: string,
+        months: number,
+        res: any,
+    ) {
+        const tenant = await this.prisma.tenant.findUnique({
+            where: { id: tenantId },
+        });
+
+        const now = new Date();
+        const startDate = new Date(now.getFullYear(), now.getMonth() - months, 1);
+
+        // Fetch all paid sales in period
+        const transactions = await this.prisma.transaction.findMany({
+            where: {
+                tenantId,
+                type: 'SALE',
+                status: 'PAID',
+                date: { gte: startDate },
+            },
+            include: { vehicle: true, customer: true },
+            orderBy: { date: 'desc' },
+        });
+
+        // Monthly aggregation
+        const monthlyData: Record<string, { count: number; revenue: number }> = {};
+        const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'Mei', 'Jun', 'Jul', 'Agu', 'Sep', 'Okt', 'Nov', 'Des'];
+        for (let i = months - 1; i >= 0; i--) {
+            const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+            const key = `${monthNames[d.getMonth()]} ${d.getFullYear()}`;
+            monthlyData[key] = { count: 0, revenue: 0 };
+        }
+
+        const brandMap = new Map<string, number>();
+        let totalRevenue = 0;
+
+        for (const tx of transactions) {
+            const txDate = new Date(tx.date);
+            const key = `${monthNames[txDate.getMonth()]} ${txDate.getFullYear()}`;
+            if (monthlyData[key]) {
+                monthlyData[key].count += 1;
+                monthlyData[key].revenue += Number(tx.finalPrice || 0);
+            }
+            totalRevenue += Number(tx.finalPrice || 0);
+            const brand = (tx.vehicle as any)?.make || 'Lainnya';
+            brandMap.set(brand, (brandMap.get(brand) || 0) + 1);
+        }
+
+        const topBrands = Array.from(brandMap.entries())
+            .sort((a, b) => b[1] - a[1])
+            .slice(0, 5);
+
+        // Create PDF
+        const doc = new PDFDocument({ margin: 50 });
+
+        res.setHeader('Content-Type', 'application/pdf');
+        res.setHeader(
+            'Content-Disposition',
+            `attachment; filename=Laporan_Penjualan_${new Date().toISOString().split('T')[0]}.pdf`,
+        );
+
+        doc.pipe(res);
+
+        // === HEADER ===
+        doc.fontSize(20).font('Helvetica-Bold')
+            .text(tenant?.name || 'OTOHUB', { align: 'center' });
+        doc.fontSize(12).font('Helvetica')
+            .text('LAPORAN PENJUALAN', { align: 'center' });
+        doc.fontSize(10)
+            .text(`Periode: ${months} bulan terakhir (${this.formatDate(startDate)} - ${this.formatDate(now)})`, { align: 'center' });
+        doc.moveDown();
+
+        // Divider
+        doc.moveTo(50, doc.y).lineTo(550, doc.y).stroke('#00bfa5');
+        doc.moveDown();
+
+        // === SUMMARY ===
+        doc.fontSize(14).font('Helvetica-Bold').text('Ringkasan');
+        doc.moveDown(0.5);
+        doc.fontSize(11).font('Helvetica');
+        doc.text(`Total Transaksi: ${transactions.length} unit`);
+        doc.text(`Total Revenue: ${this.formatCurrency(totalRevenue)}`);
+        doc.text(`Rata-rata per Transaksi: ${this.formatCurrency(transactions.length > 0 ? totalRevenue / transactions.length : 0)}`);
+        doc.moveDown();
+
+        // === MONTHLY TABLE ===
+        doc.fontSize(14).font('Helvetica-Bold').text('Penjualan Bulanan');
+        doc.moveDown(0.5);
+
+        // Table header
+        const tableTop = doc.y;
+        doc.fontSize(10).font('Helvetica-Bold');
+        doc.text('Bulan', 50, tableTop, { width: 150 });
+        doc.text('Unit', 200, tableTop, { width: 100, align: 'center' });
+        doc.text('Revenue', 300, tableTop, { width: 200, align: 'right' });
+        doc.moveDown();
+
+        doc.moveTo(50, doc.y).lineTo(550, doc.y).stroke('#ddd');
+
+        doc.font('Helvetica').fontSize(10);
+        for (const [month, data] of Object.entries(monthlyData)) {
+            const y = doc.y + 5;
+            doc.text(month, 50, y, { width: 150 });
+            doc.text(data.count.toString(), 200, y, { width: 100, align: 'center' });
+            doc.text(this.formatCurrency(data.revenue), 300, y, { width: 200, align: 'right' });
+            doc.moveDown();
+        }
+
+        doc.moveDown();
+
+        // === TOP BRANDS ===
+        if (topBrands.length > 0) {
+            doc.fontSize(14).font('Helvetica-Bold').text('Merek Terlaris');
+            doc.moveDown(0.5);
+            doc.fontSize(10).font('Helvetica');
+            topBrands.forEach(([name, count], i) => {
+                doc.text(`${i + 1}. ${name} — ${count} unit`);
+            });
+            doc.moveDown();
+        }
+
+        // === RECENT TRANSACTIONS ===
+        const recent = transactions.slice(0, 10);
+        if (recent.length > 0) {
+            doc.addPage();
+            doc.fontSize(14).font('Helvetica-Bold').text('10 Transaksi Terakhir');
+            doc.moveDown(0.5);
+
+            const th = doc.y;
+            doc.fontSize(9).font('Helvetica-Bold');
+            doc.text('Tanggal', 50, th, { width: 80 });
+            doc.text('Kendaraan', 130, th, { width: 180 });
+            doc.text('Customer', 310, th, { width: 120 });
+            doc.text('Harga', 430, th, { width: 120, align: 'right' });
+            doc.moveDown();
+            doc.moveTo(50, doc.y).lineTo(550, doc.y).stroke('#ddd');
+
+            doc.font('Helvetica').fontSize(9);
+            for (const tx of recent) {
+                const y = doc.y + 3;
+                const vehicle = tx.vehicle as any;
+                doc.text(this.formatDate(tx.date), 50, y, { width: 80 });
+                doc.text(
+                    `${vehicle?.make || ''} ${vehicle?.model || ''} ${vehicle?.year || ''}`.trim() || '-',
+                    130, y, { width: 180 },
+                );
+                doc.text((tx.customer as any)?.name || '-', 310, y, { width: 120 });
+                doc.text(this.formatCurrency(Number(tx.finalPrice || 0)), 430, y, { width: 120, align: 'right' });
+                doc.moveDown();
+            }
+        }
+
+        // === FOOTER ===
+        doc.moveDown(2);
+        doc.fontSize(8).font('Helvetica')
+            .text(`Dicetak: ${this.formatDate(new Date())} | ${tenant?.name || 'OTOHUB'}`, { align: 'center' });
+
+        doc.end();
+    }
+
+    /**
+     * Generate CSV export of sales transactions
+     */
+    async generateSalesCSV(
+        tenantId: string,
+        months: number,
+        res: any,
+    ) {
+        const startDate = new Date();
+        startDate.setMonth(startDate.getMonth() - months);
+
+        const transactions = await this.prisma.transaction.findMany({
+            where: {
+                tenantId,
+                type: 'SALE',
+                status: 'PAID',
+                date: { gte: startDate },
+            },
+            include: { vehicle: true, customer: true, salesPerson: true },
+            orderBy: { date: 'desc' },
+        });
+
+        // Build CSV
+        const BOM = '\uFEFF'; // UTF-8 BOM for Excel compatibility
+        const headers = ['Tanggal', 'Tipe', 'Merek', 'Model', 'Tahun', 'Plat Nomor', 'Customer', 'Sales', 'Metode Bayar', 'Harga Jual', 'Status'];
+        const rows = transactions.map(tx => {
+            const v = tx.vehicle as any;
+            const c = tx.customer as any;
+            const s = tx.salesPerson as any;
+            return [
+                new Date(tx.date).toLocaleDateString('id-ID'),
+                tx.type,
+                v?.make || '',
+                v?.model || '',
+                v?.year || '',
+                v?.licensePlate || '',
+                c?.name || '',
+                s?.name || '',
+                tx.paymentType,
+                Number(tx.finalPrice || 0),
+                tx.status,
+            ].map(val => `"${String(val).replace(/"/g, '""')}"`).join(',');
+        });
+
+        const csvContent = BOM + [headers.join(','), ...rows].join('\n');
+
+        res.setHeader('Content-Type', 'text/csv; charset=utf-8');
+        res.setHeader(
+            'Content-Disposition',
+            `attachment; filename=Penjualan_OTOHUB_${new Date().toISOString().split('T')[0]}.csv`,
+        );
+        res.send(csvContent);
+    }
 }
+

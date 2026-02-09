@@ -2,6 +2,7 @@ import { NestFactory, Reflector } from '@nestjs/core';
 import { AppModule } from './app.module';
 import { ValidationPipe, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
+import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 import helmet from 'helmet';
 import { JwtAuthGuard } from './auth/jwt-auth.guard';
 import { RolesGuard } from './auth/roles.guard';
@@ -23,9 +24,27 @@ async function bootstrap() {
     prefix: '/uploads/',
   });
 
+  // ==================== SWAGGER API DOCS ====================
+  const swaggerConfig = new DocumentBuilder()
+    .setTitle('OTOHUB API')
+    .setDescription('Dealer Management SaaS Platform API Documentation')
+    .setVersion('1.0')
+    .addBearerAuth()
+    .addTag('auth', 'Authentication & Registration')
+    .addTag('vehicles', 'Vehicle Inventory Management')
+    .addTag('transactions', 'Sales & Purchase Transactions')
+    .addTag('customers', 'Customer Management')
+    .addTag('credit', 'Credit & Installment Management')
+    .addTag('analytics', 'Dashboard Analytics & Reports')
+    .addTag('tenant', 'Tenant & Branch Management')
+    .addTag('upload', 'File Upload')
+    .build();
+  const document = SwaggerModule.createDocument(app, swaggerConfig);
+  SwaggerModule.setup('api-docs', app, document);
+
   // ==================== SECURITY HEADERS ====================
   app.use(helmet({
-    crossOriginResourcePolicy: { policy: 'cross-origin' }, // Allow images to be loaded
+    crossOriginResourcePolicy: { policy: 'cross-origin' },
   }));
 
   // ==================== CORS CONFIGURATION ====================
@@ -62,6 +81,7 @@ async function bootstrap() {
   await app.listen(port);
 
   logger.log(`🚀 Server running on port ${port}`);
+  logger.log(`📄 Swagger docs at http://localhost:${port}/api-docs`);
   logger.log(`📁 Static files served from: ${uploadDir}`);
   logger.log(`🔒 Security: Helmet, CORS, Validation, Guards, ExceptionFilter enabled`);
   logger.log(`🌍 Environment: ${configService.get('NODE_ENV', 'development')}`);
