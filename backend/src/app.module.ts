@@ -1,4 +1,5 @@
 import { MiddlewareConsumer, Module, RequestMethod } from '@nestjs/common';
+import { ConfigModule } from '@nestjs/config';
 import { ThrottlerModule, ThrottlerGuard } from '@nestjs/throttler';
 import { APP_GUARD } from '@nestjs/core';
 import { AppController } from './app.controller';
@@ -19,9 +20,19 @@ import { BillingModule } from './billing/billing.module';
 import { NotificationModule } from './notification/notification.module';
 import { TransactionModule } from './transaction/transaction.module';
 import { HealthModule } from './health/health.module';
+import { UploadModule } from './upload/upload.module';
+import { configValidationSchema } from './config/config.validation';
 
 @Module({
   imports: [
+    // Environment configuration with validation
+    ConfigModule.forRoot({
+      isGlobal: true,
+      validationSchema: configValidationSchema,
+      validationOptions: {
+        abortEarly: false, // Show all validation errors
+      },
+    }),
     // Rate Limiting: 100 requests per 60 seconds per IP
     ThrottlerModule.forRoot([{
       ttl: 60000,
@@ -42,6 +53,7 @@ import { HealthModule } from './health/health.module';
     NotificationModule,
     TransactionModule,
     HealthModule,
+    UploadModule,
   ],
   controllers: [AppController],
   providers: [

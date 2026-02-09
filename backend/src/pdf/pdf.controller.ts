@@ -45,4 +45,22 @@ export class PdfController {
             res,
         );
     }
+
+    /**
+     * Generate Transaction Invoice PDF
+     * Customer-facing invoice for vehicle transaction
+     */
+    @Get('transaction/:transactionId/invoice')
+    async getTransactionInvoice(
+        @Param('transactionId') transactionId: string,
+        @Request() req: any,
+        @Res() res: any,
+    ) {
+        return this.pdfService.generateTransactionInvoice(
+            transactionId,
+            req.user.tenantId,
+            res,
+        );
+    }
 }
+

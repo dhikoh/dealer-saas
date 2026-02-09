@@ -342,4 +342,156 @@ export class PdfService {
 
         doc.end();
     }
+
+    /**
+     * Generate Transaction Invoice PDF
+     * Customer-facing invoice for vehicle sale/purchase
+     */
+    async generateTransactionInvoice(
+        transactionId: string,
+        tenantId: string,
+        res: any,
+    ) {
+        const transaction = await this.prisma.transaction.findFirst({
+            where: { id: transactionId, tenantId },
+            include: {
+                vehicle: true,
+                customer: true,
+                salesPerson: true,
+                credit: true,
+            },
+        }) as any;
+
+        if (!transaction) {
+            throw new Error('Transaction not found');
+        }
+
+        const tenant = await this.prisma.tenant.findUnique({
+            where: { id: tenantId },
+        }) as any;
+
+        const doc = new PDFDocument({ margin: 50 });
+
+        res.setHeader('Content-Type', 'application/pdf');
+        res.setHeader(
+            'Content-Disposition',
+            `attachment; filename=Invoice_${transactionId.slice(0, 8)}.pdf`,
+        );
+
+        doc.pipe(res);
+
+        // === HEADER ===
+        doc.fontSize(20).font('Helvetica-Bold')
+            .text(tenant?.name || 'Auto Dealer', { align: 'center' });
+        doc.moveDown(0.3);
+        doc.fontSize(10).font('Helvetica')
+            .text(tenant?.address || '', { align: 'center' });
+        if (tenant?.phone) {
+            doc.text(`Telp: ${tenant.phone}`, { align: 'center' });
+        }
+        doc.moveDown();
+
+        // === INVOICE TITLE ===
+        doc.fontSize(18).font('Helvetica-Bold')
+            .text('INVOICE', { align: 'center' });
+        doc.moveDown(0.5);
+
+        // Invoice number and date
+        doc.fontSize(10).font('Helvetica');
+        doc.text(`No. Invoice: INV-${transactionId.slice(0, 8).toUpperCase()}`);
+        doc.text(`Tanggal: ${this.formatDate(transaction.date)}`);
+        doc.text(`Tipe Transaksi: ${transaction.type === 'SALE' ? 'Penjualan' : 'Pembelian'}`);
+        doc.moveDown();
+
+        doc.moveTo(50, doc.y).lineTo(550, doc.y).stroke();
+        doc.moveDown();
+
+        // === CUSTOMER INFO ===
+        doc.fontSize(12).font('Helvetica-Bold').text('Kepada:');
+        doc.fontSize(10).font('Helvetica');
+        doc.text(transaction.customer?.name || '-');
+        doc.text(transaction.customer?.address || '');
+        doc.text(`Telp: ${transaction.customer?.phone || '-'}`);
+        doc.moveDown();
+
+        doc.moveTo(50, doc.y).lineTo(550, doc.y).stroke();
+        doc.moveDown();
+
+        // === VEHICLE INFO ===
+        doc.fontSize(12).font('Helvetica-Bold').text('Detail Kendaraan:');
+        doc.moveDown(0.5);
+        doc.fontSize(10).font('Helvetica');
+
+        const v = transaction.vehicle;
+        const vehicleInfo = [
+            ['Merk/Model', `${v?.make || ''} ${v?.model || ''} ${v?.variant || ''}`],
+            ['Tahun', v?.year?.toString() || '-'],
+            ['Warna', v?.color || '-'],
+            ['No. Polisi', v?.licensePlate || '-'],
+            ['No. Rangka', v?.chassisNumber || '-'],
+            ['No. Mesin', v?.engineNumber || '-'],
+        ];
+
+        vehicleInfo.forEach(([label, value]) => {
+            doc.text(`${label}: ${value}`);
+        });
+
+        doc.moveDown();
+        doc.moveTo(50, doc.y).lineTo(550, doc.y).stroke();
+        doc.moveDown();
+
+        // === PAYMENT INFO ===
+        doc.fontSize(12).font('Helvetica-Bold').text('Pembayaran:');
+        doc.moveDown(0.5);
+        doc.fontSize(10).font('Helvetica');
+
+        doc.text(`Metode: ${transaction.paymentType === 'CASH' ? 'Tunai' : 'Kredit'}`);
+
+        if (transaction.paymentType === 'CREDIT' && transaction.credit) {
+            doc.text(`Uang Muka (DP): ${this.formatCurrency(Number(transaction.credit.downPayment))}`);
+            doc.text(`Tenor: ${transaction.credit.tenorMonths} bulan`);
+            doc.text(`Bunga: ${transaction.credit.interestRate}% / tahun`);
+            doc.text(`Cicilan/bulan: ${this.formatCurrency(Number(transaction.credit.monthlyPayment))}`);
+        }
+
+        doc.moveDown();
+
+        // === TOTAL ===
+        doc.moveTo(50, doc.y).lineTo(550, doc.y).stroke();
+        doc.moveDown();
+
+        doc.fontSize(14).font('Helvetica-Bold').text('TOTAL', { align: 'center' });
+        doc.fontSize(24).font('Helvetica-Bold')
+            .text(this.formatCurrency(Number(transaction.finalPrice)), { align: 'center' });
+
+        doc.moveDown();
+
+        // Status
+        const statusText = {
+            PENDING: 'Menunggu Pembayaran',
+            PAID: 'Lunas',
+            CANCELLED: 'Dibatalkan',
+        }[transaction.status] || transaction.status;
+
+        doc.fontSize(12).font('Helvetica-Bold')
+            .text(`Status: ${statusText}`, { align: 'center' });
+
+        doc.moveDown(2);
+
+        // === FOOTER ===
+        doc.fontSize(10).font('Helvetica');
+        doc.text(`Sales: ${transaction.salesPerson?.name || '-'}`, { align: 'right' });
+        doc.moveDown(2);
+
+        doc.fontSize(8)
+            .text('Terima kasih atas kepercayaan Anda', { align: 'center' });
+        doc.text(`Dicetak: ${this.formatDate(new Date())}`, { align: 'center' });
+
+        if (transaction.notes) {
+            doc.moveDown();
+            doc.text(`Catatan: ${transaction.notes}`, { align: 'left' });
+        }
+
+        doc.end();
+    }
 }

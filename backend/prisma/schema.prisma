@@ -190,6 +190,9 @@ model Vehicle {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
+  @@index([tenantId])
+  @@index([tenantId, status])
+  @@index([tenantId, category])
   @@map("vehicles")
 }
 
@@ -221,6 +224,7 @@ model Customer {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
+  @@index([tenantId])
   @@map("customers")
 }
 
@@ -254,6 +258,9 @@ model Transaction {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
+  @@index([tenantId])
+  @@index([tenantId, date])
+  @@index([tenantId, status])
   @@map("transactions")
 }
 
