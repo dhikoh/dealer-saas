@@ -73,6 +73,11 @@ model User {
   verificationCodeExpiresAt DateTime?
   onboardingCompleted     Boolean   @default(false)
 
+  // OTP Rate Limiting
+  otpAttempts     Int      @default(0)
+  otpLastSentAt   DateTime?
+  otpBlockedUntil DateTime?
+
   transactions Transaction[]
 
   createdAt DateTime @default(now())

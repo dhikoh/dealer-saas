@@ -1,4 +1,4 @@
-import { BadRequestException, Injectable, UnauthorizedException } from '@nestjs/common';
+import { BadRequestException, ForbiddenException, HttpException, HttpStatus, Injectable, UnauthorizedException } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateAuthDto } from './dto/create-auth.dto';
@@ -36,11 +36,10 @@ export class AuthService {
       }
 
       // If user exists but NOT verified, we verify if it is the same email
-      // CAUTION: Handling unverified users with conflicting usernames is complex.
-      // For simplicity in this iteration: if verified, block. If not, maybe we should delete or update?
-      // Let's stick to simple "Already in use" for now to be safe, unless it's the exact same email trying to register again.
       if (existingUser.email === normalizedEmail && !existingUser.isVerified) {
-        // Resend OTP logic for same unverified email
+        // Resend OTP logic for same unverified email with Rate Limiting
+        await this.checkOtpRateLimit(existingUser);
+
         const hashedPassword = await bcrypt.hash(password, 10);
         const { code: verificationCode, expiresAt: verificationCodeExpiresAt } = this.generateVerificationCode();
 
@@ -48,12 +47,14 @@ export class AuthService {
           where: { email: normalizedEmail },
           data: {
             password: hashedPassword,
-            username: normalizedUsername, // Update username just in case
-            name: normalizedUsername,   // Reset name to username until onboarding
+            username: normalizedUsername,
+            name: normalizedUsername,
             verificationCode,
             verificationCodeExpiresAt,
             isVerified: false,
-            onboardingCompleted: false
+            onboardingCompleted: false,
+            otpAttempts: { increment: 1 },
+            otpLastSentAt: new Date(),
           }
         });
 
@@ -90,13 +91,15 @@ export class AuthService {
         email: normalizedEmail,
         username: normalizedUsername,
         password: hashedPassword,
-        name: normalizedUsername, // Use username as initial name
+        name: normalizedUsername,
         role,
         tenantId: targetTenantId,
         verificationCode,
         verificationCodeExpiresAt,
         isVerified: false,
-        onboardingCompleted: false
+        onboardingCompleted: false,
+        otpAttempts: 1,
+        otpLastSentAt: new Date()
       }
     });
 
@@ -127,7 +130,9 @@ export class AuthService {
       where: { id: user.id },
       data: {
         isVerified: true,
-        verificationCode: null // Clear code after use
+        verificationCode: null, // Clear code after use
+        otpAttempts: 0, // Reset attempts on success
+        otpBlockedUntil: null
       }
     });
 
@@ -143,138 +148,197 @@ export class AuthService {
     if (!user) throw new BadRequestException('User not found');
     if (user.isVerified) throw new BadRequestException('User already verified');
 
+    // Rate Limiting Check
+    await this.checkOtpRateLimit(user);
+
     const { code: newVerificationCode, expiresAt: newDate } = this.generateVerificationCode();
 
     await this.prisma.user.update({
       where: { email: normalizedEmail },
       data: {
         verificationCode: newVerificationCode,
-        verificationCodeExpiresAt: newDate
+        verificationCodeExpiresAt: newDate,
+        otpAttempts: { increment: 1 },
+        otpLastSentAt: new Date()
       }
     });
 
-    // Send Email
     await this.emailService.sendVerificationEmail(normalizedEmail, newVerificationCode);
-
     return { message: 'Verification code resent' };
   }
 
-  async completeOnboarding(userId: string, data: {
-    fullName: string;
-    phone: string;
-    dealerName: string;
-    birthDate: string; // ISO Date String
-    domicileAddress: string;
-    officeAddress: string;
-    language: string;
-  }) {
-    // Update User and Tenant
-    const user = await this.prisma.user.update({
-      where: { id: userId },
-      data: {
-        name: data.fullName,
-        phone: data.phone,
-        birthDate: data.birthDate ? new Date(data.birthDate) : null,
-        address: data.domicileAddress,
-        language: data.language,
-        onboardingCompleted: true,
-        tenant: {
-          update: {
-            name: data.dealerName,
-            address: data.officeAddress
-          }
-        }
-      },
-      include: { tenant: true }
+  // --- HELPER: Rate Limiting ---
+  private async checkOtpRateLimit(user: any) {
+    // 1. Check if Blocked
+    if (user.otpBlockedUntil && new Date() < user.otpBlockedUntil) {
+      const remainingHours = Math.ceil((user.otpBlockedUntil.getTime() - new Date().getTime()) / (1000 * 60 * 60));
+      throw new ForbiddenException(`Terlalu banyak percobaan. Akun Anda dibekukan sementara selama 24 jam. Hubungi Admin via WhatsApp: 087712333434`);
+    }
+
+    // 2. Check Backoff Time based on Attempts
+    if (user.otpLastSentAt) {
+      const timeSinceLastOtp = new Date().getTime() - user.otpLastSentAt.getTime();
+      const attempts = user.otpAttempts || 0;
+      let minWaitTime = 0; // in milliseconds
+
+      if (attempts >= 1) minWaitTime = 0;        // Attempt number 2 (index 1) -> 0 wait? No, logic says wait starts AFTER attempt.
+      // Logic:
+      // Attempt 1 (0 -> 1): No wait.
+      // Attempt 2 (1 -> 2): Wait 1 min.
+      // Attempt 3 (2 -> 3): Wait 2 min.
+      // Attempt 4 (3 -> 4): Wait 3 min.
+      // Attempt 5 (4 -> 5): BLOCK 24h.
+
+      if (attempts === 1) minWaitTime = 60 * 1000; // 1 min
+      else if (attempts === 2) minWaitTime = 2 * 60 * 1000; // 2 min
+      else if (attempts === 3) minWaitTime = 3 * 60 * 1000; // 3 min
+      else if (attempts >= 4) {
+        // Block User for 24h
+        const blockUntil = new Date(Date.now() + 24 * 60 * 60 * 1000);
+        await this.prisma.user.update({
+          where: { id: user.id },
+          data: { otpBlockedUntil: blockUntil }
+        });
+        throw new ForbiddenException(`Terlalu banyak percobaan. Akun Anda dibekukan sementara selama 24 jam. Hubungi Admin via WhatsApp: 087712333434`);
+      }
+
+      if (timeSinceLastOtp < minWaitTime) {
+        const remainingSeconds = Math.ceil((minWaitTime - timeSinceLastOtp) / 1000);
+        throw new HttpException({
+          status: HttpStatus.TOO_MANY_REQUESTS,
+          error: 'Rate Limit Exceeded',
+          message: `Mohon tunggu ${remainingSeconds} detik sebelum meminta kode baru.`,
+          retryAfter: remainingSeconds
+        }, HttpStatus.TOO_MANY_REQUESTS);
+      }
+    }
+  } verificationCode: newVerificationCode,
+  verificationCodeExpiresAt: newDate
+}
     });
 
-    // Re-issue token with updated info using the standard method
-    return this.createToken(user);
+// Send Email
+await this.emailService.sendVerificationEmail(normalizedEmail, newVerificationCode);
+
+return { message: 'Verification code resent' };
   }
+
+  async completeOnboarding(userId: string, data: {
+  fullName: string;
+  phone: string;
+  dealerName: string;
+  birthDate: string; // ISO Date String
+  domicileAddress: string;
+  officeAddress: string;
+  language: string;
+}) {
+  // Update User and Tenant
+  const user = await this.prisma.user.update({
+    where: { id: userId },
+    data: {
+      name: data.fullName,
+      phone: data.phone,
+      birthDate: data.birthDate ? new Date(data.birthDate) : null,
+      address: data.domicileAddress,
+      language: data.language,
+      onboardingCompleted: true,
+      tenant: {
+        update: {
+          name: data.dealerName,
+          address: data.officeAddress
+        }
+      }
+    },
+    include: { tenant: true }
+  });
+
+  // Re-issue token with updated info using the standard method
+  return this.createToken(user);
+}
 
   async login(loginDto: any) {
-    const { email, password } = loginDto; // email field contains identifier (email or username)
-    const normalizedIdentifier = email.toLowerCase();
+  const { email, password } = loginDto; // email field contains identifier (email or username)
+  const normalizedIdentifier = email.toLowerCase();
 
-    const isEmail = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(normalizedIdentifier);
+  const isEmail = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(normalizedIdentifier);
 
-    let user;
-    if (isEmail) {
-      user = await this.prisma.user.findUnique({ where: { email: normalizedIdentifier } });
-    } else {
-      user = await this.prisma.user.findUnique({ where: { username: normalizedIdentifier } });
-    }
-
-    if (!user) {
-      throw new UnauthorizedException('Invalid credentials');
-    }
-
-    const isPasswordValid = await bcrypt.compare(password, user.password);
-
-    if (!isPasswordValid) {
-      throw new UnauthorizedException('Invalid credentials');
-    }
-
-    return this.createToken(user);
+  let user;
+  if (isEmail) {
+    user = await this.prisma.user.findUnique({ where: { email: normalizedIdentifier } });
+  } else {
+    user = await this.prisma.user.findUnique({ where: { username: normalizedIdentifier } });
   }
 
+  if (!user) {
+    throw new UnauthorizedException('Invalid credentials');
+  }
+
+  const isPasswordValid = await bcrypt.compare(password, user.password);
+
+  if (!isPasswordValid) {
+    throw new UnauthorizedException('Invalid credentials');
+  }
+
+  return this.createToken(user);
+}
+
   private createToken(user: any) {
-    const payload = {
-      sub: user.id,
+  const payload = {
+    sub: user.id,
+    email: user.email,
+    role: user.role,
+    tenantId: user.tenantId,
+    isVerified: user.isVerified,
+    onboardingCompleted: user.onboardingCompleted
+  };
+  return {
+    access_token: this.jwtService.sign(payload),
+    user: {
+      id: user.id,
+      name: user.name,
       email: user.email,
       role: user.role,
       tenantId: user.tenantId,
       isVerified: user.isVerified,
       onboardingCompleted: user.onboardingCompleted
-    };
-    return {
-      access_token: this.jwtService.sign(payload),
-      user: {
-        id: user.id,
-        name: user.name,
-        email: user.email,
-        role: user.role,
-        tenantId: user.tenantId,
-        isVerified: user.isVerified,
-        onboardingCompleted: user.onboardingCompleted
-      },
-    };
-  }
+    },
+  };
+}
 
   // Change password for authenticated user
   async changePassword(userId: string, currentPassword: string, newPassword: string) {
-    const user = await this.prisma.user.findUnique({
-      where: { id: userId },
-    });
+  const user = await this.prisma.user.findUnique({
+    where: { id: userId },
+  });
 
-    if (!user) {
-      throw new BadRequestException('User tidak ditemukan');
-    }
-
-    // Verify current password
-    const isPasswordValid = await bcrypt.compare(currentPassword, user.password);
-    if (!isPasswordValid) {
-      throw new BadRequestException('Password saat ini salah');
-    }
-
-    // Validate new password
-    if (newPassword.length < 6) {
-      throw new BadRequestException('Password baru minimal 6 karakter');
-    }
-
-    // Hash and update password
-    const hashedPassword = await bcrypt.hash(newPassword, 10);
-    await this.prisma.user.update({
-      where: { id: userId },
-      data: { password: hashedPassword },
-    });
-
-    return { success: true, message: 'Password berhasil diubah' };
+  if (!user) {
+    throw new BadRequestException('User tidak ditemukan');
   }
+
+  // Verify current password
+  const isPasswordValid = await bcrypt.compare(currentPassword, user.password);
+  if (!isPasswordValid) {
+    throw new BadRequestException('Password saat ini salah');
+  }
+
+  // Validate new password
+  if (newPassword.length < 6) {
+    throw new BadRequestException('Password baru minimal 6 karakter');
+  }
+
+  // Hash and update password
+  const hashedPassword = await bcrypt.hash(newPassword, 10);
+  await this.prisma.user.update({
+    where: { id: userId },
+    data: { password: hashedPassword },
+  });
+
+  return { success: true, message: 'Password berhasil diubah' };
+}
 
   private generateVerificationCode(): { code: string; expiresAt: Date } {
-    const code = Math.floor(100000 + Math.random() * 900000).toString();
-    const expiresAt = new Date(Date.now() + 15 * 60 * 1000); // 15 minutes
-    return { code, expiresAt };
-  }
+  const code = Math.floor(100000 + Math.random() * 900000).toString();
+  const expiresAt = new Date(Date.now() + 15 * 60 * 1000); // 15 minutes
+  return { code, expiresAt };
+}
 }
