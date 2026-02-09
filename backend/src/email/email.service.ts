@@ -67,7 +67,7 @@ export class EmailService {
         if (this.transporter) {
             try {
                 const info = await this.transporter.sendMail({
-                    from: '"OTOHUB System" <no-reply@otohub.com>',
+                    from: `"OTOHUB System" <${process.env.SMTP_USER || 'no-reply@otohub.com'}>`,
                     to,
                     subject,
                     html,
