@@ -7,14 +7,12 @@ import {
     Body,
     Param,
     Query,
-    UseGuards,
     Request,
 } from '@nestjs/common';
 import { TransactionService } from './transaction.service';
-import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 
+// Protected by global JwtAuthGuard
 @Controller('transactions')
-@UseGuards(JwtAuthGuard)
 export class TransactionController {
     constructor(private readonly transactionService: TransactionService) { }
 

@@ -1,36 +1,40 @@
-import { Controller, Post, Body, HttpCode, HttpStatus, UseGuards, Get, Request } from '@nestjs/common';
+import { Controller, Post, Body, HttpCode, HttpStatus, Request } from '@nestjs/common';
 import { AuthService } from './auth.service';
 import { CreateAuthDto } from './dto/create-auth.dto';
-import { JwtAuthGuard } from './jwt-auth.guard';
+import { Public } from './public.decorator';
 
 @Controller('auth')
 export class AuthController {
   constructor(private readonly authService: AuthService) { }
 
+  @Public()
   @Post('register')
   register(@Body() createAuthDto: CreateAuthDto) {
     return this.authService.register(createAuthDto);
   }
 
+  @Public()
   @HttpCode(HttpStatus.OK)
   @Post('login')
   login(@Body() loginDto: Record<string, any>) {
     return this.authService.login(loginDto);
   }
 
+  @Public()
   @HttpCode(HttpStatus.OK)
   @Post('verify')
   verify(@Body() body: { email: string; code: string }) {
     return this.authService.verifyEmail(body.email, body.code);
   }
 
+  @Public()
   @HttpCode(HttpStatus.OK)
   @Post('resend-otp')
   resendOtp(@Body() body: { email: string }) {
     return this.authService.resendVerificationCode(body.email);
   }
 
-  @UseGuards(JwtAuthGuard)
+  // Protected: Requires authentication (handled by global JwtAuthGuard)
   @Post('onboarding')
   async onboarding(@Body() body: {
     fullName: string;
@@ -52,7 +56,7 @@ export class AuthController {
     });
   }
 
-  @UseGuards(JwtAuthGuard)
+  // Protected: Requires authentication
   @HttpCode(HttpStatus.OK)
   @Post('change-password')
   async changePassword(
@@ -62,3 +66,4 @@ export class AuthController {
     return this.authService.changePassword(req.user.sub, body.currentPassword, body.newPassword);
   }
 }
+

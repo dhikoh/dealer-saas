@@ -2,15 +2,13 @@ import {
     Controller,
     Get,
     Param,
-    UseGuards,
     Request,
     Res,
 } from '@nestjs/common';
 import { PdfService } from './pdf.service';
-import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 
+// Protected by global JwtAuthGuard
 @Controller('pdf')
-@UseGuards(JwtAuthGuard)
 export class PdfController {
     constructor(private readonly pdfService: PdfService) { }
 

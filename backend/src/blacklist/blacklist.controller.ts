@@ -5,12 +5,11 @@ import {
     Delete,
     Body,
     Param,
-    UseGuards,
     Request,
 } from '@nestjs/common';
 import { BlacklistService } from './blacklist.service';
-import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 
+// Protected by global JwtAuthGuard
 @Controller('blacklist')
 export class BlacklistController {
     constructor(private readonly blacklistService: BlacklistService) { }
@@ -18,13 +17,11 @@ export class BlacklistController {
     // ==================== TENANT-SPECIFIC (Protected) ====================
 
     @Get()
-    @UseGuards(JwtAuthGuard)
     findAll(@Request() req) {
         return this.blacklistService.findAllByTenant(req.user.tenantId);
     }
 
     @Post()
-    @UseGuards(JwtAuthGuard)
     create(
         @Request() req,
         @Body() data: {
@@ -38,7 +35,6 @@ export class BlacklistController {
     }
 
     @Delete(':ktp')
-    @UseGuards(JwtAuthGuard)
     delete(@Param('ktp') ktpNumber: string, @Request() req) {
         return this.blacklistService.delete(ktpNumber, req.user.tenantId);
     }
@@ -46,8 +42,8 @@ export class BlacklistController {
     // ==================== CROSS-TENANT CHECK (For all registered dealers) ====================
 
     @Get('check/:ktp')
-    @UseGuards(JwtAuthGuard)  // Only registered dealers can access
     checkBlacklist(@Param('ktp') ktpNumber: string) {
         return this.blacklistService.checkBlacklist(ktpNumber);
     }
 }
+

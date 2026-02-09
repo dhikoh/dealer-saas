@@ -1,9 +1,8 @@
-import { Controller, Get, Patch, Post, Put, Delete, Body, UseGuards, Request, Param } from '@nestjs/common';
+import { Controller, Get, Patch, Post, Put, Delete, Body, Request, Param } from '@nestjs/common';
 import { TenantService } from './tenant.service';
-import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 
+// Protected by global JwtAuthGuard
 @Controller('tenant')
-@UseGuards(JwtAuthGuard)
 export class TenantController {
   constructor(private readonly tenantService: TenantService) { }
 

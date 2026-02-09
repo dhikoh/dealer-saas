@@ -5,14 +5,12 @@ import {
     Body,
     Param,
     Query,
-    UseGuards,
     Request,
 } from '@nestjs/common';
 import { CreditService } from './credit.service';
-import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 
+// Protected by global JwtAuthGuard
 @Controller('credit')
-@UseGuards(JwtAuthGuard)
 export class CreditController {
     constructor(private readonly creditService: CreditService) { }
 

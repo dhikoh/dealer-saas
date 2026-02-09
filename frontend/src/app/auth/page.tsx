@@ -8,6 +8,18 @@ import { faEnvelope as faEnvelopeReg, faUser as faUserReg } from '@fortawesome/f
 import { useRouter } from 'next/navigation';
 import { toast } from 'sonner';
 
+// Helper to set auth cookie for middleware
+function setAuthCookie(token: string) {
+    // Set cookie with 7 days expiry (matching typical JWT expiry)
+    const expires = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toUTCString();
+    document.cookie = `auth_token=${token}; expires=${expires}; path=/; SameSite=Lax`;
+}
+
+// Helper to clear auth cookie
+function clearAuthCookie() {
+    document.cookie = 'auth_token=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;';
+}
+
 type LangCode = 'id' | 'en' | 'th' | 'ph' | 'vi';
 type FormType = 'login' | 'signup' | 'forgot';
 
@@ -316,6 +328,7 @@ export default function AuthPage() {
                 const data = await res.json();
                 localStorage.setItem('access_token', data.access_token);
                 localStorage.setItem('user_info', JSON.stringify(data.user));
+                setAuthCookie(data.access_token); // Set cookie for middleware
 
                 if (rememberMe) {
                     localStorage.setItem('remember_me', 'true');
@@ -355,6 +368,7 @@ export default function AuthPage() {
                 const data = await res.json();
                 localStorage.setItem('access_token', data.access_token);
                 localStorage.setItem('user_info', JSON.stringify(data.user));
+                setAuthCookie(data.access_token); // Set cookie for middleware
 
                 toast.success(t.alert_signup);
 

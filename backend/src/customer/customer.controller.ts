@@ -7,14 +7,12 @@ import {
     Body,
     Param,
     Query,
-    UseGuards,
     Request,
 } from '@nestjs/common';
 import { CustomerService } from './customer.service';
-import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 
+// Protected by global JwtAuthGuard
 @Controller('customers')
-@UseGuards(JwtAuthGuard)
 export class CustomerController {
     constructor(private readonly customerService: CustomerService) { }
 

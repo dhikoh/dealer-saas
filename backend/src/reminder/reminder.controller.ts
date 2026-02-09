@@ -1,15 +1,13 @@
 import {
     Controller,
     Get,
-    UseGuards,
     Request,
     Query,
 } from '@nestjs/common';
 import { ReminderService } from './reminder.service';
-import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 
+// Protected by global JwtAuthGuard
 @Controller('reminders')
-@UseGuards(JwtAuthGuard)
 export class ReminderController {
     constructor(private readonly reminderService: ReminderService) { }
 

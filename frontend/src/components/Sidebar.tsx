@@ -142,6 +142,7 @@ export default function Sidebar() {
                     onClick={() => {
                         localStorage.removeItem('access_token');
                         localStorage.removeItem('user_info');
+                        document.cookie = 'auth_token=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;'; // Clear auth cookie
                         window.location.href = '/auth';
                     }}
                     className={`w-full flex items-center gap-3 px-5 py-3 rounded-xl text-red-500 transition-all duration-300 ${theme === 'dark'

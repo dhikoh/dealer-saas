@@ -72,6 +72,7 @@ export default function SuperadminLayout({
     const handleLogout = () => {
         localStorage.removeItem('access_token');
         localStorage.removeItem('user_info');
+        document.cookie = 'auth_token=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;'; // Clear auth cookie
         router.push('/auth');
     };
 

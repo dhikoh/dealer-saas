@@ -7,14 +7,12 @@ import {
     Body,
     Param,
     Query,
-    UseGuards,
     Request,
 } from '@nestjs/common';
 import { VehicleService } from './vehicle.service';
-import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 
+// Protected by global JwtAuthGuard - no need for @UseGuards
 @Controller('vehicles')
-@UseGuards(JwtAuthGuard)
 export class VehicleController {
     constructor(private readonly vehicleService: VehicleService) { }
 

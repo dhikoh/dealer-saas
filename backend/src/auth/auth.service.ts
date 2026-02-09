@@ -171,7 +171,6 @@ export class AuthService {
   private async checkOtpRateLimit(user: any) {
     // 1. Check if Blocked
     if (user.otpBlockedUntil && new Date() < user.otpBlockedUntil) {
-      const remainingHours = Math.ceil((user.otpBlockedUntil.getTime() - new Date().getTime()) / (1000 * 60 * 60));
       throw new ForbiddenException(`Terlalu banyak percobaan. Akun Anda dibekukan sementara selama 24 jam. Hubungi Admin via WhatsApp: 087712333434`);
     }
 
@@ -180,14 +179,6 @@ export class AuthService {
       const timeSinceLastOtp = new Date().getTime() - user.otpLastSentAt.getTime();
       const attempts = user.otpAttempts || 0;
       let minWaitTime = 0; // in milliseconds
-
-      if (attempts >= 1) minWaitTime = 0;        // Attempt number 2 (index 1) -> 0 wait? No, logic says wait starts AFTER attempt.
-      // Logic:
-      // Attempt 1 (0 -> 1): No wait.
-      // Attempt 2 (1 -> 2): Wait 1 min.
-      // Attempt 3 (2 -> 3): Wait 2 min.
-      // Attempt 4 (3 -> 4): Wait 3 min.
-      // Attempt 5 (4 -> 5): BLOCK 24h.
 
       if (attempts === 1) minWaitTime = 60 * 1000; // 1 min
       else if (attempts === 2) minWaitTime = 2 * 60 * 1000; // 2 min
@@ -212,133 +203,121 @@ export class AuthService {
         }, HttpStatus.TOO_MANY_REQUESTS);
       }
     }
-  } verificationCode: newVerificationCode,
-  verificationCodeExpiresAt: newDate
-}
-    });
-
-// Send Email
-await this.emailService.sendVerificationEmail(normalizedEmail, newVerificationCode);
-
-return { message: 'Verification code resent' };
   }
 
   async completeOnboarding(userId: string, data: {
-  fullName: string;
-  phone: string;
-  dealerName: string;
-  birthDate: string; // ISO Date String
-  domicileAddress: string;
-  officeAddress: string;
-  language: string;
-}) {
-  // Update User and Tenant
-  const user = await this.prisma.user.update({
-    where: { id: userId },
-    data: {
-      name: data.fullName,
-      phone: data.phone,
-      birthDate: data.birthDate ? new Date(data.birthDate) : null,
-      address: data.domicileAddress,
-      language: data.language,
-      onboardingCompleted: true,
-      tenant: {
-        update: {
-          name: data.dealerName,
-          address: data.officeAddress
+    fullName: string;
+    phone: string;
+    dealerName: string;
+    birthDate: string;
+    domicileAddress: string;
+    officeAddress: string;
+    language: string;
+  }) {
+    const user = await this.prisma.user.update({
+      where: { id: userId },
+      data: {
+        name: data.fullName,
+        phone: data.phone,
+        birthDate: data.birthDate ? new Date(data.birthDate) : null,
+        address: data.domicileAddress,
+        language: data.language,
+        onboardingCompleted: true,
+        tenant: {
+          update: {
+            name: data.dealerName,
+            address: data.officeAddress
+          }
         }
-      }
-    },
-    include: { tenant: true }
-  });
+      },
+      include: { tenant: true }
+    });
 
-  // Re-issue token with updated info using the standard method
-  return this.createToken(user);
-}
+    return this.createToken(user);
+  }
 
   async login(loginDto: any) {
-  const { email, password } = loginDto; // email field contains identifier (email or username)
-  const normalizedIdentifier = email.toLowerCase();
+    const { email, password } = loginDto;
+    const normalizedIdentifier = email.toLowerCase();
 
-  const isEmail = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(normalizedIdentifier);
+    const isEmail = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(normalizedIdentifier);
 
-  let user;
-  if (isEmail) {
-    user = await this.prisma.user.findUnique({ where: { email: normalizedIdentifier } });
-  } else {
-    user = await this.prisma.user.findUnique({ where: { username: normalizedIdentifier } });
+    let user;
+    if (isEmail) {
+      user = await this.prisma.user.findUnique({ where: { email: normalizedIdentifier } });
+    } else {
+      user = await this.prisma.user.findUnique({ where: { username: normalizedIdentifier } });
+    }
+
+    if (!user) {
+      throw new UnauthorizedException('Invalid credentials');
+    }
+
+    const isPasswordValid = await bcrypt.compare(password, user.password);
+
+    if (!isPasswordValid) {
+      throw new UnauthorizedException('Invalid credentials');
+    }
+
+    return this.createToken(user);
   }
-
-  if (!user) {
-    throw new UnauthorizedException('Invalid credentials');
-  }
-
-  const isPasswordValid = await bcrypt.compare(password, user.password);
-
-  if (!isPasswordValid) {
-    throw new UnauthorizedException('Invalid credentials');
-  }
-
-  return this.createToken(user);
-}
 
   private createToken(user: any) {
-  const payload = {
-    sub: user.id,
-    email: user.email,
-    role: user.role,
-    tenantId: user.tenantId,
-    isVerified: user.isVerified,
-    onboardingCompleted: user.onboardingCompleted
-  };
-  return {
-    access_token: this.jwtService.sign(payload),
-    user: {
-      id: user.id,
-      name: user.name,
+    const payload = {
+      sub: user.id,
       email: user.email,
       role: user.role,
       tenantId: user.tenantId,
       isVerified: user.isVerified,
       onboardingCompleted: user.onboardingCompleted
-    },
-  };
-}
+    };
+    return {
+      access_token: this.jwtService.sign(payload),
+      user: {
+        id: user.id,
+        name: user.name,
+        email: user.email,
+        role: user.role,
+        tenantId: user.tenantId,
+        isVerified: user.isVerified,
+        onboardingCompleted: user.onboardingCompleted
+      },
+    };
+  }
 
-  // Change password for authenticated user
   async changePassword(userId: string, currentPassword: string, newPassword: string) {
-  const user = await this.prisma.user.findUnique({
-    where: { id: userId },
-  });
+    const user = await this.prisma.user.findUnique({
+      where: { id: userId },
+    });
 
-  if (!user) {
-    throw new BadRequestException('User tidak ditemukan');
+    if (!user) {
+      throw new BadRequestException('User tidak ditemukan');
+    }
+
+    // Verify current password
+    const isPasswordValid = await bcrypt.compare(currentPassword, user.password);
+    if (!isPasswordValid) {
+      throw new BadRequestException('Password saat ini salah');
+    }
+
+    // Validate new password
+    if (newPassword.length < 6) {
+      throw new BadRequestException('Password baru minimal 6 karakter');
+    }
+
+    // Hash and update password
+    const hashedPassword = await bcrypt.hash(newPassword, 10);
+    await this.prisma.user.update({
+      where: { id: userId },
+      data: { password: hashedPassword },
+    });
+
+    return { success: true, message: 'Password berhasil diubah' };
   }
-
-  // Verify current password
-  const isPasswordValid = await bcrypt.compare(currentPassword, user.password);
-  if (!isPasswordValid) {
-    throw new BadRequestException('Password saat ini salah');
-  }
-
-  // Validate new password
-  if (newPassword.length < 6) {
-    throw new BadRequestException('Password baru minimal 6 karakter');
-  }
-
-  // Hash and update password
-  const hashedPassword = await bcrypt.hash(newPassword, 10);
-  await this.prisma.user.update({
-    where: { id: userId },
-    data: { password: hashedPassword },
-  });
-
-  return { success: true, message: 'Password berhasil diubah' };
-}
 
   private generateVerificationCode(): { code: string; expiresAt: Date } {
-  const code = Math.floor(100000 + Math.random() * 900000).toString();
-  const expiresAt = new Date(Date.now() + 15 * 60 * 1000); // 15 minutes
-  return { code, expiresAt };
-}
+    const code = Math.floor(100000 + Math.random() * 900000).toString();
+    const expiresAt = new Date(Date.now() + 15 * 60 * 1000); // 15 minutes
+    return { code, expiresAt };
+  }
 }

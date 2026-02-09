@@ -1,22 +1,25 @@
 import { Controller, Get, Post, Patch, Param, Body, UseGuards } from '@nestjs/common';
 import { BillingService } from './billing.service';
-import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { RolesGuard } from '../auth/roles.guard';
 import { Roles } from '../auth/roles.decorator';
+import { Public } from '../auth/public.decorator';
 
+// Protected by global JwtAuthGuard (except @Public routes)
 @Controller('billing')
 export class BillingController {
     constructor(private readonly billingService: BillingService) { }
 
-    // ==================== PUBLIC (Authorized Users) ====================
+    // ==================== PUBLIC ====================
 
+    @Public()
     @Get('plans')
     getAllPlans() {
         return this.billingService.getAllPlans();
     }
 
+    // ==================== AUTHORIZED USERS ====================
+
     @Get('status/:tenantId')
-    @UseGuards(JwtAuthGuard)
     async getSubscriptionStatus(@Param('tenantId') tenantId: string) {
         return this.billingService.checkSubscriptionStatus(tenantId);
     }
@@ -24,28 +27,28 @@ export class BillingController {
     // ==================== SUPERADMIN ONLY ====================
 
     @Get('admin/stats')
-    @UseGuards(JwtAuthGuard, RolesGuard)
+    @UseGuards(RolesGuard)
     @Roles('SUPERADMIN')
     async getBillingStats() {
         return this.billingService.getBillingStats();
     }
 
     @Get('admin/distribution')
-    @UseGuards(JwtAuthGuard, RolesGuard)
+    @UseGuards(RolesGuard)
     @Roles('SUPERADMIN')
     async getPlanDistribution() {
         return this.billingService.getPlanDistribution();
     }
 
     @Post('admin/generate-invoices')
-    @UseGuards(JwtAuthGuard, RolesGuard)
+    @UseGuards(RolesGuard)
     @Roles('SUPERADMIN')
     async generateMonthlyInvoices() {
         return this.billingService.generateMonthlyInvoices();
     }
 
     @Patch('admin/invoice/:invoiceId/verify')
-    @UseGuards(JwtAuthGuard, RolesGuard)
+    @UseGuards(RolesGuard)
     @Roles('SUPERADMIN')
     async verifyPayment(
         @Param('invoiceId') invoiceId: string,
@@ -55,7 +58,7 @@ export class BillingController {
     }
 
     @Patch('admin/tenant/:tenantId/upgrade')
-    @UseGuards(JwtAuthGuard, RolesGuard)
+    @UseGuards(RolesGuard)
     @Roles('SUPERADMIN')
     async upgradePlan(
         @Param('tenantId') tenantId: string,
@@ -65,7 +68,7 @@ export class BillingController {
     }
 
     @Patch('admin/tenant/:tenantId/downgrade')
-    @UseGuards(JwtAuthGuard, RolesGuard)
+    @UseGuards(RolesGuard)
     @Roles('SUPERADMIN')
     async downgradePlan(
         @Param('tenantId') tenantId: string,
@@ -75,9 +78,10 @@ export class BillingController {
     }
 
     @Get('admin/expired-trials')
-    @UseGuards(JwtAuthGuard, RolesGuard)
+    @UseGuards(RolesGuard)
     @Roles('SUPERADMIN')
     async getExpiredTrials() {
         return this.billingService.getExpiredTrials();
     }
 }
+
