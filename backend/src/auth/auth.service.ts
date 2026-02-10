@@ -109,7 +109,7 @@ export class AuthService {
         });
 
         await this.emailService.sendVerificationEmail(normalizedEmail, verificationCode);
-        return this.createToken(updatedUser);
+        return await this.createToken(updatedUser);
       }
 
       throw new BadRequestException('Email atau Username sudah terdaftar');
@@ -155,7 +155,7 @@ export class AuthService {
 
     await this.emailService.sendVerificationEmail(normalizedEmail, verificationCode);
 
-    return this.createToken(user);
+    return await this.createToken(user);
   }
 
   async verifyEmail(email: string, code: string) {
@@ -301,7 +301,7 @@ export class AuthService {
       include: { tenant: true }
     });
 
-    return this.createToken(user);
+    return await this.createToken(user);
   }
 
   async login(loginDto: any) {
@@ -365,10 +365,10 @@ export class AuthService {
       });
     }
 
-    return this.createToken(user);
+    return await this.createToken(user);
   }
 
-  private createToken(user: any) {
+  private async createToken(user: any) {
     const payload = {
       sub: user.id,
       email: user.email,
@@ -377,8 +377,22 @@ export class AuthService {
       isVerified: user.isVerified,
       onboardingCompleted: user.onboardingCompleted
     };
+
+    // Generate refresh token (UUID, 7 day expiry)
+    const refreshTokenValue = randomBytes(40).toString('hex');
+    const refreshExpiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000); // 7 days
+
+    await this.prisma.refreshToken.create({
+      data: {
+        token: refreshTokenValue,
+        userId: user.id,
+        expiresAt: refreshExpiresAt,
+      },
+    });
+
     return {
       access_token: this.jwtService.sign(payload),
+      refresh_token: refreshTokenValue,
       user: {
         id: user.id,
         name: user.name,
@@ -389,6 +403,49 @@ export class AuthService {
         onboardingCompleted: user.onboardingCompleted
       },
     };
+  }
+
+  // ==================== REFRESH TOKEN ====================
+
+  async refreshToken(token: string) {
+    if (!token) {
+      throw new UnauthorizedException('Refresh token diperlukan');
+    }
+
+    const storedToken = await this.prisma.refreshToken.findUnique({
+      where: { token },
+      include: { user: { include: { tenant: true } } },
+    });
+
+    if (!storedToken) {
+      throw new UnauthorizedException('Refresh token tidak valid');
+    }
+
+    if (new Date() > storedToken.expiresAt) {
+      // Token expired — delete it and reject
+      await this.prisma.refreshToken.delete({ where: { id: storedToken.id } });
+      throw new UnauthorizedException('Refresh token sudah kadaluarsa');
+    }
+
+    // Token rotation: delete old token
+    await this.prisma.refreshToken.delete({ where: { id: storedToken.id } });
+
+    // Create new tokens
+    return this.createToken(storedToken.user);
+  }
+
+  async logout(refreshTokenValue: string) {
+    if (!refreshTokenValue) return { success: true };
+
+    try {
+      await this.prisma.refreshToken.deleteMany({
+        where: { token: refreshTokenValue },
+      });
+    } catch {
+      // Token might not exist, that's fine
+    }
+
+    return { success: true, message: 'Berhasil logout' };
   }
 
   // ==================== GOOGLE OAUTH ====================
@@ -441,7 +498,7 @@ export class AuthService {
         throw new ForbiddenException('Langganan dealer Anda telah dibatalkan.');
       }
 
-      return this.createToken(user);
+      return await this.createToken(user);
     }
 
     // New user — create account + tenant (same as register flow)
@@ -478,7 +535,7 @@ export class AuthService {
       include: { tenant: true },
     });
 
-    return this.createToken(newUser);
+    return await this.createToken(newUser);
   }
 
   // ==================== FORGOT PASSWORD ====================

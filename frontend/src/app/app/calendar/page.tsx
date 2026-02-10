@@ -3,6 +3,7 @@
 import React, { useState, useEffect } from 'react';
 import { ChevronLeft, ChevronRight, Plus, Clock, Car, DollarSign, Users, AlertTriangle, X } from 'lucide-react';
 import { toast } from 'sonner';
+import { API_URL } from '@/lib/api';
 
 interface CalendarEvent {
     id: string;
@@ -59,7 +60,7 @@ export default function CalendarPage() {
         const fetchReminders = async () => {
             try {
                 const token = localStorage.getItem('access_token');
-                const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000'}/reminders`, {
+                const res = await fetch(`${API_URL}/reminders`, {
                     headers: { 'Authorization': `Bearer ${token}` }
                 });
 

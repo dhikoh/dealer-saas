@@ -14,7 +14,7 @@ interface Staff {
     createdAt: string;
 }
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
+import { API_URL } from '@/lib/api';
 
 const ROLES = [
     { id: 'OWNER', name: 'Owner', desc: 'Akses penuh', color: 'purple' },

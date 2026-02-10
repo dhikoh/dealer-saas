@@ -2,6 +2,7 @@
 
 import React, { useEffect, useState } from 'react';
 import { Search, MoreHorizontal, Eye, Power, PowerOff, ArrowUpCircle, X, Building2, Users, Car, ShoppingCart } from 'lucide-react';
+import { API_URL } from '@/lib/api';
 
 interface Tenant {
     id: string;
@@ -74,7 +75,7 @@ export default function TenantsPage() {
             if (search) params.append('search', search);
 
             const res = await fetch(
-                `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000'}/superadmin/tenants?${params}`,
+                `${API_URL}/superadmin/tenants?${params}`,
                 { headers: { 'Authorization': `Bearer ${token}` } }
             );
 
@@ -97,7 +98,7 @@ export default function TenantsPage() {
 
             const body = action === 'upgrade' ? { planTier: 'PRO' } : { reason: 'Admin action' };
 
-            await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000'}${endpoint}`, {
+            await fetch(`${API_URL}${endpoint}`, {
                 method: 'POST',
                 headers: {
                     'Authorization': `Bearer ${token}`,

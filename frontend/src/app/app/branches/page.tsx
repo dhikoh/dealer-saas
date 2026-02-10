@@ -4,6 +4,7 @@ import React, { useEffect, useState } from 'react';
 import { Plus, Search, Edit2, Trash2, MapPin, Building, Phone, Users, X, Check, Crown, AlertTriangle } from 'lucide-react';
 import Link from 'next/link';
 import { toast } from 'sonner';
+import { API_URL } from '@/lib/api';
 
 interface Branch {
     id: string;
@@ -38,7 +39,7 @@ export default function BranchesPage() {
     const checkPlanStatus = async () => {
         try {
             const token = localStorage.getItem('access_token');
-            const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000'}/tenant/profile`, {
+            const res = await fetch(`${API_URL}/tenant/profile`, {
                 headers: { 'Authorization': `Bearer ${token}` }
             });
             if (res.ok) {
@@ -54,7 +55,7 @@ export default function BranchesPage() {
     const fetchBranches = async () => {
         try {
             const token = localStorage.getItem('access_token');
-            const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000'}/tenant/branches`, {
+            const res = await fetch(`${API_URL}/tenant/branches`, {
                 headers: { 'Authorization': `Bearer ${token}` }
             });
             if (res.ok) {
@@ -81,8 +82,8 @@ export default function BranchesPage() {
         try {
             const token = localStorage.getItem('access_token');
             const url = editingBranch
-                ? `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000'}/tenant/branches/${editingBranch.id}`
-                : `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000'}/tenant/branches`;
+                ? `${API_URL}/tenant/branches/${editingBranch.id}`
+                : `${API_URL}/tenant/branches`;
 
             const res = await fetch(url, {
                 method: editingBranch ? 'PUT' : 'POST',
@@ -112,7 +113,7 @@ export default function BranchesPage() {
         setDeleteTargetId(null);
         try {
             const token = localStorage.getItem('access_token');
-            const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000'}/tenant/branches/${id}`, {
+            const res = await fetch(`${API_URL}/tenant/branches/${id}`, {
                 method: 'DELETE',
                 headers: { 'Authorization': `Bearer ${token}` },
             });

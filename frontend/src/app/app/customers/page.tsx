@@ -21,6 +21,7 @@ import {
 } from '@fortawesome/free-solid-svg-icons';
 import { useLanguage } from '@/hooks/useLanguage';
 import { toast } from 'sonner';
+import { API_URL } from '@/lib/api';
 
 interface Customer {
     id: string;
@@ -92,7 +93,7 @@ export default function CustomersPage() {
         if (!token) return;
 
         try {
-            const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/customers`, {
+            const res = await fetch(`${API_URL}/customers`, {
                 headers: { Authorization: `Bearer ${token}` },
             });
             if (res.ok) {
@@ -117,7 +118,7 @@ export default function CustomersPage() {
         }
 
         try {
-            const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/customers`, {
+            const res = await fetch(`${API_URL}/customers`, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
@@ -144,7 +145,7 @@ export default function CustomersPage() {
         if (!token || !editTarget) return;
 
         try {
-            const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/customers/${editTarget.id}`, {
+            const res = await fetch(`${API_URL}/customers/${editTarget.id}`, {
                 method: 'PUT',
                 headers: {
                     'Content-Type': 'application/json',
@@ -171,7 +172,7 @@ export default function CustomersPage() {
         if (!token || !deleteTarget) return;
 
         try {
-            const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/customers/${deleteTarget.id}`, {
+            const res = await fetch(`${API_URL}/customers/${deleteTarget.id}`, {
                 method: 'DELETE',
                 headers: { Authorization: `Bearer ${token}` },
             });
@@ -195,7 +196,7 @@ export default function CustomersPage() {
 
         setCheckLoading(true);
         try {
-            const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/blacklist/check/${ktp}`, {
+            const res = await fetch(`${API_URL}/blacklist/check/${ktp}`, {
                 headers: { Authorization: `Bearer ${token}` },
             });
             if (res.ok) {
@@ -213,7 +214,7 @@ export default function CustomersPage() {
         if (!token || !selectedCustomer) return;
 
         try {
-            const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/blacklist`, {
+            const res = await fetch(`${API_URL}/blacklist`, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',

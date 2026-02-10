@@ -108,7 +108,17 @@ export class CreditService {
         interestRate: number;
         tenorMonths: number;
         monthlyPayment: number;
-    }) {
+    }, tenantId?: string) {
+        // SECURITY: Verify transaction belongs to tenant
+        if (tenantId) {
+            const transaction = await this.prisma.transaction.findFirst({
+                where: { id: transactionId, tenantId },
+            });
+            if (!transaction) {
+                throw new NotFoundException('Transaksi tidak ditemukan');
+            }
+        }
+
         return this.prisma.credit.create({
             data: {
                 transactionId,

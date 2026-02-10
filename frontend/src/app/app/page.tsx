@@ -15,6 +15,7 @@ import {
 } from '@fortawesome/free-solid-svg-icons';
 import { useLanguage } from '@/hooks/useLanguage';
 import Link from 'next/link';
+import { API_URL } from '@/lib/api';
 
 interface Reminder {
     tax: {
@@ -54,10 +55,10 @@ export default function DashboardPage() {
 
             try {
                 const [reminderRes, statsRes] = await Promise.all([
-                    fetch(`${process.env.NEXT_PUBLIC_API_URL}/reminders`, {
+                    fetch(`${API_URL}/reminders`, {
                         headers: { Authorization: `Bearer ${token}` },
                     }),
-                    fetch(`${process.env.NEXT_PUBLIC_API_URL}/vehicles/stats`, {
+                    fetch(`${API_URL}/vehicles/stats`, {
                         headers: { Authorization: `Bearer ${token}` },
                     }),
                 ]);

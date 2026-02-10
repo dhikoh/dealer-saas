@@ -2,6 +2,7 @@
 
 import React, { useEffect, useState } from 'react';
 import { UserCheck, TrendingUp, TrendingDown, Users, FileText, AlertCircle, Building2 } from 'lucide-react';
+import { API_URL } from '@/lib/api';
 
 interface Stats {
     totalTenants: number;
@@ -36,8 +37,8 @@ export default function SuperadminDashboard() {
             const headers = { 'Authorization': `Bearer ${token}` };
 
             const [statsRes, revenueRes] = await Promise.all([
-                fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000'}/superadmin/stats`, { headers }),
-                fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000'}/superadmin/analytics/revenue`, { headers }),
+                fetch(`${API_URL}/superadmin/stats`, { headers }),
+                fetch(`${API_URL}/superadmin/analytics/revenue`, { headers }),
             ]);
 
             if (!statsRes.ok || !revenueRes.ok) {

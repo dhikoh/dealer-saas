@@ -76,9 +76,16 @@ export class VehicleService {
         // SECURITY: Verify ownership before delete
         const vehicle = await this.prisma.vehicle.findFirst({
             where: { id, tenantId },
+            include: { _count: { select: { transactions: true } } },
         });
         if (!vehicle) {
             throw new NotFoundException('Kendaraan tidak ditemukan');
+        }
+        // Prevent deleting vehicles with existing transactions
+        if (vehicle._count.transactions > 0) {
+            throw new BadRequestException(
+                `Kendaraan ini memiliki ${vehicle._count.transactions} transaksi dan tidak dapat dihapus. Ubah status menjadi SOLD sebagai gantinya.`
+            );
         }
         return this.prisma.vehicle.delete({
             where: { id },
@@ -149,7 +156,7 @@ export class VehicleService {
             throw new NotFoundException('Kendaraan tidak ditemukan');
         }
         return this.prisma.vehicleCost.findMany({
-            where: { vehicleId },
+            where: { vehicleId, tenantId },
             orderBy: { date: 'desc' },
         });
     }
@@ -170,6 +177,7 @@ export class VehicleService {
         }
         return this.prisma.vehicleCost.create({
             data: {
+                tenantId,
                 vehicleId,
                 costType: data.costType,
                 amount: data.amount,
@@ -181,12 +189,11 @@ export class VehicleService {
     }
 
     async deleteCost(costId: string, tenantId: string) {
-        // SECURITY: Verify cost → vehicle → tenant ownership chain
-        const cost = await this.prisma.vehicleCost.findUnique({
-            where: { id: costId },
-            include: { vehicle: { select: { tenantId: true } } },
+        // SECURITY: Direct tenant check on VehicleCost
+        const cost = await this.prisma.vehicleCost.findFirst({
+            where: { id: costId, tenantId },
         });
-        if (!cost || cost.vehicle.tenantId !== tenantId) {
+        if (!cost) {
             throw new NotFoundException('Biaya tidak ditemukan');
         }
         return this.prisma.vehicleCost.delete({

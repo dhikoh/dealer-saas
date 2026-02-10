@@ -2,6 +2,7 @@
 
 import React, { useEffect, useState } from 'react';
 import { Clock, User, Car, DollarSign, FileText, Users, Settings, Bell, Search, Filter, ChevronRight } from 'lucide-react';
+import { API_URL } from '@/lib/api';
 
 interface Activity {
     id: string;
@@ -44,7 +45,7 @@ export default function ActivityLogPage() {
             const token = localStorage.getItem('access_token');
 
             // Fetch from notifications as activity proxy
-            const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000'}/notifications`, {
+            const res = await fetch(`${API_URL}/notifications`, {
                 headers: { 'Authorization': `Bearer ${token}` }
             });
 

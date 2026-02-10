@@ -197,8 +197,24 @@ export default function Sidebar({ isOpen, onToggle }: SidebarProps) {
                 {/* LOGOUT BUTTON */}
                 <div className={`mt-6 pt-6 ${theme === 'dark' ? 'border-t border-gray-800' : 'border-t border-gray-300'}`}>
                     <button
-                        onClick={() => {
+                        onClick={async () => {
+                            // Invalidate refresh token on server
+                            const refreshToken = localStorage.getItem('refresh_token');
+                            const accessToken = localStorage.getItem('access_token');
+                            if (refreshToken) {
+                                try {
+                                    await fetch(`${(await import('@/lib/api')).API_URL}/auth/logout`, {
+                                        method: 'POST',
+                                        headers: {
+                                            'Content-Type': 'application/json',
+                                            ...(accessToken ? { 'Authorization': `Bearer ${accessToken}` } : {}),
+                                        },
+                                        body: JSON.stringify({ refresh_token: refreshToken }),
+                                    });
+                                } catch { /* ignore */ }
+                            }
                             localStorage.removeItem('access_token');
+                            localStorage.removeItem('refresh_token');
                             localStorage.removeItem('user_info');
                             document.cookie = 'auth_token=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;';
                             window.location.href = '/auth';

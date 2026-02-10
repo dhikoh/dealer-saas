@@ -7,7 +7,7 @@ import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faEnvelope as faEnvelopeReg } from '@fortawesome/free-regular-svg-icons';
 import { faArrowLeft, faCheck } from '@fortawesome/free-solid-svg-icons';
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
+import { API_URL } from '@/lib/api';
 
 export default function ForgotPasswordPage() {
     const router = useRouter();

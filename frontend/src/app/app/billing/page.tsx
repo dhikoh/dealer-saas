@@ -3,6 +3,7 @@
 import React, { useEffect, useState } from 'react';
 import { CreditCard, Check, X, AlertCircle, Upload, Clock, Crown, Zap, Star } from 'lucide-react';
 import { toast } from 'sonner';
+import { API_URL } from '@/lib/api';
 
 interface TenantProfile {
     planTier: string;
@@ -66,7 +67,7 @@ export default function BillingPage() {
         try {
             const token = localStorage.getItem('access_token');
             const headers = { 'Authorization': `Bearer ${token}` };
-            const baseUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
+            const baseUrl = API_URL;
 
             const [profileRes, plansRes, invoicesRes] = await Promise.all([
                 fetch(`${baseUrl}/tenant/profile`, { headers }),
@@ -89,7 +90,7 @@ export default function BillingPage() {
         setSelectedPlan(planId);
         try {
             const token = localStorage.getItem('access_token');
-            const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000'}/tenant/upgrade`, {
+            const res = await fetch(`${API_URL}/tenant/upgrade`, {
                 method: 'POST',
                 headers: {
                     'Authorization': `Bearer ${token}`,

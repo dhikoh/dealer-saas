@@ -8,6 +8,7 @@ import { faSpinner, faUser, faPhone, faBuilding, faGlobe, faChevronDown } from '
 import DatePicker, { registerLocale } from 'react-datepicker';
 import { id } from 'date-fns/locale/id';
 import NeumorphicSelect from '@/components/NeumorphicSelect';
+import { API_URL } from '@/lib/api';
 registerLocale('id', id);
 
 export default function OnboardingPage() {
@@ -24,7 +25,7 @@ export default function OnboardingPage() {
         language: 'id'
     });
 
-    const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
+
 
     // Translation Dictionary
     const t = {

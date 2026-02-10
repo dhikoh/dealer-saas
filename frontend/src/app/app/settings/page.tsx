@@ -15,7 +15,7 @@ interface TenantProfile {
     subscriptionStatus: string;
 }
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
+import { API_URL } from '@/lib/api';
 
 const TABS = [
     { id: 'profile', name: 'Profil', icon: Building2 },
@@ -183,8 +183,8 @@ export default function SettingsPage() {
                             key={tab.id}
                             onClick={() => setActiveTab(tab.id)}
                             className={`flex-1 flex items-center justify-center gap-2 py-3 rounded-lg font-medium transition-all ${activeTab === tab.id
-                                    ? 'bg-[#ecf0f3] shadow-[3px_3px_6px_#cbced1,-3px_-3px_6px_#ffffff] text-[#00bfa5]'
-                                    : 'text-gray-500 hover:text-gray-700'
+                                ? 'bg-[#ecf0f3] shadow-[3px_3px_6px_#cbced1,-3px_-3px_6px_#ffffff] text-[#00bfa5]'
+                                : 'text-gray-500 hover:text-gray-700'
                                 }`}
                         >
                             <Icon className="w-5 h-5" />
@@ -278,8 +278,8 @@ export default function SettingsPage() {
                                 <div>
                                     <span className="text-gray-500">Status</span>
                                     <span className={`inline-block px-2 py-0.5 rounded-full text-xs font-medium ${profile?.subscriptionStatus === 'ACTIVE' ? 'bg-emerald-100 text-emerald-700' :
-                                            profile?.subscriptionStatus === 'TRIAL' ? 'bg-blue-100 text-blue-700' :
-                                                'bg-amber-100 text-amber-700'
+                                        profile?.subscriptionStatus === 'TRIAL' ? 'bg-blue-100 text-blue-700' :
+                                            'bg-amber-100 text-amber-700'
                                         }`}>
                                         {profile?.subscriptionStatus}
                                     </span>
@@ -425,13 +425,13 @@ export default function SettingsPage() {
                                             [item.key]: !notificationSettings[item.key as keyof typeof notificationSettings]
                                         })}
                                         className={`w-12 h-6 rounded-full transition-colors relative ${notificationSettings[item.key as keyof typeof notificationSettings]
-                                                ? 'bg-[#00bfa5]'
-                                                : 'bg-gray-300'
+                                            ? 'bg-[#00bfa5]'
+                                            : 'bg-gray-300'
                                             }`}
                                     >
                                         <span className={`absolute top-1 w-4 h-4 rounded-full bg-white shadow transition-transform ${notificationSettings[item.key as keyof typeof notificationSettings]
-                                                ? 'translate-x-7'
-                                                : 'translate-x-1'
+                                            ? 'translate-x-7'
+                                            : 'translate-x-1'
                                             }`} />
                                     </button>
                                 </div>

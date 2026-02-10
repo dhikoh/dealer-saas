@@ -23,6 +23,7 @@ import {
 } from '@fortawesome/free-solid-svg-icons';
 import { useLanguage } from '@/hooks/useLanguage';
 import { toast } from 'sonner';
+import { API_URL } from '@/lib/api';
 
 interface Vehicle {
     id: string;
@@ -127,7 +128,7 @@ export default function InventoryPage() {
         if (!token) return;
 
         try {
-            const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/vehicles`, {
+            const res = await fetch(`${API_URL}/vehicles`, {
                 headers: { Authorization: `Bearer ${token}` },
             });
             if (res.ok) {
@@ -146,7 +147,7 @@ export default function InventoryPage() {
 
         setDetailLoading(true);
         try {
-            const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/vehicles/${vehicleId}/costs`, {
+            const res = await fetch(`${API_URL}/vehicles/${vehicleId}/costs`, {
                 headers: { Authorization: `Bearer ${token}` },
             });
             if (res.ok) {
@@ -164,7 +165,7 @@ export default function InventoryPage() {
         if (!token || !selectedVehicle) return;
 
         try {
-            const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/vehicles/${selectedVehicle.id}/costs`, {
+            const res = await fetch(`${API_URL}/vehicles/${selectedVehicle.id}/costs`, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
@@ -200,8 +201,8 @@ export default function InventoryPage() {
         setSubmitting(true);
         try {
             const url = editingVehicle
-                ? `${process.env.NEXT_PUBLIC_API_URL}/vehicles/${editingVehicle.id}`
-                : `${process.env.NEXT_PUBLIC_API_URL}/vehicles`;
+                ? `${API_URL}/vehicles/${editingVehicle.id}`
+                : `${API_URL}/vehicles`;
             const method = editingVehicle ? 'PUT' : 'POST';
 
             const res = await fetch(url, {
@@ -239,7 +240,7 @@ export default function InventoryPage() {
         if (!token || !deleteTarget) return;
 
         try {
-            const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/vehicles/${deleteTarget.id}`, {
+            const res = await fetch(`${API_URL}/vehicles/${deleteTarget.id}`, {
                 method: 'DELETE',
                 headers: { Authorization: `Bearer ${token}` },
             });
@@ -607,7 +608,7 @@ export default function InventoryPage() {
                                     <button
                                         onClick={() => {
                                             const token = localStorage.getItem('access_token');
-                                            window.open(`${process.env.NEXT_PUBLIC_API_URL}/pdf/vehicle/${selectedVehicle.id}/internal?token=${token}`, '_blank');
+                                            window.open(`${API_URL}/pdf/vehicle/${selectedVehicle.id}/internal?token=${token}`, '_blank');
                                         }}
                                         className="flex-1 py-3 rounded-xl bg-blue-500 text-white font-medium hover:bg-blue-600 flex items-center justify-center gap-2"
                                     >
@@ -617,7 +618,7 @@ export default function InventoryPage() {
                                     <button
                                         onClick={() => {
                                             const token = localStorage.getItem('access_token');
-                                            window.open(`${process.env.NEXT_PUBLIC_API_URL}/pdf/vehicle/${selectedVehicle.id}/customer?token=${token}`, '_blank');
+                                            window.open(`${API_URL}/pdf/vehicle/${selectedVehicle.id}/customer?token=${token}`, '_blank');
                                         }}
                                         className="flex-1 py-3 rounded-xl bg-green-500 text-white font-medium hover:bg-green-600 flex items-center justify-center gap-2"
                                     >

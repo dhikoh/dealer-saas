@@ -42,7 +42,7 @@ interface PerformanceMetrics {
     totalSold: number;
 }
 
-const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
+import { API_URL as API_BASE } from '@/lib/api';
 
 export default function ReportsPage() {
     const [stats, setStats] = useState<DashboardStats | null>(null);

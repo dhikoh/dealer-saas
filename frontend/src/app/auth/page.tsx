@@ -7,6 +7,9 @@ import { faChevronDown, faLock, faCheck, faEye, faEyeSlash } from '@fortawesome/
 import { faEnvelope as faEnvelopeReg, faUser as faUserReg } from '@fortawesome/free-regular-svg-icons';
 import { useRouter } from 'next/navigation';
 import { toast } from 'sonner';
+import Script from 'next/script';
+import { API_URL } from '@/lib/api';
+import translations, { Language } from '@/lib/translations';
 
 // Helper to set auth cookie for middleware
 function setAuthCookie(token: string) {
@@ -20,140 +23,11 @@ function clearAuthCookie() {
     document.cookie = 'auth_token=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;';
 }
 
-type LangCode = 'id' | 'en' | 'th' | 'ph' | 'vi';
 type FormType = 'login' | 'signup' | 'forgot';
-
-const TRANSLATIONS: Record<LangCode, any> = {
-    id: {
-        ph_user_email: "Username / Email",
-        ph_password: "Password",
-        ph_fullname: "Nama Lengkap",
-        ph_email_active: "Email Aktif",
-        ph_create_pass: "Buat Password",
-        ph_email_reg: "Email Terdaftar",
-        err_required: "Mohon isi bidang ini",
-        btn_login: "MASUK",
-        btn_signup: "DAFTAR AKUN",
-        btn_reset: "KIRIM RESET LINK",
-        btn_cancel: "BATAL",
-        forgot_pass: "Lupa Password?",
-        forgot_desc: "Masukkan email Anda, kami akan mengirimkan link untuk mereset password.",
-        no_account: "Belum punya akun?",
-        have_account: "Sudah punya akun?",
-        link_signup: "Daftar Sekarang",
-        link_login: "Login Disini",
-        alert_login: "Sedang memproses Login...",
-        alert_signup: "Akun berhasil dibuat!",
-        alert_forgot: "Link reset terkirim!",
-        err_login_failed: "Login gagal. Cek kredensial Anda.",
-        err_signup_failed: "Gagal mendaftar. Email mungkin sudah dipakai.",
-        remember_me: "Ingat Saya"
-    },
-    en: {
-        ph_user_email: "Username / Email",
-        ph_password: "Password",
-        ph_fullname: "Full Name",
-        ph_email_active: "Active Email",
-        ph_create_pass: "Create Password",
-        ph_email_reg: "Registered Email",
-        err_required: "Please fill out this field",
-        btn_login: "LOGIN",
-        btn_signup: "SIGN UP",
-        btn_reset: "SEND RESET LINK",
-        btn_cancel: "CANCEL",
-        forgot_pass: "Forgot Password?",
-        forgot_desc: "Enter your email, we will send a link to reset your password.",
-        no_account: "Don't have an account?",
-        have_account: "Already have an account?",
-        link_signup: "Sign Up Now",
-        link_login: "Login Here",
-        alert_login: "Processing Login...",
-        alert_signup: "Account created successfully!",
-        alert_forgot: "Reset link sent!",
-        err_login_failed: "Login failed. Check your credentials.",
-        err_signup_failed: "Signup failed. Email might be taken.",
-        remember_me: "Remember Me"
-    },
-    th: {
-        ph_user_email: "ชื่อผู้ใช้ / อีเมล",
-        ph_password: "รหัสผ่าน",
-        ph_fullname: "ชื่อเต็ม",
-        ph_email_active: "อีเมลที่ใช้งานอยู่",
-        ph_create_pass: "สร้างรหัสผ่าน",
-        ph_email_reg: "อีเมลที่ลงทะเบียน",
-        err_required: "กรุณากรอกข้อมูลในช่องนี้",
-        btn_login: "เข้าสู่ระบบ",
-        btn_signup: "ลงชื่อ",
-        btn_reset: "ส่งลิงก์รีเซ็ต",
-        btn_cancel: "ยกเลิก",
-        forgot_pass: "ลืมรหัสผ่าน?",
-        forgot_desc: "ใส่อีเมลของคุณ เราจะส่งลิงก์เพื่อรีเซ็ตรหัสผ่าน",
-        no_account: "ยังไม่มีบัญชี?",
-        have_account: "มีบัญชีอยู่แล้ว?",
-        link_signup: "ลงทะเบียนตอนนี้",
-        link_login: "เข้าสู่ระบบที่นี่",
-        alert_login: "กำลังเข้าสู่ระบบ...",
-        alert_signup: "สร้างบัญชีสำเร็จ!",
-        alert_forgot: "ส่งลิงก์รีเซ็ตแล้ว!",
-        err_login_failed: "เข้าสู่ระบบล้มเหลว ตรวจสอบข้อมูลรับรองของคุณ",
-        err_signup_failed: "ลงทะเบียนล้มเหลว อีเมลอาจถูกใช้ไปแล้ว",
-        remember_me: "จดจำฉัน"
-    },
-    ph: {
-        ph_user_email: "Username / Email",
-        ph_password: "Password",
-        ph_fullname: "Buong Pangalan",
-        ph_email_active: "Aktibong Email",
-        ph_create_pass: "Gumawa ng Password",
-        ph_email_reg: "Nakarehistrong Email",
-        err_required: "Mangyaring punan ang patlang na ito",
-        btn_login: "MAG-LOGIN",
-        btn_signup: "MAG-SIGN UP",
-        btn_reset: "IPADALA ANG RESET LINK",
-        btn_cancel: "KANSELAHIN",
-        forgot_pass: "Nakalimutan ang Password?",
-        forgot_desc: "Ilagay ang iyong email, magpapadala kami ng link para i-reset ang password.",
-        no_account: "Wala pang account?",
-        have_account: "May account na?",
-        link_signup: "Magparehistro Ngayon",
-        link_login: "Mag-login Dito",
-        alert_login: "Pinoproseso ang pag-login...",
-        alert_signup: "Matagumpay na nagawa ang account!",
-        alert_forgot: "Naipadala na ang reset link!",
-        err_login_failed: "Nabigo ang pag-login. Suriin ang iyong mga kredensyal.",
-        err_signup_failed: "Nabigo ang pag-sign up. Maaaring nakuha na ang email.",
-        remember_me: "Tandaan Ako"
-    },
-    vi: {
-        ph_user_email: "Tên người dùng / Email",
-        ph_password: "Mật khẩu",
-        ph_fullname: "Họ và tên",
-        ph_email_active: "Email hoạt động",
-        ph_create_pass: "Tạo mật khẩu",
-        ph_email_reg: "Email đã đăng ký",
-        err_required: "Vui lòng điền vào trường này",
-        btn_login: "ĐĂNG NHẬP",
-        btn_signup: "ĐĂNG KÝ",
-        btn_reset: "GỬI LIÊN KẾT ĐẶT LẠI",
-        btn_cancel: "HỦY BỎ",
-        forgot_pass: "Quên mật khẩu?",
-        forgot_desc: "Nhập email của bạn, chúng tôi sẽ gửi liên kết để đặt lại mật khẩu.",
-        no_account: "Chưa có tài khoản?",
-        have_account: "Đã có tài khoản?",
-        link_signup: "Đăng ký ngay",
-        link_login: "Đăng nhập tại đây",
-        alert_login: "Đang xử lý đăng nhập...",
-        alert_signup: "Tài khoản đã được tạo!",
-        alert_forgot: "Đã gửi liên kết đặt lại!",
-        err_login_failed: "Đăng nhập thất bại. Kiểm tra thông tin của bạn.",
-        err_signup_failed: "Đăng ký thất bại. Email có thể đã được sử dụng.",
-        remember_me: "Ghi nhớ tôi"
-    }
-};
 
 export default function AuthPage() {
     const [mounted, setMounted] = useState(false);
-    const [currentLang, setCurrentLang] = useState<LangCode>('id');
+    const [currentLang, setCurrentLang] = useState<Language>('id');
     const [isLangOpen, setIsLangOpen] = useState(false); // NEW STATE
     const [activeForm, setActiveForm] = useState<FormType>('login');
 
@@ -182,8 +56,8 @@ export default function AuthPage() {
     const forgotRef = React.useRef<HTMLDivElement>(null);
 
     const router = useRouter();
-    const t = TRANSLATIONS[currentLang];
-    const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
+    const t = translations[currentLang];
+
 
     // ANIMATE HEIGHT ON FORM SWITCH
     useEffect(() => {
@@ -248,7 +122,7 @@ export default function AuthPage() {
 
                 // Only show toast if it's the first error
                 if (!firstErrorFound) {
-                    toast.error(`${t.err_required}: ${input.placeholder || input.name}`, { description: 'Mohon lengkapi data.' });
+                    toast.error(`${t.authErrRequired}: ${input.placeholder || input.name}`, { description: 'Mohon lengkapi data.' });
                     firstErrorFound = true;
                 }
                 continue; // Continue to mark other fields as red, but don't show more toasts
@@ -323,10 +197,11 @@ export default function AuthPage() {
                     body: JSON.stringify({ email, password }),
                 });
 
-                if (!res.ok) throw new Error(t.err_login_failed);
+                if (!res.ok) throw new Error(t.authErrLoginFailed);
 
                 const data = await res.json();
                 localStorage.setItem('access_token', data.access_token);
+                localStorage.setItem('refresh_token', data.refresh_token);
                 localStorage.setItem('user_info', JSON.stringify(data.user));
                 setAuthCookie(data.access_token); // Set cookie for middleware
 
@@ -338,10 +213,12 @@ export default function AuthPage() {
 
                 toast.success(`Welcome ${data.user.name}!`);
 
-                // Role-based redirect
+                // Role-based redirect (must match Google login logic)
                 setTimeout(() => {
                     if (data.user.role === 'SUPERADMIN') {
                         router.push('/superadmin');
+                    } else if (!data.user.onboardingCompleted) {
+                        router.push('/onboarding');
                     } else {
                         router.push('/app');
                     }
@@ -362,15 +239,16 @@ export default function AuthPage() {
 
                 if (!res.ok) {
                     const errorData = await res.json();
-                    throw new Error(errorData.message || t.err_signup_failed);
+                    throw new Error(errorData.message || t.authErrSignupFailed);
                 }
 
                 const data = await res.json();
                 localStorage.setItem('access_token', data.access_token);
+                localStorage.setItem('refresh_token', data.refresh_token);
                 localStorage.setItem('user_info', JSON.stringify(data.user));
                 setAuthCookie(data.access_token); // Set cookie for middleware
 
-                toast.success(t.alert_signup);
+                toast.success(t.authAlertSignup);
 
                 setTimeout(() => {
                     router.push(`/auth/verify?email=${email}`);
@@ -391,7 +269,7 @@ export default function AuthPage() {
                     throw new Error(errorData.message || 'Gagal mengirim link reset.');
                 }
 
-                toast.success(t.alert_forgot, { description: 'Cek email Anda untuk link reset password.' });
+                toast.success(t.authAlertForgot, { description: 'Cek email Anda untuk link reset password.' });
                 switchForm('login');
             }
 
@@ -437,6 +315,7 @@ export default function AuthPage() {
 
                     const data = await res.json();
                     localStorage.setItem('access_token', data.access_token);
+                    localStorage.setItem('refresh_token', data.refresh_token);
                     localStorage.setItem('user_info', JSON.stringify(data.user));
                     setAuthCookie(data.access_token);
 
@@ -502,7 +381,7 @@ export default function AuthPage() {
                             key={opt.code}
                             className={`${styles.langOption} ${currentLang === opt.code ? styles.selected : ''}`}
                             onClick={() => {
-                                setCurrentLang(opt.code as LangCode);
+                                setCurrentLang(opt.code as Language);
                                 setIsLangOpen(false);
                             }}
                         >
@@ -583,7 +462,7 @@ export default function AuthPage() {
                                         type={showPassword ? "text" : "password"}
                                         name="login_password"
                                         className={`${styles.formInput} ${errors['login_password'] ? styles.invalid : ''}`}
-                                        placeholder={t.ph_password}
+                                        placeholder={t.authPassword}
                                         required
                                         onChange={() => setErrors({ ...errors, login_password: false })}
                                     />
@@ -602,7 +481,7 @@ export default function AuthPage() {
                                         <div className={`${styles.customCheckbox} ${rememberMe ? styles.checked : ''}`}>
                                             {rememberMe && <FontAwesomeIcon icon={faCheck} className={styles.checkIcon} />}
                                         </div>
-                                        <span>{t.remember_me}</span>
+                                        <span>{t.authRememberMe}</span>
                                     </label>
 
                                     <span
@@ -610,12 +489,12 @@ export default function AuthPage() {
                                         onClick={() => switchForm('forgot')}
                                         style={{ fontSize: '0.8rem', color: '#777' }}
                                     >
-                                        {t.forgot_pass}
+                                        {t.authForgotPass}
                                     </span>
                                 </div>
 
                                 <button type="submit" className={styles.btnAction} disabled={isLoading}>
-                                    {isLoading ? '...' : t.btn_login}
+                                    {isLoading ? '...' : t.authBtnLogin}
                                 </button>
 
                                 {/* Google OAuth Divider */}
@@ -642,7 +521,7 @@ export default function AuthPage() {
                             </form>
 
                             <div className={styles.footerLinks}>
-                                <span>{t.no_account}</span> <span className={styles.linkText} onClick={() => switchForm('signup')}>{t.link_signup}</span>
+                                <span>{t.authNoAccount}</span> <span className={styles.linkText} onClick={() => switchForm('signup')}>{t.authLinkSignup}</span>
                             </div>
                         </div>
 
@@ -666,7 +545,7 @@ export default function AuthPage() {
                                         type="email"
                                         name="signup_email"
                                         className={`${styles.formInput} ${errors['signup_email'] ? styles.invalid : ''}`}
-                                        placeholder={t.ph_email_active}
+                                        placeholder={t.authEmailActive}
                                         required
                                         onChange={() => setErrors({ ...errors, signup_email: false })}
                                     />
@@ -677,7 +556,7 @@ export default function AuthPage() {
                                         type={showConfirmPass ? "text" : "password"}
                                         name="signup_pass"
                                         className={`${styles.formInput} ${errors['signup_pass'] ? styles.invalid : ''}`}
-                                        placeholder={t.ph_create_pass}
+                                        placeholder={t.authCreatePass}
                                         required
                                         onChange={() => setErrors({ ...errors, signup_pass: false })}
                                     />
@@ -700,19 +579,19 @@ export default function AuthPage() {
                                 </div>
 
                                 <button type="submit" className={styles.btnAction} disabled={isLoading}>
-                                    {isLoading ? '...' : t.btn_signup}
+                                    {isLoading ? '...' : t.authBtnSignup}
                                 </button>
                             </form>
 
                             <div className={styles.footerLinks}>
-                                <span>{t.have_account}</span> <span className={styles.linkText} onClick={() => switchForm('login')}>{t.link_login}</span>
+                                <span>{t.authHaveAccount}</span> <span className={styles.linkText} onClick={() => switchForm('login')}>{t.authLinkLogin}</span>
                             </div>
                         </div>
 
                         {/* 3. FORM FORGOT */}
                         <div ref={forgotRef} className={`${styles.formSection} ${activeForm === 'forgot' ? styles.active : ''}`}>
                             <div style={{ marginBottom: '20px', fontSize: '0.9rem', color: '#666' }}>
-                                {t.forgot_desc}
+                                {t.authForgotDesc}
                             </div>
                             <form onSubmit={(e) => handleSubmit(e, 'forgot')} noValidate>
                                 <div className={styles.inputGroup}>
@@ -721,14 +600,14 @@ export default function AuthPage() {
                                         type="email"
                                         name="forgot_email"
                                         className={`${styles.formInput} ${errors['forgot_email'] ? styles.invalid : ''}`}
-                                        placeholder={t.ph_email_reg}
+                                        placeholder={t.authEmailReg}
                                         required
                                         onChange={() => setErrors({ ...errors, forgot_email: false })}
                                     />
                                 </div>
 
-                                <button type="submit" className={styles.btnAction} disabled={isLoading}>{t.btn_reset}</button>
-                                <button type="button" className={`${styles.btnAction} ${styles.secondary}`} onClick={() => switchForm('login')}>{t.btn_cancel}</button>
+                                <button type="submit" className={styles.btnAction} disabled={isLoading}>{t.authBtnReset}</button>
+                                <button type="button" className={`${styles.btnAction} ${styles.secondary}`} onClick={() => switchForm('login')}>{t.authBtnCancel}</button>
                             </form>
                         </div>
 
@@ -742,7 +621,7 @@ export default function AuthPage() {
             </div>
 
             {/* Google Identity Services Script */}
-            <script src="https://accounts.google.com/gsi/client" async defer />
+            <Script src="https://accounts.google.com/gsi/client" strategy="afterInteractive" />
         </div>
     );
 }

@@ -2,6 +2,7 @@
 
 import React, { useEffect, useState } from 'react';
 import { Download, Eye, CheckCircle, XCircle, FileText, AlertCircle, Search } from 'lucide-react';
+import { API_URL } from '@/lib/api';
 
 interface Invoice {
     id: string;
@@ -58,7 +59,7 @@ export default function InvoicesPage() {
             if (statusFilter) params.append('status', statusFilter);
 
             const res = await fetch(
-                `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000'}/superadmin/invoices?${params}`,
+                `${API_URL}/superadmin/invoices?${params}`,
                 { headers: { 'Authorization': `Bearer ${token}` } }
             );
 
@@ -79,7 +80,7 @@ export default function InvoicesPage() {
         try {
             const token = localStorage.getItem('access_token');
             const res = await fetch(
-                `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000'}/superadmin/invoices/${invoiceId}/verify`,
+                `${API_URL}/superadmin/invoices/${invoiceId}/verify`,
                 {
                     method: 'POST',
                     headers: {

@@ -35,7 +35,7 @@ export class ReportService {
         // Biaya operasional kendaraan pada periode
         const vehicleCosts = await this.prisma.vehicleCost.findMany({
             where: {
-                vehicle: { tenantId },
+                tenantId,
                 date: { gte: startDate, lte: endDate },
             },
         });

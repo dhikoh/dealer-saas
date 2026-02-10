@@ -5,6 +5,7 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import { toast } from 'sonner';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faCheck, faSpinner, faArrowLeft } from '@fortawesome/free-solid-svg-icons';
+import { API_URL } from '@/lib/api';
 
 function VerifyPageContent() {
     const router = useRouter();
@@ -13,7 +14,7 @@ function VerifyPageContent() {
     const [code, setCode] = useState(['', '', '', '', '', '']);
     const [isLoading, setIsLoading] = useState(false);
     const [isResending, setIsResending] = useState(false);
-    const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
+
 
     useEffect(() => {
         const emailParam = searchParams.get('email');

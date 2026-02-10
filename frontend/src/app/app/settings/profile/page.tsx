@@ -15,7 +15,7 @@ import {
 import { useLanguage } from '@/hooks/useLanguage';
 import { toast } from 'sonner';
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
+import { API_URL } from '@/lib/api';
 
 export default function ProfilePage() {
     const { t } = useLanguage();
@@ -232,8 +232,8 @@ export default function ProfilePage() {
                         key={t.key}
                         onClick={() => setTab(t.key as any)}
                         className={`flex-1 py-2.5 px-4 rounded-lg text-sm font-medium transition-all flex items-center justify-center gap-2 ${tab === t.key
-                                ? 'bg-[#ecf0f3] dark:bg-gray-700 shadow-[3px_3px_6px_#cbced1,-3px_-3px_6px_#ffffff] dark:shadow-none text-[#00bfa5]'
-                                : 'text-gray-500 hover:text-gray-700 dark:hover:text-gray-300'
+                            ? 'bg-[#ecf0f3] dark:bg-gray-700 shadow-[3px_3px_6px_#cbced1,-3px_-3px_6px_#ffffff] dark:shadow-none text-[#00bfa5]'
+                            : 'text-gray-500 hover:text-gray-700 dark:hover:text-gray-300'
                             }`}
                     >
                         <FontAwesomeIcon icon={t.icon} />

@@ -14,7 +14,7 @@ import { HttpModule } from '@nestjs/axios';
     HttpModule, // For Google OAuth token verification
     JwtModule.register({
       secret: process.env.JWT_SECRET || 'super-secret-key',
-      signOptions: { expiresIn: '1d' },
+      signOptions: { expiresIn: '15m' },
     }),
   ],
   controllers: [AuthController],

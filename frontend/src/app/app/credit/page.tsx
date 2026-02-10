@@ -17,6 +17,7 @@ import {
 } from '@fortawesome/free-solid-svg-icons';
 import { useLanguage } from '@/hooks/useLanguage';
 import { toast } from 'sonner';
+import { API_URL } from '@/lib/api';
 
 interface Credit {
     id: string;
@@ -56,7 +57,7 @@ export default function CreditPage() {
         if (!token) return;
 
         try {
-            const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/credit`, {
+            const res = await fetch(`${API_URL}/credit`, {
                 headers: { Authorization: `Bearer ${token}` },
             });
             if (res.ok) {
@@ -86,7 +87,7 @@ export default function CreditPage() {
         }
 
         try {
-            const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/credit/${selectedCredit.id}/payments`, {
+            const res = await fetch(`${API_URL}/credit/${selectedCredit.id}/payments`, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',

@@ -106,5 +106,19 @@ export class AuthController {
   async resetPassword(@Body() body: { token: string; newPassword: string }) {
     return this.authService.resetPassword(body.token, body.newPassword);
   }
+
+  // ==================== REFRESH TOKEN ====================
+  @Public()
+  @HttpCode(HttpStatus.OK)
+  @Post('refresh')
+  async refresh(@Body() body: { refresh_token: string }) {
+    return this.authService.refreshToken(body.refresh_token);
+  }
+
+  @HttpCode(HttpStatus.OK)
+  @Post('logout')
+  async logout(@Body() body: { refresh_token: string }) {
+    return this.authService.logout(body.refresh_token);
+  }
 }
 

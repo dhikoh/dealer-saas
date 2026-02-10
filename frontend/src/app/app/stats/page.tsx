@@ -15,7 +15,7 @@ import {
 import { useLanguage } from '@/hooks/useLanguage';
 import { toast } from 'sonner';
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
+import { API_URL } from '@/lib/api';
 
 export default function StatsPage() {
     const { t } = useLanguage();

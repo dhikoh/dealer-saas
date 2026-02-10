@@ -63,8 +63,8 @@ export class CreditController {
     }
 
     @Post()
-    create(@Body() data: CreateCreditDto) {
-        return this.creditService.create(data.transactionId, data);
+    create(@Body() data: CreateCreditDto, @Request() req) {
+        return this.creditService.create(data.transactionId, data, req.user.tenantId);
     }
 
     @Post(':id/payments')

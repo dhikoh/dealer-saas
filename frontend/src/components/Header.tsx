@@ -6,7 +6,7 @@ import { faSearch, faBell, faMoon, faSun, faGlobe, faTimes, faCar, faUser, faCal
 import { useLanguage, Language } from '@/hooks/useLanguage';
 import Link from 'next/link';
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
+import { API_URL } from '@/lib/api';
 
 interface Notification {
     id: string;

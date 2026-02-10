@@ -85,6 +85,31 @@ export interface TranslationKeys {
     confirm: string;
     loading: string;
     noData: string;
+
+    // Auth Page
+    authUserEmail: string;
+    authPassword: string;
+    authFullName: string;
+    authEmailActive: string;
+    authCreatePass: string;
+    authEmailReg: string;
+    authErrRequired: string;
+    authBtnLogin: string;
+    authBtnSignup: string;
+    authBtnReset: string;
+    authBtnCancel: string;
+    authForgotPass: string;
+    authForgotDesc: string;
+    authNoAccount: string;
+    authHaveAccount: string;
+    authLinkSignup: string;
+    authLinkLogin: string;
+    authAlertLogin: string;
+    authAlertSignup: string;
+    authAlertForgot: string;
+    authErrLoginFailed: string;
+    authErrSignupFailed: string;
+    authRememberMe: string;
 }
 
 const translations: Record<Language, TranslationKeys> = {
@@ -168,6 +193,31 @@ const translations: Record<Language, TranslationKeys> = {
         confirm: 'Konfirmasi',
         loading: 'Memuat...',
         noData: 'Tidak ada data',
+
+        // Auth Page
+        authUserEmail: 'Username / Email',
+        authPassword: 'Password',
+        authFullName: 'Nama Lengkap',
+        authEmailActive: 'Email Aktif',
+        authCreatePass: 'Buat Password',
+        authEmailReg: 'Email Terdaftar',
+        authErrRequired: 'Mohon isi bidang ini',
+        authBtnLogin: 'MASUK',
+        authBtnSignup: 'DAFTAR AKUN',
+        authBtnReset: 'KIRIM RESET LINK',
+        authBtnCancel: 'BATAL',
+        authForgotPass: 'Lupa Password?',
+        authForgotDesc: 'Masukkan email Anda, kami akan mengirimkan link untuk mereset password.',
+        authNoAccount: 'Belum punya akun?',
+        authHaveAccount: 'Sudah punya akun?',
+        authLinkSignup: 'Daftar Sekarang',
+        authLinkLogin: 'Login Disini',
+        authAlertLogin: 'Sedang memproses Login...',
+        authAlertSignup: 'Akun berhasil dibuat!',
+        authAlertForgot: 'Link reset terkirim!',
+        authErrLoginFailed: 'Login gagal. Cek kredensial Anda.',
+        authErrSignupFailed: 'Gagal mendaftar. Email mungkin sudah dipakai.',
+        authRememberMe: 'Ingat Saya',
     },
     en: {
         // Sidebar
@@ -249,6 +299,31 @@ const translations: Record<Language, TranslationKeys> = {
         confirm: 'Confirm',
         loading: 'Loading...',
         noData: 'No data available',
+
+        // Auth Page
+        authUserEmail: 'Username / Email',
+        authPassword: 'Password',
+        authFullName: 'Full Name',
+        authEmailActive: 'Active Email',
+        authCreatePass: 'Create Password',
+        authEmailReg: 'Registered Email',
+        authErrRequired: 'Please fill out this field',
+        authBtnLogin: 'LOGIN',
+        authBtnSignup: 'SIGN UP',
+        authBtnReset: 'SEND RESET LINK',
+        authBtnCancel: 'CANCEL',
+        authForgotPass: 'Forgot Password?',
+        authForgotDesc: 'Enter your email, we will send a link to reset your password.',
+        authNoAccount: "Don't have an account?",
+        authHaveAccount: 'Already have an account?',
+        authLinkSignup: 'Sign Up Now',
+        authLinkLogin: 'Login Here',
+        authAlertLogin: 'Processing Login...',
+        authAlertSignup: 'Account created successfully!',
+        authAlertForgot: 'Reset link sent!',
+        authErrLoginFailed: 'Login failed. Check your credentials.',
+        authErrSignupFailed: 'Signup failed. Email might be taken.',
+        authRememberMe: 'Remember Me',
     },
     th: {
         menu: 'เมนู',
@@ -315,6 +390,31 @@ const translations: Record<Language, TranslationKeys> = {
         confirm: 'ยืนยัน',
         loading: 'กำลังโหลด...',
         noData: 'ไม่มีข้อมูล',
+
+        // Auth Page
+        authUserEmail: 'ชื่อผู้ใช้ / อีเมล',
+        authPassword: 'รหัสผ่าน',
+        authFullName: 'ชื่อเต็ม',
+        authEmailActive: 'อีเมลที่ใช้งานอยู่',
+        authCreatePass: 'สร้างรหัสผ่าน',
+        authEmailReg: 'อีเมลที่ลงทะเบียน',
+        authErrRequired: 'กรุณากรอกข้อมูลในช่องนี้',
+        authBtnLogin: 'เข้าสู่ระบบ',
+        authBtnSignup: 'ลงชื่อ',
+        authBtnReset: 'ส่งลิงก์รีเซ็ต',
+        authBtnCancel: 'ยกเลิก',
+        authForgotPass: 'ลืมรหัสผ่าน?',
+        authForgotDesc: 'ใส่อีเมลของคุณ เราจะส่งลิงก์เพื่อรีเซ็ตรหัสผ่าน',
+        authNoAccount: 'ยังไม่มีบัญชี?',
+        authHaveAccount: 'มีบัญชีอยู่แล้ว?',
+        authLinkSignup: 'ลงทะเบียนตอนนี้',
+        authLinkLogin: 'เข้าสู่ระบบที่นี่',
+        authAlertLogin: 'กำลังเข้าสู่ระบบ...',
+        authAlertSignup: 'สร้างบัญชีสำเร็จ!',
+        authAlertForgot: 'ส่งลิงก์รีเซ็ตแล้ว!',
+        authErrLoginFailed: 'เข้าสู่ระบบล้มเหลว ตรวจสอบข้อมูลรับรองของคุณ',
+        authErrSignupFailed: 'ลงทะเบียนล้มเหลว อีเมลอาจถูกใช้ไปแล้ว',
+        authRememberMe: 'จดจำฉัน',
     },
     ph: {
         menu: 'Menu',
@@ -381,6 +481,31 @@ const translations: Record<Language, TranslationKeys> = {
         confirm: 'Kumpirmahin',
         loading: 'Naglo-load...',
         noData: 'Walang data',
+
+        // Auth Page
+        authUserEmail: 'Username / Email',
+        authPassword: 'Password',
+        authFullName: 'Buong Pangalan',
+        authEmailActive: 'Aktibong Email',
+        authCreatePass: 'Gumawa ng Password',
+        authEmailReg: 'Nakarehistrong Email',
+        authErrRequired: 'Mangyaring punan ang patlang na ito',
+        authBtnLogin: 'MAG-LOGIN',
+        authBtnSignup: 'MAG-SIGN UP',
+        authBtnReset: 'IPADALA ANG RESET LINK',
+        authBtnCancel: 'KANSELAHIN',
+        authForgotPass: 'Nakalimutan ang Password?',
+        authForgotDesc: 'Ilagay ang iyong email, magpapadala kami ng link para i-reset ang password.',
+        authNoAccount: 'Wala pang account?',
+        authHaveAccount: 'May account na?',
+        authLinkSignup: 'Magparehistro Ngayon',
+        authLinkLogin: 'Mag-login Dito',
+        authAlertLogin: 'Pinoproseso ang pag-login...',
+        authAlertSignup: 'Matagumpay na nagawa ang account!',
+        authAlertForgot: 'Naipadala na ang reset link!',
+        authErrLoginFailed: 'Nabigo ang pag-login. Suriin ang iyong mga kredensyal.',
+        authErrSignupFailed: 'Nabigo ang pag-sign up. Maaaring nakuha na ang email.',
+        authRememberMe: 'Tandaan Ako',
     },
     vi: {
         menu: 'Menu',
@@ -447,6 +572,31 @@ const translations: Record<Language, TranslationKeys> = {
         confirm: 'Xác Nhận',
         loading: 'Đang tải...',
         noData: 'Không có dữ liệu',
+
+        // Auth Page
+        authUserEmail: 'Tên người dùng / Email',
+        authPassword: 'Mật khẩu',
+        authFullName: 'Họ và tên',
+        authEmailActive: 'Email hoạt động',
+        authCreatePass: 'Tạo mật khẩu',
+        authEmailReg: 'Email đã đăng ký',
+        authErrRequired: 'Vui lòng điền vào trường này',
+        authBtnLogin: 'ĐĂNG NHẬP',
+        authBtnSignup: 'ĐĂNG KÝ',
+        authBtnReset: 'GỬI LIÊN KẾT ĐẶT LẠI',
+        authBtnCancel: 'HỦY BỎ',
+        authForgotPass: 'Quên mật khẩu?',
+        authForgotDesc: 'Nhập email của bạn, chúng tôi sẽ gửi liên kết để đặt lại mật khẩu.',
+        authNoAccount: 'Chưa có tài khoản?',
+        authHaveAccount: 'Đã có tài khoản?',
+        authLinkSignup: 'Đăng ký ngay',
+        authLinkLogin: 'Đăng nhập tại đây',
+        authAlertLogin: 'Đang xử lý đăng nhập...',
+        authAlertSignup: 'Tài khoản đã được tạo!',
+        authAlertForgot: 'Đã gửi liên kết đặt lại!',
+        authErrLoginFailed: 'Đăng nhập thất bại. Kiểm tra thông tin của bạn.',
+        authErrSignupFailed: 'Đăng ký thất bại. Email có thể đã được sử dụng.',
+        authRememberMe: 'Ghi nhớ tôi',
     },
 };
 

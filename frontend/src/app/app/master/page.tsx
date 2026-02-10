@@ -3,6 +3,7 @@
 import React, { useEffect, useState } from 'react';
 import { Plus, Edit2, Trash2, Car, Bike, Truck, Bus, Wrench, Package, CircleDot, X, Search, Settings } from 'lucide-react';
 import { getCategories, addCategory, ICON_OPTIONS, COLOR_OPTIONS, VehicleCategory, VEHICLE_ICONS } from '@/lib/categories';
+import { API_URL } from '@/lib/api';
 
 interface Brand {
     id: string;
@@ -50,7 +51,7 @@ export default function MasterDataPage() {
         try {
             const token = localStorage.getItem('access_token');
             const res = await fetch(
-                `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000'}/vehicles/brands/list?category=${activeCategory}`,
+                `${API_URL}/vehicles/brands/list?category=${activeCategory}`,
                 { headers: { 'Authorization': `Bearer ${token}` } }
             );
             if (res.ok) {
@@ -67,7 +68,7 @@ export default function MasterDataPage() {
     const handleAddBrand = async () => {
         try {
             const token = localStorage.getItem('access_token');
-            await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000'}/vehicles/brands`, {
+            await fetch(`${API_URL}/vehicles/brands`, {
                 method: 'POST',
                 headers: {
                     'Authorization': `Bearer ${token}`,
@@ -87,7 +88,7 @@ export default function MasterDataPage() {
         if (!selectedBrandId) return;
         try {
             const token = localStorage.getItem('access_token');
-            await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000'}/vehicles/models`, {
+            await fetch(`${API_URL}/vehicles/models`, {
                 method: 'POST',
                 headers: {
                     'Authorization': `Bearer ${token}`,
