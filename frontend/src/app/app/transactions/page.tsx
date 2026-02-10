@@ -11,12 +11,14 @@ interface Transaction {
     vehicleName: string;
     customerId?: string;
     customerName?: string;
-    amount: number;
-    finalPrice?: number;
+    finalPrice: number;
+    paymentType?: 'CASH' | 'CREDIT';
     profit?: number;
     date: string;
-    status: 'PENDING' | 'COMPLETED' | 'PAID' | 'CANCELLED';
+    status: 'PENDING' | 'PAID' | 'CANCELLED';
     notes?: string;
+    vehicle?: { make: string; model: string; licensePlate: string };
+    customer?: { name: string; phone: string };
 }
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
@@ -33,6 +35,7 @@ export default function TransactionsPage() {
         type: 'SALE' as 'SALE' | 'PURCHASE',
         vehicleId: '',
         customerId: '',
+        paymentType: 'CASH' as 'CASH' | 'CREDIT',
         finalPrice: '',
         date: new Date().toISOString().split('T')[0],
         notes: '',
@@ -55,10 +58,23 @@ export default function TransactionsPage() {
                 headers: { 'Authorization': `Bearer ${token}` }
             });
             if (res.ok) {
-                setTransactions(await res.json());
+                const data = await res.json();
+                // Map backend response to frontend Transaction shape
+                const mapped = data.map((tx: any) => ({
+                    ...tx,
+                    vehicleName: tx.vehicle ? `${tx.vehicle.make} ${tx.vehicle.model}` : '-',
+                    customerName: tx.customer?.name || '-',
+                    finalPrice: typeof tx.finalPrice === 'object' ? parseFloat(tx.finalPrice.toString()) : parseFloat(tx.finalPrice || '0'),
+                }));
+                setTransactions(mapped);
+            } else if (res.status === 401) {
+                localStorage.removeItem('access_token');
+                localStorage.removeItem('user_info');
+                window.location.href = '/auth';
             }
         } catch (err) {
             console.error('Error:', err);
+            toast.error('Gagal memuat data transaksi');
         } finally {
             setLoading(false);
         }
@@ -80,8 +96,8 @@ export default function TransactionsPage() {
 
     const handleCreateTransaction = async () => {
         const token = getToken();
-        if (!token || !txForm.vehicleId || !txForm.finalPrice) {
-            toast.error('Mohon lengkapi data kendaraan dan harga');
+        if (!token || !txForm.vehicleId || !txForm.finalPrice || !txForm.customerId) {
+            toast.error('Mohon lengkapi data kendaraan, customer, dan harga');
             return;
         }
 
@@ -94,16 +110,19 @@ export default function TransactionsPage() {
                     'Authorization': `Bearer ${token}`,
                 },
                 body: JSON.stringify({
-                    ...txForm,
+                    type: txForm.type,
+                    vehicleId: txForm.vehicleId,
+                    customerId: txForm.customerId,
+                    paymentType: txForm.paymentType,
                     finalPrice: parseFloat(txForm.finalPrice),
-                    date: new Date(txForm.date),
+                    notes: txForm.notes || undefined,
                 }),
             });
 
             if (res.ok) {
                 toast.success('Transaksi berhasil dibuat');
                 setShowModal(false);
-                setTxForm({ type: 'SALE', vehicleId: '', customerId: '', finalPrice: '', date: new Date().toISOString().split('T')[0], notes: '' });
+                setTxForm({ type: 'SALE', vehicleId: '', customerId: '', paymentType: 'CASH', finalPrice: '', date: new Date().toISOString().split('T')[0], notes: '' });
                 fetchTransactions();
             } else {
                 const err = await res.json();
@@ -127,9 +146,9 @@ export default function TransactionsPage() {
     });
 
     const stats = {
-        totalSales: transactions.filter(t => t.type === 'SALE' && t.status === 'COMPLETED').reduce((a, b) => a + b.amount, 0),
-        totalPurchases: transactions.filter(t => t.type === 'PURCHASE' && t.status === 'COMPLETED').reduce((a, b) => a + b.amount, 0),
-        totalProfit: transactions.filter(t => t.type === 'SALE' && t.status === 'COMPLETED').reduce((a, b) => a + (b.profit || 0), 0),
+        totalSales: transactions.filter(t => t.type === 'SALE' && t.status === 'PAID').reduce((a, b) => a + (b.finalPrice || 0), 0),
+        totalPurchases: transactions.filter(t => t.type === 'PURCHASE' && t.status === 'PAID').reduce((a, b) => a + (b.finalPrice || 0), 0),
+        totalProfit: transactions.filter(t => t.type === 'SALE' && t.status === 'PAID').reduce((a, b) => a + (b.profit || 0), 0),
         pending: transactions.filter(t => t.status === 'PENDING').length,
     };
 
@@ -219,7 +238,7 @@ export default function TransactionsPage() {
                                 </td>
                                 <td className="px-6 py-4 font-medium text-gray-800 dark:text-white">{tx.vehicleName}</td>
                                 <td className="px-6 py-4 text-gray-600 dark:text-gray-300">{tx.customerName || '-'}</td>
-                                <td className="px-6 py-4 font-semibold text-gray-800 dark:text-white">{formatCurrency(tx.amount)}</td>
+                                <td className="px-6 py-4 font-semibold text-gray-800 dark:text-white">{formatCurrency(tx.finalPrice)}</td>
                                 <td className="px-6 py-4">
                                     <span className={`px-2.5 py-1 rounded-full text-xs font-medium ${tx.status === 'COMPLETED' ? 'bg-green-100 text-green-700' :
                                         tx.status === 'PENDING' ? 'bg-amber-100 text-amber-700' :
@@ -284,7 +303,8 @@ export default function TransactionsPage() {
                             <DetailRow label="Tipe" value={selectedTx.type === 'SALE' ? 'Penjualan' : 'Pembelian'} />
                             <DetailRow label="Kendaraan" value={selectedTx.vehicleName} />
                             {selectedTx.customerName && <DetailRow label="Customer" value={selectedTx.customerName} />}
-                            <DetailRow label="Jumlah" value={formatCurrency(selectedTx.amount)} />
+                            <DetailRow label="Jumlah" value={formatCurrency(selectedTx.finalPrice)} />
+                            <DetailRow label="Pembayaran" value={selectedTx.paymentType === 'CREDIT' ? 'Kredit' : 'Tunai'} />
                             {selectedTx.profit && <DetailRow label="Profit" value={formatCurrency(selectedTx.profit)} highlight />}
                             <DetailRow label="Tanggal" value={new Date(selectedTx.date).toLocaleDateString('id-ID')} />
                             <DetailRow label="Status" value={selectedTx.status} />
@@ -340,21 +360,38 @@ export default function TransactionsPage() {
                             </div>
 
                             {/* Customer */}
-                            {txForm.type === 'SALE' && (
-                                <div>
-                                    <label className="block text-sm font-medium text-gray-600 dark:text-gray-300 mb-1">Customer</label>
-                                    <select
-                                        value={txForm.customerId}
-                                        onChange={(e) => setTxForm({ ...txForm, customerId: e.target.value })}
-                                        className="w-full px-4 py-3 rounded-xl bg-[#ecf0f3] dark:bg-gray-700 shadow-[inset_3px_3px_6px_#cbced1,inset_-3px_-3px_6px_#ffffff] dark:shadow-none focus:outline-none focus:ring-2 focus:ring-[#00bfa5] text-gray-700 dark:text-white"
-                                    >
-                                        <option value="">Pilih Customer (opsional)</option>
-                                        {customers.map((c: any) => (
-                                            <option key={c.id} value={c.id}>{c.name} - {c.phone}</option>
-                                        ))}
-                                    </select>
+                            <div>
+                                <label className="block text-sm font-medium text-gray-600 dark:text-gray-300 mb-1">Customer *</label>
+                                <select
+                                    value={txForm.customerId}
+                                    onChange={(e) => setTxForm({ ...txForm, customerId: e.target.value })}
+                                    className="w-full px-4 py-3 rounded-xl bg-[#ecf0f3] dark:bg-gray-700 shadow-[inset_3px_3px_6px_#cbced1,inset_-3px_-3px_6px_#ffffff] dark:shadow-none focus:outline-none focus:ring-2 focus:ring-[#00bfa5] text-gray-700 dark:text-white"
+                                >
+                                    <option value="">Pilih Customer</option>
+                                    {customers.map((c: any) => (
+                                        <option key={c.id} value={c.id}>{c.name} - {c.phone}</option>
+                                    ))}
+                                </select>
+                            </div>
+
+                            {/* Payment Type */}
+                            <div>
+                                <label className="block text-sm font-medium text-gray-600 dark:text-gray-300 mb-2">Tipe Pembayaran *</label>
+                                <div className="flex gap-2">
+                                    {(['CASH', 'CREDIT'] as const).map((pt) => (
+                                        <button
+                                            key={pt}
+                                            onClick={() => setTxForm({ ...txForm, paymentType: pt })}
+                                            className={`flex-1 py-3 rounded-xl font-medium transition-all ${txForm.paymentType === pt
+                                                ? 'bg-[#00bfa5] text-white shadow-lg'
+                                                : 'bg-[#ecf0f3] dark:bg-gray-700 text-gray-600 dark:text-gray-300 shadow-[3px_3px_6px_#cbced1,-3px_-3px_6px_#ffffff] dark:shadow-none'
+                                                }`}
+                                        >
+                                            {pt === 'CASH' ? 'Tunai' : 'Kredit'}
+                                        </button>
+                                    ))}
                                 </div>
-                            )}
+                            </div>
 
                             {/* Price */}
                             <div>

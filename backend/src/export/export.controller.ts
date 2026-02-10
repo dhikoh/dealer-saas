@@ -1,7 +1,9 @@
 import { Controller, Get, Request, Res } from '@nestjs/common';
 import { ExportService } from './export.service';
 import type { Response } from 'express';
+import { Roles } from '../auth/roles.decorator';
 
+@Roles('OWNER')
 @Controller('export')
 export class ExportController {
     constructor(private readonly exportService: ExportService) { }

@@ -16,6 +16,7 @@ import {
     faCalculator,
 } from '@fortawesome/free-solid-svg-icons';
 import { useLanguage } from '@/hooks/useLanguage';
+import { toast } from 'sonner';
 
 interface Credit {
     id: string;
@@ -60,9 +61,16 @@ export default function CreditPage() {
             });
             if (res.ok) {
                 setCredits(await res.json());
+            } else if (res.status === 401) {
+                localStorage.removeItem('access_token');
+                localStorage.removeItem('user_info');
+                window.location.href = '/auth';
+            } else {
+                toast.error('Gagal memuat data kredit');
             }
         } catch (error) {
             console.error('Failed to fetch credits:', error);
+            toast.error('Gagal memuat data kredit');
         } finally {
             setLoading(false);
         }
@@ -71,6 +79,11 @@ export default function CreditPage() {
     const handleAddPayment = async () => {
         const token = getToken();
         if (!token || !selectedCredit) return;
+
+        if (!paymentAmount || parseFloat(paymentAmount) <= 0) {
+            toast.error('Masukkan jumlah pembayaran yang valid');
+            return;
+        }
 
         try {
             const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/credit/${selectedCredit.id}/payments`, {
@@ -86,12 +99,17 @@ export default function CreditPage() {
             });
 
             if (res.ok) {
+                toast.success('Pembayaran berhasil dicatat');
                 setShowPaymentModal(false);
                 setPaymentAmount('');
                 fetchCredits();
+            } else {
+                const err = await res.json();
+                toast.error(err.message || 'Gagal mencatat pembayaran');
             }
         } catch (error) {
             console.error('Failed to add payment:', error);
+            toast.error('Gagal mencatat pembayaran');
         }
     };
 

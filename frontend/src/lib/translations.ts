@@ -23,6 +23,8 @@ export interface TranslationKeys {
     reports: string;
     staff: string;
     branch: string;
+    billing: string;
+    activity: string;
     search: string;
     settings: string;
     helpCenter: string;
@@ -104,6 +106,8 @@ const translations: Record<Language, TranslationKeys> = {
         reports: 'Laporan',
         staff: 'Tim Sales',
         branch: 'Cabang',
+        billing: 'Tagihan',
+        activity: 'Aktivitas',
         search: 'Pencarian',
         settings: 'Pengaturan',
         helpCenter: 'Pusat Bantuan',
@@ -183,6 +187,8 @@ const translations: Record<Language, TranslationKeys> = {
         reports: 'Reports',
         staff: 'Sales Team',
         branch: 'Branch',
+        billing: 'Billing',
+        activity: 'Activity',
         search: 'Search',
         settings: 'Settings',
         helpCenter: 'Help Center',
@@ -261,6 +267,8 @@ const translations: Record<Language, TranslationKeys> = {
         reports: 'รายงาน',
         staff: 'ทีมขาย',
         branch: 'สาขา',
+        billing: 'การเรียกเก็บเงิน',
+        activity: 'กิจกรรม',
         search: 'ค้นหา',
         settings: 'ตั้งค่า',
         helpCenter: 'ศูนย์ช่วยเหลือ',
@@ -325,6 +333,8 @@ const translations: Record<Language, TranslationKeys> = {
         reports: 'Mga Ulat',
         staff: 'Sales Team',
         branch: 'Sangay',
+        billing: 'Billing',
+        activity: 'Aktibidad',
         search: 'Maghanap',
         settings: 'Mga Setting',
         helpCenter: 'Sentro ng Tulong',
@@ -389,6 +399,8 @@ const translations: Record<Language, TranslationKeys> = {
         reports: 'Báo Cáo',
         staff: 'Đội Bán Hàng',
         branch: 'Chi Nhánh',
+        billing: 'Hóa Đơn',
+        activity: 'Hoạt Động',
         search: 'Tìm Kiếm',
         settings: 'Cài Đặt',
         helpCenter: 'Trung Tâm Hỗ Trợ',

@@ -20,7 +20,8 @@ import {
     faReceipt,
     faCalendarAlt,
     faBars,
-    faTimes
+    faTimes,
+    faBell,
 } from '@fortawesome/free-solid-svg-icons';
 import { useLanguage } from '@/hooks/useLanguage';
 
@@ -45,8 +46,8 @@ const MENU_ITEMS: MenuItem[] = [
 const OTHER_MENU_ITEMS: MenuItem[] = [
     { icon: faUserTie, labelKey: 'staff', href: '/app/staff' },
     { icon: faBuilding, labelKey: 'branch', href: '/app/branches', premium: true },
-    { icon: faReceipt, labelKey: 'credit', href: '/app/billing' },
-    { icon: faChartBar, labelKey: 'reports', href: '/app/activity' },
+    { icon: faReceipt, labelKey: 'billing', href: '/app/billing' },
+    { icon: faBell, labelKey: 'activity', href: '/app/activity' },
     { icon: faCog, labelKey: 'settings', href: '/app/settings' },
     { icon: faQuestionCircle, labelKey: 'helpCenter', href: '/app/help' },
 ];
@@ -70,14 +71,28 @@ export default function Sidebar({ isOpen, onToggle }: SidebarProps) {
         const storedTheme = localStorage.getItem('otohub_theme') as 'light' | 'dark' | null;
         if (storedTheme) setTheme(storedTheme);
 
-        const interval = setInterval(() => {
+        // Listen for theme changes from other components via storage events
+        const handleStorageChange = (e: StorageEvent) => {
+            if (e.key === 'otohub_theme' && e.newValue) {
+                setTheme(e.newValue as 'light' | 'dark');
+            }
+        };
+
+        // Also listen for custom theme change events within the same tab
+        const handleCustomTheme = () => {
             const currentTheme = localStorage.getItem('otohub_theme') as 'light' | 'dark' | null;
             if (currentTheme && currentTheme !== theme) {
                 setTheme(currentTheme);
             }
-        }, 500);
+        };
 
-        return () => clearInterval(interval);
+        window.addEventListener('storage', handleStorageChange);
+        window.addEventListener('otohub-theme-change', handleCustomTheme);
+
+        return () => {
+            window.removeEventListener('storage', handleStorageChange);
+            window.removeEventListener('otohub-theme-change', handleCustomTheme);
+        };
     }, [theme]);
 
     // Close mobile sidebar on route change
@@ -118,8 +133,8 @@ export default function Sidebar({ isOpen, onToggle }: SidebarProps) {
             <button
                 onClick={toggleSidebar}
                 className={`lg:hidden fixed top-4 left-4 z-[60] p-3 rounded-xl transition-all ${theme === 'dark'
-                        ? 'bg-gray-800 text-white'
-                        : 'bg-[#ecf0f3] text-gray-700 shadow-[3px_3px_6px_#cbced1,-3px_-3px_6px_#ffffff]'
+                    ? 'bg-gray-800 text-white'
+                    : 'bg-[#ecf0f3] text-gray-700 shadow-[3px_3px_6px_#cbced1,-3px_-3px_6px_#ffffff]'
                     }`}
             >
                 <FontAwesomeIcon icon={sidebarOpen ? faTimes : faBars} className="w-5 h-5" />
