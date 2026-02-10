@@ -12,6 +12,8 @@ datasource db {
 
 // ==================== TENANT & USER ====================
 
+// ==================== TENANT & USER ====================
+
 model Tenant {
   id                 String   @id @default(uuid())
   name               String
@@ -36,6 +38,17 @@ model Tenant {
   phone              String?
   email              String?
 
+  // SETTINGS (v2.0)
+  currency           String   @default("IDR")
+  taxPercentage      Decimal  @default(0) // e.g., 11.0 for PPN
+
+  // DEALER GROUP (v2.1)
+  adminOfGroupId     String?       @unique
+  adminOfGroup       DealerGroup?  @relation("GroupAdmin")
+  
+  dealerGroupId      String?
+  dealerGroup        DealerGroup?  @relation("GroupMembers", fields: [dealerGroupId], references: [id])
+
   users        User[]
   vehicles     Vehicle[]
   customers    Customer[]
@@ -47,10 +60,32 @@ model Tenant {
   activityLogs ActivityLog[]
   vehicleCosts VehicleCost[]
 
+  // Stock Transfers
+  outgoingTransfers StockTransfer[] @relation("SourceTenantTransfer")
+  incomingTransfers StockTransfer[] @relation("TargetTenantTransfer")
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
   @@map("tenants")
+}
+
+// ==================== DEALER GROUP (SHARED POOL) ====================
+
+model DealerGroup {
+  id             String   @id @default(uuid())
+  name           String
+  code           String   @unique // Unique code for invitation/joining
+  
+  adminTenantId  String   @unique
+  adminTenant    Tenant   @relation("GroupAdmin", fields: [adminTenantId], references: [id])
+  
+  members        Tenant[] @relation("GroupMembers")
+
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  @@map("dealer_groups")
 }
 
 model User {
@@ -95,6 +130,8 @@ model User {
   transactions Transaction[]
   activityLogs ActivityLog[]
   refreshTokens RefreshToken[]
+  requestedTransfers StockTransfer[] @relation("Requester")
+  approvedTransfers  StockTransfer[] @relation("Approver")
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -115,6 +152,11 @@ model Branch {
 
   vehicles Vehicle[]
   users    User[]
+  transactions Transaction[]
+  customers    Customer[]
+  
+  outgoingTransfers StockTransfer[] @relation("SourceBranch")
+  incomingTransfers StockTransfer[] @relation("TargetBranch")
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -201,13 +243,16 @@ model Vehicle {
   images String? // JSON array of image URLs
 
   // DOKUMEN KENDARAAN (GAMBAR)
-  ktpOwnerImage String?  // KTP pemilik sesuai BPKB
-  stnkImage     String?  // Foto STNK
-  bpkbImage     String?  // Foto BPKB
-  taxImage      String?  // Foto bukti pajak terakhir
+  ktpOwnerImage    String? // KTP pemilik sesuai BPKB
+  bpkbOwnerName    String? // Nama pemilik di BPKB (jika beda dgn KTP dealer)
+  isOwnerDifferent Boolean @default(false) // Flag: Pemilik BPKB ≠ Pemilik KTP
+  stnkImage        String? // Foto STNK
+  bpkbImage        String? // Foto BPKB
+  taxImage         String? // Foto bukti pajak terakhir
 
   transactions Transaction[]
   costs        VehicleCost[]
+  stockTransfers StockTransfer[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -218,19 +263,28 @@ model Vehicle {
   @@map("vehicles")
 }
 
-// ==================== CUSTOMER ====================
+// ==================== CUSTOMER & LEADS ====================
 
 model Customer {
   id       String @id @default(uuid())
   tenantId String
   tenant   Tenant @relation(fields: [tenantId], references: [id])
+  
+  branchId String? // Optional: Lead owned by specific branch
+  branch   Branch? @relation(fields: [branchId], references: [id])
 
   // BASIC INFO - KTP as unique per-tenant identifier for blacklist
-  ktpNumber String  // Unique per tenant (see @@unique below)
+  ktpNumber String?  // Unique per tenant (see @@unique below) - Optional for LEAD
   name      String
   phone     String
   email     String?
   address   String?
+
+  // LEAD MANAGEMENT (v2.0)
+  type          String   @default("CUSTOMER") // CUSTOMER, LEAD
+  source        String?  // WALK_IN, INSTAGRAM, ADS, MARKETPLACE
+  pipelineStage String?  // NEW, INTERESTED, TEST_DRIVE, NEGOTIATION, WON, LOST
+  notes         String?
 
   // DOKUMEN IDENTITAS
   ktpImage             String?
@@ -251,12 +305,15 @@ model Customer {
   @@map("customers")
 }
 
-// ==================== TRANSACTION ====================
+// ==================== TRANSACTION & FINANCE ====================
 
 model Transaction {
   id       String @id @default(uuid())
   tenantId String
   tenant   Tenant @relation(fields: [tenantId], references: [id])
+
+  branchId String? // v2.0
+  branch   Branch? @relation(fields: [branchId], references: [id])
 
   vehicleId String
   vehicle   Vehicle @relation(fields: [vehicleId], references: [id])
@@ -269,14 +326,24 @@ model Transaction {
 
   // TRANSACTION DETAILS
   type        String @default("SALE")     // SALE, PURCHASE
-  paymentType String @default("CASH")     // CASH, CREDIT
-  finalPrice  Decimal
+  
+  // v2.0 FINANCIALS
+  currency           String   @default("IDR")
+  paymentType        String   @default("CASH") // CASH, CREDIT, SPLIT
+  paymentStatus      String   @default("UNPAID") // UNPAID, PARTIAL, PAID
+  
+  basePrice          Decimal  // Harga Dasar
+  taxPercentage      Decimal  @default(0) // PPN %
+  taxAmount          Decimal  @default(0) // Nilai PPN
+  finalPrice         Decimal  // Total setelah pajak
+
   notes       String?
 
   date   DateTime @default(now())
-  status String   @default("PENDING") // PENDING, PAID, CANCELLED
+  status String   @default("PENDING") // PENDING, COMPLETED, CANCELLED
 
   credit Credit?
+  payments TransactionPayment[] // v2.0 Split Payments
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -285,6 +352,24 @@ model Transaction {
   @@index([tenantId, date])
   @@index([tenantId, status])
   @@map("transactions")
+}
+
+model TransactionPayment {
+  id            String      @id @default(uuid())
+  transactionId String
+  transaction   Transaction @relation(fields: [transactionId], references: [id], onDelete: Cascade)
+
+  // PAYMENT DETAILS
+  method          String   // CASH, TRANSFER, EDC_DEBIT, EDC_CREDIT
+  amount          Decimal
+  referenceNumber String?  // No. Referensi Transfer/EDC
+  note            String?
+  date            DateTime @default(now())
+
+  createdAt DateTime @default(now())
+
+  @@index([transactionId])
+  @@map("transaction_payments")
 }
 
 // ==================== CREDIT / LEASING ====================
@@ -300,7 +385,7 @@ model Credit {
 
   // AMOUNT DETAILS
   downPayment    Decimal // DP
-  totalAmount    Decimal // Total kredit (setelah DP)
+  totalAmount    Decimal // Total kredit (Principal)
   interestRate   Decimal // Bunga % per tahun
   tenorMonths    Int     // 6, 12, 24, 36, 48, 60 atau custom
   monthlyPayment Decimal // Cicilan per bulan
@@ -326,10 +411,59 @@ model CreditPayment {
   amount Decimal
   paidAt DateTime
   status String  @default("PAID") // PAID, LATE
+  note   String?
 
   createdAt DateTime @default(now())
 
   @@map("credit_payments")
+}
+
+// ==================== STOCK TRANSFER (v2.0 & Cross-Tenant) ====================
+
+model StockTransfer {
+  id             String   @id @default(uuid())
+  
+  // SOURCE (Initiator)
+  tenantId       String
+  tenant         Tenant   @relation("SourceTenantTransfer", fields: [tenantId], references: [id])
+  
+  // TARGET (Recipient) - Optional for internal, but mandatory for cross-tenant logic
+  targetTenantId String?
+  targetTenant   Tenant?  @relation("TargetTenantTransfer", fields: [targetTenantId], references: [id])
+  
+  vehicleId      String
+  vehicle        Vehicle  @relation(fields: [vehicleId], references: [id])
+
+  // BRANCHES (Optional for Single-Branch Mode)
+  sourceBranchId String?
+  sourceBranch   Branch?   @relation("SourceBranch", fields: [sourceBranchId], references: [id])
+
+  targetBranchId String?
+  targetBranch   Branch?   @relation("TargetBranch", fields: [targetBranchId], references: [id])
+
+  // TRANSFER DETAILS
+  type           String   @default("MUTATION") // MUTATION (Free), SALE (Paid)
+  price          Decimal? // Required if type is SALE (Deal Price)
+
+  // REQUEST DETAILS
+  requestedById  String
+  requestedBy    User     @relation("Requester", fields: [requestedById], references: [id])
+  
+  status         String   @default("PENDING") // PENDING, APPROVED, REJECTED, CANCELLED
+  
+  approvedById   String?
+  approvedBy     User?    @relation("Approver", fields: [approvedById], references: [id])
+  
+  approvedAt     DateTime?
+  notes          String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([tenantId])
+  @@index([targetTenantId])
+  @@index([status])
+  @@map("stock_transfers")
 }
 
 // ==================== BLACKLIST (CROSS-TENANT) ====================
@@ -479,4 +613,39 @@ model RefreshToken {
   @@index([userId])
   @@index([token])
   @@map("refresh_tokens")
+}
+
+// ==================== ADMIN APPROVAL REQUESTS ====================
+
+model AdminApprovalRequest {
+  id            String   @id @default(uuid())
+  requestedById String
+  approvedById  String?
+  type          String   // PLAN_CHANGE, BILLING_EXTEND, INVOICE_ACTION, TENANT_SUSPEND
+  payload       String   // JSON detail of the change
+  status        String   @default("PENDING") // PENDING, APPROVED, REJECTED
+  note          String?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  @@index([status])
+  @@index([requestedById])
+  @@map("admin_approval_requests")
+}
+
+// ==================== API KEYS ====================
+
+model ApiKey {
+  id        String    @id @default(uuid())
+  name      String
+  keyHash   String    @unique
+  prefix    String    // First 8 chars for display (e.g. "oh_live_ab")
+  scopes    String?   // JSON array of permissions
+  lastUsed  DateTime?
+  expiresAt DateTime?
+  active    Boolean   @default(true)
+  createdAt DateTime  @default(now())
+
+  @@index([active])
+  @@map("api_keys")
 }

@@ -23,8 +23,10 @@ export interface TranslationKeys {
     reports: string;
     staff: string;
     branch: string;
+    stockTransfer: string;
     billing: string;
     activity: string;
+    dealerGroup: string;
     search: string;
     settings: string;
     helpCenter: string;
@@ -131,8 +133,10 @@ const translations: Record<Language, TranslationKeys> = {
         reports: 'Laporan',
         staff: 'Tim Sales',
         branch: 'Cabang',
+        stockTransfer: 'Transfer Stok',
         billing: 'Tagihan',
         activity: 'Aktivitas',
+        dealerGroup: 'Dealer Group',
         search: 'Pencarian',
         settings: 'Pengaturan',
         helpCenter: 'Pusat Bantuan',
@@ -237,8 +241,10 @@ const translations: Record<Language, TranslationKeys> = {
         reports: 'Reports',
         staff: 'Sales Team',
         branch: 'Branch',
+        stockTransfer: 'Stock Transfer',
         billing: 'Billing',
         activity: 'Activity',
+        dealerGroup: 'Dealer Group',
         search: 'Search',
         settings: 'Settings',
         helpCenter: 'Help Center',
@@ -342,8 +348,10 @@ const translations: Record<Language, TranslationKeys> = {
         reports: 'รายงาน',
         staff: 'ทีมขาย',
         branch: 'สาขา',
+        stockTransfer: 'โอนย้ายสต็อก',
         billing: 'การเรียกเก็บเงิน',
         activity: 'กิจกรรม',
+        dealerGroup: 'Dealer Group',
         search: 'ค้นหา',
         settings: 'ตั้งค่า',
         helpCenter: 'ศูนย์ช่วยเหลือ',
@@ -433,8 +441,10 @@ const translations: Record<Language, TranslationKeys> = {
         reports: 'Mga Ulat',
         staff: 'Sales Team',
         branch: 'Sangay',
+        stockTransfer: 'Stock Transfer',
         billing: 'Billing',
         activity: 'Aktibidad',
+        dealerGroup: 'Dealer Group',
         search: 'Maghanap',
         settings: 'Mga Setting',
         helpCenter: 'Sentro ng Tulong',
@@ -524,8 +534,10 @@ const translations: Record<Language, TranslationKeys> = {
         reports: 'Báo Cáo',
         staff: 'Đội Bán Hàng',
         branch: 'Chi Nhánh',
+        stockTransfer: 'Chuyển Kho',
         billing: 'Hóa Đơn',
         activity: 'Hoạt Động',
+        dealerGroup: 'Dealer Group',
         search: 'Tìm Kiếm',
         settings: 'Cài Đặt',
         helpCenter: 'Trung Tâm Hỗ Trợ',

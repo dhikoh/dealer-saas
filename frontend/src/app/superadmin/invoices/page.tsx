@@ -1,8 +1,9 @@
 'use client';
 
 import React, { useEffect, useState } from 'react';
-import { Download, Eye, CheckCircle, XCircle, FileText, AlertCircle, Plus, X, Image } from 'lucide-react';
+import { Download, Eye, CheckCircle, XCircle, FileText, AlertCircle, Plus, X } from 'lucide-react';
 import { API_URL } from '@/lib/api';
+import ConfirmDialog from '@/components/ui/ConfirmDialog';
 
 interface Invoice {
     id: string;
@@ -51,9 +52,12 @@ export default function InvoicesPage() {
     const [tenants, setTenants] = useState<Tenant[]>([]);
     const [loading, setLoading] = useState(true);
     const [statusFilter, setStatusFilter] = useState('');
-    const [processing, setProcessing] = useState<string | null>(null);
     const [error, setError] = useState<string | null>(null);
     const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
+
+    // Actions
+    const [confirmVerify, setConfirmVerify] = useState<{ id: string; approved: boolean } | null>(null);
+    const [verifyLoading, setVerifyLoading] = useState(false);
 
     // Create invoice modal
     const [showCreate, setShowCreate] = useState(false);
@@ -109,21 +113,23 @@ export default function InvoicesPage() {
         } catch { /* ignore */ }
     };
 
-    const handleVerify = async (invoiceId: string, approved: boolean) => {
-        setProcessing(invoiceId);
+    const handleVerifyAction = async () => {
+        if (!confirmVerify) return;
+        setVerifyLoading(true);
         try {
-            const res = await fetch(`${API_URL}/superadmin/invoices/${invoiceId}/verify`, {
+            const res = await fetch(`${API_URL}/superadmin/invoices/${confirmVerify.id}/verify`, {
                 method: 'POST',
                 headers: { 'Authorization': `Bearer ${getToken()}`, 'Content-Type': 'application/json' },
-                body: JSON.stringify({ approved }),
+                body: JSON.stringify({ approved: confirmVerify.approved }),
             });
             if (!res.ok) throw new Error('Verification failed');
-            setToast({ message: approved ? 'Invoice disetujui' : 'Invoice ditolak', type: 'success' });
+            setToast({ message: confirmVerify.approved ? 'Invoice disetujui' : 'Invoice ditolak', type: 'success' });
             fetchInvoices();
         } catch {
             setToast({ message: 'Gagal memverifikasi invoice', type: 'error' });
         } finally {
-            setProcessing(null);
+            setVerifyLoading(false);
+            setConfirmVerify(null);
         }
     };
 
@@ -287,17 +293,15 @@ export default function InvoicesPage() {
                                         {(inv.status === 'VERIFYING' || inv.status === 'PENDING') && (
                                             <>
                                                 <button
-                                                    onClick={() => handleVerify(inv.id, true)}
-                                                    disabled={processing === inv.id}
-                                                    className="text-emerald-600 hover:bg-emerald-50 p-1.5 rounded-lg border border-emerald-200 transition-colors disabled:opacity-50"
+                                                    onClick={() => setConfirmVerify({ id: inv.id, approved: true })}
+                                                    className="text-emerald-600 hover:bg-emerald-50 p-1.5 rounded-lg border border-emerald-200 transition-colors"
                                                     title="Approve"
                                                 >
                                                     <CheckCircle className="w-4 h-4" />
                                                 </button>
                                                 <button
-                                                    onClick={() => handleVerify(inv.id, false)}
-                                                    disabled={processing === inv.id}
-                                                    className="text-rose-600 hover:bg-rose-50 p-1.5 rounded-lg border border-rose-200 transition-colors disabled:opacity-50"
+                                                    onClick={() => setConfirmVerify({ id: inv.id, approved: false })}
+                                                    className="text-rose-600 hover:bg-rose-50 p-1.5 rounded-lg border border-rose-200 transition-colors"
                                                     title="Reject"
                                                 >
                                                     <XCircle className="w-4 h-4" />
@@ -318,6 +322,21 @@ export default function InvoicesPage() {
                     </table>
                 </div>
             </div>
+
+            {/* CONFIRM VERIFY DIALOG */}
+            <ConfirmDialog
+                isOpen={!!confirmVerify}
+                onClose={() => setConfirmVerify(null)}
+                onConfirm={handleVerifyAction}
+                title={confirmVerify?.approved ? "Setujui Pembayaran?" : "Tolak Pembayaran?"}
+                message={confirmVerify?.approved
+                    ? "Apakah Anda yakin ingin menyetujui invoice ini? Status akan berubah menjadi PAID dan langganan tenant akan diperbarui."
+                    : "Apakah Anda yakin ingin menolak invoice ini? Tenant akan diminta untuk upload ulang bukti pembayaran."}
+                confirmText={confirmVerify?.approved ? "Ya, Setujui" : "Ya, Tolak"}
+                cancelText="Batal"
+                variant={confirmVerify?.approved ? "success" : "danger"}
+                isLoading={verifyLoading}
+            />
 
             {/* CREATE INVOICE MODAL */}
             {showCreate && (

@@ -1,8 +1,9 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { User, Shield, Users, Key, CreditCard, Save, Plus, X, Eye, EyeOff, Settings, Trash2, CheckCircle } from 'lucide-react';
 import { API_URL } from '@/lib/api';
+import ConfirmDialog from '@/components/ui/ConfirmDialog';
 
 type Tab = 'general' | 'security' | 'staff' | 'api' | 'billing';
 
@@ -283,54 +284,70 @@ function StaffManagementTab() {
     const [staff, setStaff] = useState<any[]>([]);
     const [loading, setLoading] = useState(true);
     const [showAdd, setShowAdd] = useState(false);
-    const [addForm, setAddForm] = useState({ name: '', email: '', password: '', role: 'Staff Finance' });
+    const [addForm, setAddForm] = useState({ name: '', email: '', password: '', role: 'Admin', phone: '' });
     const [toast, setToast] = useState<string | null>(null);
+    const [deleteId, setDeleteId] = useState<string | null>(null);
+    const [deleteLoading, setDeleteLoading] = useState(false);
+
+    const getToken = () => localStorage.getItem('access_token');
+
+    const fetchStaff = useCallback(async () => {
+        setLoading(true);
+        try {
+            const res = await fetch(`${API_URL}/superadmin/staff`, {
+                headers: { 'Authorization': `Bearer ${getToken()}` },
+            });
+            if (res.ok) {
+                const data = await res.json();
+                setStaff(data);
+            }
+        } catch { /* ignore */ } finally {
+            setLoading(false);
+        }
+    }, []);
 
     useEffect(() => {
         fetchStaff();
-    }, []);
+    }, [fetchStaff]);
 
     useEffect(() => {
         if (toast) { const t = setTimeout(() => setToast(null), 3000); return () => clearTimeout(t); }
     }, [toast]);
 
-    const fetchStaff = async () => {
+    const handleAddStaff = async () => {
         try {
-            const token = localStorage.getItem('access_token');
-            // Try to fetch admin users from activity log or users endpoint
-            const res = await fetch(`${API_URL}/superadmin/stats`, {
-                headers: { 'Authorization': `Bearer ${token}` },
+            const res = await fetch(`${API_URL}/superadmin/staff`, {
+                method: 'POST',
+                headers: { 'Authorization': `Bearer ${getToken()}`, 'Content-Type': 'application/json' },
+                body: JSON.stringify(addForm),
             });
-            if (res.ok) {
-                // Use static data for now since there's no dedicated staff endpoint
-                setStaff([
-                    { id: '1', name: 'Budi Santoso', email: 'budi@admin.com', role: 'Staff Finance', status: 'active', tasks: 12 },
-                    { id: '2', name: 'Siti Aminah', email: 'siti@admin.com', role: 'Staff Onboarding', status: 'active', tasks: 5 },
-                ]);
-            }
-        } catch { /* ignore */ } finally {
-            setLoading(false);
+            if (!res.ok) throw new Error('Failed to create staff');
+            setToast('Staff berhasil ditambahkan');
+            setShowAdd(false);
+            setAddForm({ name: '', email: '', password: '', role: 'Admin', phone: '' });
+            fetchStaff();
+        } catch {
+            setToast('Gagal menambahkan staff');
         }
     };
 
-    const handleAddStaff = () => {
-        // Add to local state (no backend endpoint yet)
-        setStaff(prev => [...prev, {
-            id: Date.now().toString(),
-            name: addForm.name,
-            email: addForm.email,
-            role: addForm.role,
-            status: 'active',
-            tasks: 0,
-        }]);
-        setShowAdd(false);
-        setAddForm({ name: '', email: '', password: '', role: 'Staff Finance' });
-        setToast('Staff berhasil ditambahkan');
-    };
-
-    const handleRemoveStaff = (id: string) => {
-        setStaff(prev => prev.filter(s => s.id !== id));
-        setToast('Staff berhasil dihapus');
+    const handleRemoveStaff = async () => {
+        if (!deleteId) return;
+        setDeleteLoading(true);
+        try {
+            const res = await fetch(`${API_URL}/superadmin/staff/${deleteId}`, {
+                method: 'DELETE',
+                headers: { 'Authorization': `Bearer ${getToken()}` },
+            });
+            if (!res.ok) throw new Error('Failed to delete');
+            setToast('Staff berhasil dihapus');
+            fetchStaff();
+        } catch {
+            setToast('Gagal menghapus staff');
+        } finally {
+            setDeleteLoading(false);
+            setDeleteId(null);
+        }
     };
 
     return (
@@ -355,54 +372,53 @@ function StaffManagementTab() {
                 </div>
 
                 <div className="space-y-4">
-                    {staff.map(s => (
-                        <div key={s.id} className="flex items-center justify-between p-4 border border-slate-100 rounded-xl hover:border-indigo-100 transition-colors">
-                            <div className="flex items-center gap-3">
-                                <div className="w-10 h-10 rounded-full bg-indigo-50 flex items-center justify-center text-indigo-600 font-bold border border-indigo-100">
-                                    {s.name.charAt(0)}
+                    {loading ? (
+                        <p className="text-center text-slate-500 py-4">Loading staff...</p>
+                    ) : staff.length === 0 ? (
+                        <p className="text-center text-slate-500 py-4">Belum ada staff admin.</p>
+                    ) : (
+                        staff.map(s => (
+                            <div key={s.id} className="flex items-center justify-between p-4 border border-slate-100 rounded-xl hover:border-indigo-100 transition-colors">
+                                <div className="flex items-center gap-3">
+                                    <div className="w-10 h-10 rounded-full bg-indigo-50 flex items-center justify-center text-indigo-600 font-bold border border-indigo-100">
+                                        {s.name.charAt(0)}
+                                    </div>
+                                    <div>
+                                        <p className="text-sm font-semibold text-slate-900">{s.name}</p>
+                                        <p className="text-xs text-slate-500">{s.role} • {s.email}</p>
+                                    </div>
                                 </div>
-                                <div>
-                                    <p className="text-sm font-semibold text-slate-900">{s.name}</p>
-                                    <p className="text-xs text-slate-500">{s.role} • {s.email} • {s.tasks} Pending Task</p>
+                                <div className="flex items-center gap-3">
+                                    <span className={`text-xs px-2 py-0.5 rounded-full ${s.subscriptionStatus === 'ACTIVE' ? 'bg-green-100 text-green-700' : 'bg-slate-100 text-slate-500'}`}>
+                                        {s.subscriptionStatus || 'Active'}
+                                    </span>
+                                    <button onClick={() => setDeleteId(s.id)}
+                                        className="text-slate-400 hover:text-rose-500 p-1.5 rounded-lg hover:bg-rose-50 transition-colors">
+                                        <Trash2 className="w-4 h-4" />
+                                    </button>
                                 </div>
                             </div>
-                            <div className="flex items-center gap-3">
-                                <span className={`text-xs px-2 py-0.5 rounded-full ${s.status === 'active' ? 'bg-green-100 text-green-700' : 'bg-slate-100 text-slate-500'}`}>
-                                    {s.status === 'active' ? 'Active' : 'Inactive'}
-                                </span>
-                                <button onClick={() => handleRemoveStaff(s.id)}
-                                    className="text-slate-400 hover:text-rose-500 p-1.5 rounded-lg hover:bg-rose-50 transition-colors">
-                                    <Trash2 className="w-4 h-4" />
-                                </button>
-                            </div>
-                        </div>
-                    ))}
+                        ))
+                    )}
                 </div>
             </div>
 
-            {/* RBAC Info */}
-            <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-6">
-                <h3 className="text-lg font-semibold text-slate-900 mb-4 flex items-center gap-2">
-                    <Shield className="w-5 h-5 text-indigo-600" /> Hak Akses Staff (RBAC)
-                </h3>
-                <div className="space-y-3">
-                    {[
-                        { role: 'Staff Finance', access: 'Invoices, Export Data, Verifikasi Transfer' },
-                        { role: 'Staff Onboarding', access: 'Tenant Management, Edit Profil Mitra' },
-                        { role: 'Staff Support', access: 'View Tenants, Activity Log, Notifications' },
-                    ].map((r, i) => (
-                        <div key={i} className="flex justify-between items-center text-sm p-3 bg-slate-50 rounded-lg border border-slate-100">
-                            <span className="font-medium text-slate-700">{r.role}</span>
-                            <span className="text-slate-500">{r.access}</span>
-                        </div>
-                    ))}
-                </div>
-            </div>
+            {/* CONFIRM DELETE DIALOG */}
+            <ConfirmDialog
+                isOpen={!!deleteId}
+                onClose={() => setDeleteId(null)}
+                onConfirm={handleRemoveStaff}
+                title="Hapus Staff?"
+                message="Apakah Anda yakin ingin menghapus staff ini? Akses mereka akan dicabut permanen."
+                confirmText="Ya, Hapus"
+                variant="danger"
+                isLoading={deleteLoading}
+            />
 
             {/* ADD STAFF MODAL */}
             {showAdd && (
                 <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4" onClick={() => setShowAdd(false)}>
-                    <div className="bg-white rounded-xl shadow-xl max-w-md w-full" onClick={e => e.stopPropagation()}>
+                    <div className="bg-white rounded-xl shadow-xl max-w-md w-full animate-in fade-in zoom-in-95 duration-200" onClick={e => e.stopPropagation()}>
                         <div className="p-6 border-b border-slate-200 flex justify-between items-center">
                             <h3 className="text-lg font-semibold text-slate-900">Tambah Staff Baru</h3>
                             <button onClick={() => setShowAdd(false)} className="p-1 hover:bg-slate-100 rounded"><X className="w-5 h-5" /></button>
@@ -427,15 +443,15 @@ function StaffManagementTab() {
                                 <label className="block text-sm font-medium text-slate-700 mb-1">Role</label>
                                 <select value={addForm.role} onChange={e => setAddForm({ ...addForm, role: e.target.value })}
                                     className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500">
-                                    <option value="Staff Finance">Staff Finance</option>
-                                    <option value="Staff Onboarding">Staff Onboarding</option>
-                                    <option value="Staff Support">Staff Support</option>
+                                    <option value="Admin">Admin</option>
+                                    <option value="Finance">Finance</option>
+                                    <option value="Support">Support</option>
                                 </select>
                             </div>
                         </div>
                         <div className="p-6 border-t border-slate-200 flex justify-end gap-2">
                             <button onClick={() => setShowAdd(false)} className="px-4 py-2 text-sm text-slate-600 hover:bg-slate-100 rounded-lg">Batal</button>
-                            <button onClick={handleAddStaff} disabled={!addForm.name || !addForm.email}
+                            <button onClick={handleAddStaff} disabled={!addForm.name || !addForm.email || !addForm.password}
                                 className="px-4 py-2 text-sm bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 disabled:opacity-50">
                                 Tambah Staff
                             </button>
@@ -518,6 +534,52 @@ function ApiConfigTab() {
                             </div>
                         </div>
                     ))}
+                </div>
+            </div>
+
+            {/* API DOCUMENTATION */}
+            <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-6 space-y-4">
+                <h3 className="text-lg font-semibold text-slate-900 flex items-center gap-2">
+                    <div className="w-5 h-5 flex items-center justify-center rounded bg-indigo-100 text-indigo-600 text-xs font-bold">API</div>
+                    Documentation
+                </h3>
+                <p className="text-sm text-slate-500">
+                    Gunakan API Key di header <code className="bg-slate-100 px-1 py-0.5 rounded text-slate-700">x-api-key</code> untuk mengakses endpoint berikut.
+                </p>
+
+                <div className="space-y-3">
+                    <div className="p-3 bg-slate-50 rounded-lg border border-slate-100">
+                        <div className="flex items-center gap-2 mb-2">
+                            <span className="px-2 py-0.5 bg-green-100 text-green-700 text-xs font-bold rounded">GET</span>
+                            <code className="text-sm text-slate-700 font-mono">{API_URL}/public/vehicles</code>
+                        </div>
+                        <p className="text-xs text-slate-500">Mengambil data semua kendaraan (Marketplace Feed).</p>
+                        <div className="mt-2 text-xs text-slate-400 font-mono pl-4 border-l-2 border-slate-200">
+                            Params: page, limit, category, minPrice, maxPrice, make, location
+                        </div>
+                    </div>
+
+                    <div className="p-3 bg-slate-50 rounded-lg border border-slate-100">
+                        <div className="flex items-center gap-2 mb-2">
+                            <span className="px-2 py-0.5 bg-green-100 text-green-700 text-xs font-bold rounded">GET</span>
+                            <code className="text-sm text-slate-700 font-mono">{API_URL}/public/dealers</code>
+                        </div>
+                        <p className="text-xs text-slate-500">Mengambil daftar dealer aktif.</p>
+                        <div className="mt-2 text-xs text-slate-400 font-mono pl-4 border-l-2 border-slate-200">
+                            Params: page, limit, search
+                        </div>
+                    </div>
+
+                    <div className="p-3 bg-slate-50 rounded-lg border border-slate-100">
+                        <div className="flex items-center gap-2 mb-2">
+                            <span className="px-2 py-0.5 bg-green-100 text-green-700 text-xs font-bold rounded">GET</span>
+                            <code className="text-sm text-slate-700 font-mono">{API_URL}/public/blacklist</code>
+                        </div>
+                        <p className="text-xs text-slate-500">Mengambil data customer blacklist (Shared Database).</p>
+                        <div className="mt-2 text-xs text-slate-400 font-mono pl-4 border-l-2 border-slate-200">
+                            Params: page, limit, search (KTP/Name)
+                        </div>
+                    </div>
                 </div>
             </div>
 

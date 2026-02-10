@@ -1,9 +1,12 @@
-import { Injectable, BadRequestException } from '@nestjs/common';
+import { Injectable, BadRequestException, Logger } from '@nestjs/common';
+import { Cron, CronExpression } from '@nestjs/schedule';
 import { PrismaService } from '../prisma/prisma.service';
 import { PLAN_TIERS, getPlanById, canUpgrade, canDowngrade, calculateYearlyPrice } from '../config/plan-tiers.config';
 
 @Injectable()
 export class BillingService {
+    private readonly logger = new Logger(BillingService.name);
+
     constructor(private prisma: PrismaService) { }
 
     // ==================== SUBSCRIPTION STATUS ====================
@@ -284,5 +287,74 @@ export class BillingService {
     // Get all plan tiers for management
     getAllPlans() {
         return Object.values(PLAN_TIERS);
+    }
+
+    // ==================== TENANT-FACING ====================
+
+    async getMyInvoices(tenantId: string) {
+        return (this.prisma as any).systemInvoice.findMany({
+            where: { tenantId },
+            orderBy: { createdAt: 'desc' },
+            take: 50,
+        });
+    }
+
+    async uploadPaymentProof(invoiceId: string, tenantId: string, proofUrl: string) {
+        const invoice = await (this.prisma as any).systemInvoice.findUnique({
+            where: { id: invoiceId },
+        });
+
+        if (!invoice) throw new BadRequestException('Invoice not found');
+        if (invoice.tenantId !== tenantId) throw new BadRequestException('Access denied');
+        if (invoice.status !== 'PENDING') throw new BadRequestException('Invoice is not pending');
+
+        return (this.prisma as any).systemInvoice.update({
+            where: { id: invoiceId },
+            data: {
+                status: 'VERIFYING',
+                paymentProofUrl: proofUrl,
+            },
+        });
+    }
+
+    // ==================== CRON: AUTO SUSPEND (Daily at 01:00 AM) ====================
+
+    @Cron(CronExpression.EVERY_DAY_AT_1AM)
+    async autoSuspendOverdue() {
+        this.logger.log('🕵️ Running auto-suspend cron job...');
+        const overdueThreshold = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000); // 30 days overdue
+
+        const overdueTenants = await this.prisma.tenant.findMany({
+            where: {
+                subscriptionStatus: 'ACTIVE',
+                planTier: { not: 'DEMO' },
+                nextBillingDate: { lt: overdueThreshold },
+            },
+            include: {
+                users: {
+                    where: { role: 'OWNER' },
+                    select: { email: true, name: true },
+                    take: 1,
+                },
+            },
+        });
+
+        if (overdueTenants.length === 0) {
+            this.logger.log('✅ No overdue tenants found.');
+            return { suspended: 0, tenants: [] };
+        }
+
+        const suspended: string[] = [];
+        for (const tenant of overdueTenants) {
+            await this.prisma.tenant.update({
+                where: { id: tenant.id },
+                data: { subscriptionStatus: 'SUSPENDED' },
+            });
+            suspended.push(tenant.name);
+            this.logger.warn(`🚫 Suspended tenant: ${tenant.name} (Overdue > 30 days)`);
+        }
+
+        this.logger.log(`⚠️ Suspended ${suspended.length} overdue tenants.`);
+        return { suspended: suspended.length, tenants: suspended };
     }
 }

@@ -4,6 +4,8 @@ import React, { useEffect, useState } from 'react';
 import { Check, X, Crown, Zap, Rocket, Star, Pencil, Save } from 'lucide-react';
 import { API_URL } from '@/lib/api';
 
+import ConfirmDialog from '@/components/ui/ConfirmDialog';
+
 interface PlanFeatures {
     maxVehicles: number;
     maxUsers: number;
@@ -75,6 +77,7 @@ export default function PlansPage() {
     const [editForm, setEditForm] = useState<any>(null);
     const [saving, setSaving] = useState(false);
     const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
+    const [confirmSave, setConfirmSave] = useState(false);
 
     useEffect(() => {
         fetchPlans();
@@ -369,15 +372,26 @@ export default function PlansPage() {
                             <button onClick={() => setEditPlan(null)} className="px-4 py-2 text-sm text-slate-600 hover:bg-slate-100 rounded-lg">
                                 Batal
                             </button>
-                            <button onClick={handleSave} disabled={saving}
+                            <button onClick={() => setConfirmSave(true)} disabled={saving}
                                 className="px-4 py-2 text-sm bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 disabled:opacity-50 flex items-center gap-2">
                                 <Save className="w-4 h-4" />
-                                {saving ? 'Menyimpan...' : 'Simpan Perubahan'}
+                                Simpan Perubahan
                             </button>
                         </div>
                     </div>
                 </div>
             )}
+
+            {/* CONFIRM DIALOG */}
+            <ConfirmDialog
+                isOpen={confirmSave}
+                onClose={() => setConfirmSave(false)}
+                onConfirm={handleSave}
+                title="Simpan Perubahan Plan?"
+                message={`Anda akan mengubah konfigurasi plan ${editPlan?.name || ''}. Perubahan ini akan berlaku untuk tenant baru yang mendaftar.`}
+                confirmText="Ya, Simpan"
+                isLoading={saving}
+            />
         </div>
     );
 }

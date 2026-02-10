@@ -116,6 +116,7 @@ export class AuthService {
     }
 
     let targetTenantId = tenantId;
+    let userRole = role;
 
     if (!targetTenantId) {
       // Create a new Tenant for this Owner with DEMO (Trial) plan
@@ -131,6 +132,8 @@ export class AuthService {
         }
       });
       targetTenantId = newTenant.id;
+      // CRITICAL: If we created a new tenant, this user MUST be the OWNER
+      userRole = 'OWNER';
     }
 
     const hashedPassword = await bcrypt.hash(password, 10);
@@ -142,7 +145,7 @@ export class AuthService {
         username: normalizedUsername,
         password: hashedPassword,
         name: normalizedUsername,
-        role,
+        role: userRole,
         tenantId: targetTenantId,
         verificationCode,
         verificationCodeExpiresAt,
@@ -664,6 +667,24 @@ export class AuthService {
         language: true,
         tenantId: true,
         createdAt: true,
+        tenant: {
+          select: {
+            id: true,
+            name: true,
+            slug: true,
+            planTier: true,
+            subscriptionStatus: true,
+            subscriptionStartedAt: true,
+            subscriptionEndsAt: true,
+            nextBillingDate: true,
+            trialEndsAt: true,
+            monthlyBill: true,
+            autoRenew: true,
+            address: true,
+            phone: true,
+            email: true,
+          }
+        }
       },
     });
 
@@ -675,7 +696,7 @@ export class AuthService {
   }
 
   async updateProfile(userId: string, data: { name?: string; phone?: string; address?: string }) {
-    return this.prisma.user.update({
+    const user = await this.prisma.user.update({
       where: { id: userId },
       data: {
         ...(data.name && { name: data.name }),
@@ -690,8 +711,21 @@ export class AuthService {
         phone: true,
         address: true,
         role: true,
+        tenantId: true,
       },
     });
+
+    // If OWNER, also sync tenant contact info
+    if (user.role === 'OWNER' && user.tenantId) {
+      await this.prisma.tenant.update({
+        where: { id: user.tenantId },
+        data: {
+          ...(data.phone !== undefined && { phone: data.phone }),
+        },
+      });
+    }
+
+    return user;
   }
 
   private generateVerificationCode(): { code: string; expiresAt: Date } {

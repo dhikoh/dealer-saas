@@ -221,7 +221,7 @@ export default function Header() {
 
     return (
         <>
-            <header className={`fixed top-0 left-64 right-0 h-20 flex items-center justify-between px-8 z-40 backdrop-blur-sm transition-colors ${theme === 'dark' ? 'bg-gray-900/90' : 'bg-[#ecf0f3]/90'
+            <header className={`fixed top-0 left-0 lg:left-64 right-0 h-20 flex items-center justify-between px-4 lg:px-8 z-40 backdrop-blur-sm transition-colors ${theme === 'dark' ? 'bg-gray-900/90' : 'bg-[#ecf0f3]/90'
                 }`}>
                 {/* SEARCH BAR */}
                 <div className="flex-1 max-w-xl">
@@ -365,7 +365,7 @@ export default function Header() {
                     </div>
 
                     {/* USER PROFILE */}
-                    <div className={`flex items-center gap-3 pl-4 border-l ${theme === 'dark' ? 'border-gray-700' : 'border-gray-300'
+                    <Link href="/app/settings/profile" className={`flex items-center gap-3 pl-4 border-l cursor-pointer hover:opacity-80 transition-opacity ${theme === 'dark' ? 'border-gray-700' : 'border-gray-300'
                         }`}>
                         <div className={`w-10 h-10 rounded-full bg-gray-300 overflow-hidden ${theme === 'dark' ? '' : 'shadow-[2px_2px_5px_#cbced1,-2px_-2px_5px_#ffffff]'
                             }`}>
@@ -381,7 +381,7 @@ export default function Header() {
                             <div className={`text-xs ${theme === 'dark' ? 'text-gray-400' : 'text-gray-500'
                                 }`}>{new Date().toLocaleDateString('id-ID', { day: 'numeric', month: 'short' })}</div>
                         </div>
-                    </div>
+                    </Link>
                 </div>
             </header>
 

@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useEffect, useState } from 'react';
-import { CreditCard, Check, X, AlertCircle, Upload, Clock, Crown, Zap, Star } from 'lucide-react';
+import { CreditCard, Check, X, AlertCircle, Upload, Clock, Crown, Zap, Star, FileText, ChevronRight, Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { API_URL } from '@/lib/api';
 
@@ -28,14 +28,9 @@ interface TenantProfile {
 interface Plan {
     id: string;
     name: string;
-    nameId: string;
-    description: string;
-    descriptionId: string;
     price: number;
     priceLabel: string;
     features: any;
-    badge: string;
-    badgeColor: string;
     recommended: boolean;
     isCurrent: boolean;
     canUpgrade: boolean;
@@ -59,6 +54,11 @@ export default function BillingPage() {
     const [upgrading, setUpgrading] = useState(false);
     const [selectedPlan, setSelectedPlan] = useState<string | null>(null);
 
+    // Payment Proof Upload
+    const [uploading, setUploading] = useState(false);
+    const [uploadInvoiceId, setUploadInvoiceId] = useState<string | null>(null);
+    const [selectedFile, setSelectedFile] = useState<File | null>(null);
+
     useEffect(() => {
         fetchData();
     }, []);
@@ -80,6 +80,7 @@ export default function BillingPage() {
             if (invoicesRes.ok) setInvoices(await invoicesRes.json());
         } catch (err) {
             console.error('Error fetching data:', err);
+            toast.error('Gagal memuat data billing');
         } finally {
             setLoading(false);
         }
@@ -104,13 +105,45 @@ export default function BillingPage() {
                 toast.success(`Invoice ${data.invoice.invoiceNumber} telah dibuat. Silakan lakukan pembayaran.`);
                 fetchData();
             } else {
-                toast.error('Gagal membuat invoice. Silakan coba lagi.');
+                const error = await res.json();
+                toast.error(error.message || 'Gagal membuat invoice');
             }
         } catch (err) {
-            toast.error('Gagal membuat invoice. Silakan coba lagi.');
+            toast.error('Terjadi kesalahan sistem');
         } finally {
             setUpgrading(false);
             setSelectedPlan(null);
+        }
+    };
+
+    const handleUploadProof = async (e: React.FormEvent) => {
+        e.preventDefault();
+        if (!selectedFile || !uploadInvoiceId) return;
+
+        setUploading(true);
+        const formData = new FormData();
+        formData.append('proof', selectedFile);
+
+        try {
+            const token = localStorage.getItem('access_token');
+            const res = await fetch(`${API_URL}/tenant/invoices/${uploadInvoiceId}/proof`, {
+                method: 'POST',
+                headers: { 'Authorization': `Bearer ${token}` },
+                body: formData,
+            });
+
+            if (res.ok) {
+                toast.success('Bukti pembayaran berhasil diupload');
+                setUploadInvoiceId(null);
+                setSelectedFile(null);
+                fetchData();
+            } else {
+                throw new Error('Upload failed');
+            }
+        } catch {
+            toast.error('Gagal mengupload bukti pembayaran');
+        } finally {
+            setUploading(false);
         }
     };
 
@@ -128,77 +161,87 @@ export default function BillingPage() {
         }
     };
 
+    const StatusBadge = ({ status }: { status: string }) => {
+        const styles: Record<string, string> = {
+            PAID: 'bg-emerald-100 text-emerald-700',
+            PENDING: 'bg-amber-100 text-amber-700',
+            VERIFYING: 'bg-blue-100 text-blue-700',
+            OVERDUE: 'bg-rose-100 text-rose-700',
+            CANCELLED: 'bg-slate-100 text-slate-600',
+        };
+        return (
+            <span className={`px-2.5 py-0.5 rounded-full text-xs font-medium ${styles[status] || 'bg-gray-100 text-gray-700'}`}>
+                {status}
+            </span>
+        );
+    };
+
     if (loading) {
         return (
             <div className="flex items-center justify-center min-h-[400px]">
-                <div className="animate-spin w-8 h-8 border-4 border-[#00bfa5] border-t-transparent rounded-full"></div>
+                <Loader2 className="w-8 h-8 text-[#00bfa5] animate-spin" />
             </div>
         );
     }
 
     return (
-        <div className="space-y-8">
+        <div className="space-y-8 max-w-7xl mx-auto pb-10">
             {/* Header */}
             <div>
                 <h1 className="text-2xl font-bold text-gray-800">Langganan & Billing</h1>
-                <p className="text-gray-500 mt-1">Kelola paket langganan dan tagihan Anda</p>
+                <p className="text-gray-500 mt-1">Kelola paket langganan dan histori tagihan Anda</p>
             </div>
 
             {/* Current Plan Status */}
-            <div className="bg-[#ecf0f3] rounded-2xl p-6 shadow-[5px_5px_10px_#cbced1,-5px_-5px_10px_#ffffff]">
-                <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-                    <div className="flex items-center gap-4">
-                        <div className={`w-14 h-14 rounded-xl flex items-center justify-center ${profile?.subscriptionStatus === 'TRIAL' ? 'bg-blue-100 text-blue-600' :
-                            profile?.subscriptionStatus === 'ACTIVE' ? 'bg-emerald-100 text-emerald-600' :
-                                'bg-amber-100 text-amber-600'
+            <div className="bg-white rounded-2xl p-6 shadow-sm border border-slate-200">
+                <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
+                    <div className="flex items-center gap-5">
+                        <div className={`w-16 h-16 rounded-2xl flex items-center justify-center ${profile?.subscriptionStatus === 'TRIAL' ? 'bg-blue-50 text-blue-600' :
+                            profile?.subscriptionStatus === 'ACTIVE' ? 'bg-emerald-50 text-emerald-600' :
+                                'bg-amber-50 text-amber-600'
                             }`}>
                             {getPlanIcon(profile?.planTier || 'DEMO')}
                         </div>
                         <div>
-                            <h2 className="text-xl font-bold text-gray-800">
-                                Paket {profile?.planDetails?.name || profile?.planTier}
-                            </h2>
-                            <div className="flex items-center gap-2 mt-1">
-                                <span className={`px-2.5 py-0.5 rounded-full text-xs font-medium ${profile?.subscriptionStatus === 'TRIAL' ? 'bg-blue-100 text-blue-700' :
-                                    profile?.subscriptionStatus === 'ACTIVE' ? 'bg-emerald-100 text-emerald-700' :
-                                        'bg-amber-100 text-amber-700'
-                                    }`}>
-                                    {profile?.subscriptionStatus}
-                                </span>
-                                {profile?.subscriptionStatus === 'TRIAL' && profile.trialDaysRemaining !== undefined && (
-                                    <span className="text-sm text-gray-500">
-                                        {profile.trialDaysRemaining > 0
-                                            ? `Sisa ${profile.trialDaysRemaining} hari trial`
-                                            : 'Trial berakhir'
-                                        }
-                                    </span>
+                            <div className="flex items-center gap-3">
+                                <h2 className="text-xl font-bold text-gray-900">
+                                    Paket {profile?.planDetails?.name || profile?.planTier}
+                                </h2>
+                                <StatusBadge status={profile?.subscriptionStatus || 'UNKNOWN'} />
+                            </div>
+                            <div className="mt-1 text-sm text-gray-500">
+                                {profile?.subscriptionStatus === 'TRIAL' && profile.trialDaysRemaining !== undefined ? (
+                                    <span className="text-blue-600 font-medium">Trial berakhir dalam {profile.trialDaysRemaining} hari</span>
+                                ) : (
+                                    <span>Next billing: {profile?.subscriptionEndsAt ? new Date(profile.subscriptionEndsAt).toLocaleDateString('id-ID') : '-'}</span>
                                 )}
                             </div>
                         </div>
                     </div>
-                    <div className="text-right">
-                        <p className="text-2xl font-bold text-gray-800">
+                    <div className="text-right border-t md:border-t-0 pt-4 md:pt-0 border-slate-100">
+                        <p className="text-sm text-gray-500 mb-1">Total Tagihan Bulanan</p>
+                        <p className="text-3xl font-bold text-gray-900">
                             {profile?.monthlyBill ? formatCurrency(profile.monthlyBill) : 'Gratis'}
                         </p>
-                        <p className="text-sm text-gray-500">/bulan</p>
+                        <p className="text-xs text-gray-400">belum termasuk PPN</p>
                     </div>
                 </div>
 
-                {/* Usage Bar */}
+                {/* Usage Stats */}
                 {profile?.limits && (
-                    <div className="mt-6 grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <div className="mt-8 grid grid-cols-1 md:grid-cols-3 gap-6 pt-6 border-t border-slate-100">
                         <UsageBar
                             label="Kendaraan"
                             used={profile.usage.vehicles}
                             limit={profile.limits.maxVehicles}
                         />
                         <UsageBar
-                            label="User/Staff"
+                            label="Staff Members"
                             used={profile.usage.users}
                             limit={profile.limits.maxUsers}
                         />
                         <UsageBar
-                            label="Customer"
+                            label="Customers"
                             used={profile.usage.customers}
                             limit={profile.limits.maxCustomers}
                         />
@@ -206,161 +249,220 @@ export default function BillingPage() {
                 )}
             </div>
 
-            {/* Plan Comparison */}
+            {/* Plan Options */}
             <div>
-                <h3 className="text-lg font-semibold text-gray-800 mb-4">Pilih Paket</h3>
+                <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2">
+                    <Crown className="w-5 h-5 text-indigo-600" /> Pilihan Paket
+                </h3>
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
                     {plans.map((plan) => (
                         <div
                             key={plan.id}
-                            className={`bg-[#ecf0f3] rounded-2xl p-5 shadow-[5px_5px_10px_#cbced1,-5px_-5px_10px_#ffffff] relative transition-all ${plan.isCurrent ? 'ring-2 ring-[#00bfa5]' : ''
-                                } ${plan.recommended ? 'md:-mt-2 md:mb-2' : ''}`}
+                            className={`bg-white rounded-xl p-5 border shadow-sm transition-all hover:shadow-md ${plan.isCurrent ? 'ring-2 ring-indigo-500 border-transparent' : 'border-slate-200'
+                                } ${plan.recommended ? 'relative' : ''}`}
                         >
                             {plan.recommended && (
                                 <div className="absolute -top-3 left-1/2 transform -translate-x-1/2">
-                                    <span className="bg-gradient-to-r from-indigo-500 to-purple-500 text-white text-xs font-bold px-3 py-1 rounded-full">
-                                        REKOMENDASI
-                                    </span>
-                                </div>
-                            )}
-                            {plan.isCurrent && (
-                                <div className="absolute top-3 right-3">
-                                    <span className="bg-[#00bfa5] text-white text-xs font-bold px-2 py-0.5 rounded">
-                                        AKTIF
+                                    <span className="bg-indigo-600 text-white text-[10px] font-bold px-3 py-1 rounded-full tracking-wide">
+                                        BEST VALUE
                                     </span>
                                 </div>
                             )}
 
-                            <div className="text-center mb-4 pt-2">
-                                <div className={`w-12 h-12 mx-auto rounded-xl flex items-center justify-center mb-3 ${plan.id === 'DEMO' ? 'bg-gray-100 text-gray-500' :
-                                    plan.id === 'BASIC' ? 'bg-blue-100 text-blue-600' :
-                                        plan.id === 'PRO' ? 'bg-indigo-100 text-indigo-600' :
-                                            'bg-purple-100 text-purple-600'
-                                    }`}>
-                                    {getPlanIcon(plan.id)}
+                            <div className="text-center mb-6 pt-2">
+                                <h4 className="text-lg font-bold text-gray-900">{plan.name}</h4>
+                                <div className="mt-2 flex items-baseline justify-center gap-1">
+                                    <span className="text-2xl font-bold text-gray-900">
+                                        {plan.price === 0 ? 'Gratis' : formatCurrency(plan.price)}
+                                    </span>
+                                    {plan.price > 0 && <span className="text-sm text-gray-500">/bln</span>}
                                 </div>
-                                <h4 className="text-lg font-bold text-gray-800">{plan.name}</h4>
-                                <p className="text-3xl font-bold text-gray-900 mt-2">
-                                    {plan.price === 0 ? 'Gratis' : plan.priceLabel}
-                                </p>
-                                {plan.price > 0 && <p className="text-xs text-gray-500">/bulan</p>}
                             </div>
 
-                            <ul className="space-y-2 mb-5 text-sm">
-                                <li className="flex items-center gap-2 text-gray-600">
-                                    <Check className="w-4 h-4 text-[#00bfa5]" />
-                                    {plan.features.maxVehicles === -1 ? 'Unlimited' : plan.features.maxVehicles || 5} Kendaraan
-                                </li>
-                                <li className="flex items-center gap-2 text-gray-600">
-                                    <Check className="w-4 h-4 text-[#00bfa5]" />
-                                    {plan.features.maxUsers === -1 ? 'Unlimited' : plan.features.maxUsers || 1} User
-                                </li>
-                            </ul>
+                            <div className="space-y-3 mb-6">
+                                <FeatureItem label={`${plan.features.maxVehicles === -1 ? 'Unlimited' : plan.features.maxVehicles} Kendaraan`} />
+                                <FeatureItem label={`${plan.features.maxUsers === -1 ? 'Unlimited' : plan.features.maxUsers} Staff Admin`} />
+                                <FeatureItem label="Laporan Standard" included={true} />
+                                <FeatureItem label="Support Prioritas" included={plan.id !== 'DEMO'} />
+                            </div>
 
-                            {plan.canUpgrade && !plan.isCurrent && (
+                            {plan.isCurrent ? (
+                                <button disabled className="w-full py-2 rounded-lg bg-indigo-50 text-indigo-700 font-medium text-sm">
+                                    Paket Saat Ini
+                                </button>
+                            ) : (
                                 <button
                                     onClick={() => handleUpgrade(plan.id)}
-                                    disabled={upgrading && selectedPlan === plan.id}
-                                    className={`w-full py-2.5 rounded-xl font-medium transition-all ${plan.recommended
-                                        ? 'bg-gradient-to-r from-indigo-500 to-purple-500 text-white hover:opacity-90'
-                                        : 'bg-[#00bfa5] text-white hover:bg-[#00a896]'
-                                        } disabled:opacity-50`}
+                                    disabled={!plan.canUpgrade || (upgrading && selectedPlan === plan.id)}
+                                    className={`w-full py-2 rounded-lg font-medium text-sm transition-all ${plan.recommended
+                                        ? 'bg-indigo-600 text-white hover:bg-indigo-700'
+                                        : 'bg-white border border-slate-300 text-slate-700 hover:bg-slate-50'
+                                        } disabled:opacity-50 disabled:cursor-not-allowed`}
                                 >
-                                    {upgrading && selectedPlan === plan.id ? 'Processing...' : 'Upgrade'}
+                                    {upgrading && selectedPlan === plan.id ? (
+                                        <span className="flex items-center justify-center gap-2">
+                                            <Loader2 className="w-4 h-4 animate-spin" /> Processing
+                                        </span>
+                                    ) : (
+                                        plan.canUpgrade ? 'Pilih Paket' : 'Kontak Sales'
+                                    )}
                                 </button>
-                            )}
-                            {plan.isCurrent && (
-                                <div className="text-center text-sm text-gray-500 py-2.5">
-                                    Paket Saat Ini
-                                </div>
                             )}
                         </div>
                     ))}
                 </div>
             </div>
 
-            {/* Invoice History */}
-            {invoices.length > 0 && (
-                <div className="bg-[#ecf0f3] rounded-2xl p-6 shadow-[5px_5px_10px_#cbced1,-5px_-5px_10px_#ffffff]">
-                    <h3 className="text-lg font-semibold text-gray-800 mb-4">Riwayat Tagihan</h3>
-                    <div className="overflow-x-auto">
-                        <table className="w-full text-sm">
-                            <thead className="text-gray-500 border-b border-gray-300">
-                                <tr>
-                                    <th className="text-left pb-3">Invoice</th>
-                                    <th className="text-left pb-3">Jumlah</th>
-                                    <th className="text-left pb-3">Status</th>
-                                    <th className="text-left pb-3">Bukti</th>
-                                </tr>
-                            </thead>
-                            <tbody className="divide-y divide-gray-200">
-                                {invoices.map((inv) => (
-                                    <tr key={inv.id}>
-                                        <td className="py-3 font-mono text-gray-600">{inv.invoiceNumber}</td>
-                                        <td className="py-3 font-medium">{formatCurrency(inv.amount)}</td>
-                                        <td className="py-3">
-                                            <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${inv.status === 'PAID' ? 'bg-emerald-100 text-emerald-700' :
-                                                inv.status === 'PENDING' ? 'bg-amber-100 text-amber-700' :
-                                                    inv.status === 'VERIFYING' ? 'bg-blue-100 text-blue-700' :
-                                                        'bg-gray-100 text-gray-600'
-                                                }`}>
-                                                {inv.status}
-                                            </span>
-                                        </td>
-                                        <td className="py-3">
-                                            {inv.status === 'PENDING' && (
-                                                <button className="flex items-center gap-1 text-[#00bfa5] font-medium hover:underline">
-                                                    <Upload className="w-4 h-4" /> Upload
-                                                </button>
-                                            )}
-                                            {inv.paymentProof && (
-                                                <span className="text-gray-500">Uploaded</span>
-                                            )}
-                                        </td>
+            {/* Invoices & Payment */}
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+                <div className="lg:col-span-2">
+                    <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
+                        <div className="p-4 border-b border-slate-200 flex justify-between items-center bg-slate-50">
+                            <h3 className="font-semibold text-gray-900 flex items-center gap-2">
+                                <FileText className="w-4 h-4" /> Riwayat Tagihan
+                            </h3>
+                        </div>
+                        {invoices.length > 0 ? (
+                            <table className="w-full text-sm text-left">
+                                <thead className="bg-slate-50 text-slate-500 font-medium border-b border-slate-200">
+                                    <tr>
+                                        <th className="px-4 py-3">Invoice #</th>
+                                        <th className="px-4 py-3">Tanggal</th>
+                                        <th className="px-4 py-3">Jumlah</th>
+                                        <th className="px-4 py-3">Status</th>
+                                        <th className="px-4 py-3 text-right">Action</th>
                                     </tr>
-                                ))}
-                            </tbody>
-                        </table>
+                                </thead>
+                                <tbody className="divide-y divide-slate-100">
+                                    {invoices.map((inv) => (
+                                        <tr key={inv.id} className="hover:bg-slate-50">
+                                            <td className="px-4 py-3 font-mono text-slate-600">{inv.invoiceNumber}</td>
+                                            <td className="px-4 py-3 text-slate-600">{new Date(inv.date).toLocaleDateString('id-ID')}</td>
+                                            <td className="px-4 py-3 font-medium text-slate-900">{formatCurrency(inv.amount)}</td>
+                                            <td className="px-4 py-3"><StatusBadge status={inv.status} /></td>
+                                            <td className="px-4 py-3 text-right">
+                                                {inv.status === 'PENDING' && (
+                                                    <button
+                                                        onClick={() => setUploadInvoiceId(inv.id)}
+                                                        className="inline-flex items-center gap-1 text-indigo-600 hover:text-indigo-800 font-medium text-xs"
+                                                    >
+                                                        <Upload className="w-3 h-3" /> Upload Bukti
+                                                    </button>
+                                                )}
+                                                {inv.paymentProof && inv.status !== 'PENDING' && (
+                                                    <span className="text-xs text-slate-400 italic">Bukti terupload</span>
+                                                )}
+                                            </td>
+                                        </tr>
+                                    ))}
+                                </tbody>
+                            </table>
+                        ) : (
+                            <div className="p-8 text-center text-slate-500">
+                                Belum ada riwayat tagihan
+                            </div>
+                        )}
                     </div>
                 </div>
-            )}
 
-            {/* Payment Instructions */}
-            <div className="bg-blue-50 border border-blue-200 rounded-xl p-5">
-                <div className="flex gap-3">
-                    <AlertCircle className="w-5 h-5 text-blue-600 flex-shrink-0 mt-0.5" />
-                    <div>
-                        <h4 className="font-semibold text-blue-800">Cara Pembayaran</h4>
-                        <ol className="mt-2 text-sm text-blue-700 space-y-1 list-decimal list-inside">
-                            <li>Pilih paket yang diinginkan dan klik "Upgrade".</li>
-                            <li>Transfer ke rekening: <strong>BCA 1234567890 a.n. PT OTOHUB</strong></li>
-                            <li>Upload bukti transfer pada invoice yang muncul.</li>
-                            <li>Tunggu verifikasi admin (maks 1x24 jam).</li>
-                        </ol>
+                {/* Payment Instructions Side Panel */}
+                <div>
+                    <div className="bg-slate-50 rounded-xl border border-slate-200 p-5">
+                        <h3 className="font-semibold text-slate-900 mb-3 flex items-center gap-2">
+                            <CreditCard className="w-4 h-4 text-slate-600" /> Instruksi Pembayaran
+                        </h3>
+                        <div className="space-y-4 text-sm text-slate-600">
+                            <p>Pembayaran dapat dilakukan melalui transfer bank ke rekening berikut:</p>
+                            <div className="bg-white p-3 rounded-lg border border-slate-200">
+                                <p className="font-bold text-slate-800">Bank BCA</p>
+                                <p className="font-mono text-lg text-indigo-600 font-bold my-1">123 456 7890</p>
+                                <p className="text-xs text-slate-500">a.n. PT OTOHUB INDONESIA</p>
+                            </div>
+                            <ul className="list-disc pl-4 space-y-1 text-xs">
+                                <li>Pastikan nominal transfer sesuai dengan total tagihan (hingga 3 digit terakhir).</li>
+                                <li>Simpan bukti transfer Anda.</li>
+                                <li>Upload bukti transfer pada invoice yang berstatus <span className="font-medium text-amber-600">PENDING</span>.</li>
+                                <li>Verifikasi akan diproses maksimal 1x24 jam kerja.</li>
+                            </ul>
+                        </div>
                     </div>
                 </div>
             </div>
+
+            {/* UPLOAD MODAL */}
+            {uploadInvoiceId && (
+                <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4" onClick={() => setUploadInvoiceId(null)}>
+                    <div className="bg-white rounded-xl shadow-xl max-w-md w-full animate-in fade-in zoom-in-95" onClick={e => e.stopPropagation()}>
+                        <div className="p-6 border-b border-slate-200 flex justify-between items-center">
+                            <h3 className="text-lg font-semibold text-slate-900">Upload Bukti Pembayaran</h3>
+                            <button onClick={() => setUploadInvoiceId(null)} className="p-1 hover:bg-slate-100 rounded text-slate-500"><X className="w-5 h-5" /></button>
+                        </div>
+                        <form onSubmit={handleUploadProof} className="p-6 space-y-4">
+                            <div className="border-2 border-dashed border-slate-300 rounded-xl p-8 text-center hover:bg-slate-50 transition-colors relative">
+                                <input
+                                    type="file"
+                                    accept="image/*,application/pdf"
+                                    onChange={e => setSelectedFile(e.target.files?.[0] || null)}
+                                    className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+                                />
+                                {selectedFile ? (
+                                    <div className="text-indigo-600 font-medium flex flex-col items-center gap-2">
+                                        <FileText className="w-8 h-8" />
+                                        {selectedFile.name}
+                                    </div>
+                                ) : (
+                                    <div className="text-slate-500 flex flex-col items-center gap-2">
+                                        <Upload className="w-8 h-8 text-slate-400" />
+                                        <span>Klik untuk pilih file atau drag & drop</span>
+                                        <span className="text-xs text-slate-400">JPG, PNG, PDF (Max 5MB)</span>
+                                    </div>
+                                )}
+                            </div>
+                            <div className="flex justify-end gap-2 pt-2">
+                                <button type="button" onClick={() => setUploadInvoiceId(null)} className="px-4 py-2 text-sm text-slate-600 hover:bg-slate-100 rounded-lg">Batal</button>
+                                <button type="submit" disabled={!selectedFile || uploading}
+                                    className="px-4 py-2 text-sm bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 disabled:opacity-50 flex items-center gap-2">
+                                    {uploading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Upload className="w-4 h-4" />}
+                                    Upload Bukti
+                                </button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            )}
+        </div>
+    );
+}
+
+function FeatureItem({ label, included = true }: { label: string; included?: boolean }) {
+    return (
+        <div className={`flex items-start gap-2 text-sm ${included ? 'text-gray-700' : 'text-gray-400'}`}>
+            {included ? (
+                <Check className="w-4 h-4 text-emerald-500 mt-0.5 flex-shrink-0" />
+            ) : (
+                <X className="w-4 h-4 text-slate-300 mt-0.5 flex-shrink-0" />
+            )}
+            <span>{label}</span>
         </div>
     );
 }
 
 function UsageBar({ label, used, limit }: { label: string; used: number; limit: number }) {
     const isUnlimited = limit === -1;
-    const percentage = isUnlimited ? 30 : Math.min(100, (used / limit) * 100);
-    const isNearLimit = !isUnlimited && percentage >= 80;
+    const percentage = isUnlimited ? 15 : Math.min(100, (used / limit) * 100);
+    const isNearLimit = !isUnlimited && percentage >= 85;
 
     return (
         <div>
-            <div className="flex justify-between text-sm mb-1">
-                <span className="text-gray-600">{label}</span>
-                <span className={`font-medium ${isNearLimit ? 'text-amber-600' : 'text-gray-700'}`}>
+            <div className="flex justify-between text-sm mb-1.5">
+                <span className="font-medium text-gray-700">{label}</span>
+                <span className={`text-xs font-medium px-1.5 py-0.5 rounded ${isNearLimit ? 'bg-amber-100 text-amber-700' : 'bg-slate-100 text-slate-600'}`}>
                     {used} / {isUnlimited ? '∞' : limit}
                 </span>
             </div>
-            <div className="h-2 bg-gray-200 rounded-full overflow-hidden">
+            <div className="h-2 bg-slate-100 rounded-full overflow-hidden">
                 <div
-                    className={`h-full rounded-full transition-all ${isNearLimit ? 'bg-amber-500' : 'bg-[#00bfa5]'
-                        }`}
+                    className={`h-full rounded-full transition-all duration-500 ${isNearLimit ? 'bg-amber-500' : 'bg-indigo-500'}`}
                     style={{ width: `${percentage}%` }}
                 />
             </div>

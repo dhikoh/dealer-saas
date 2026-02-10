@@ -66,6 +66,34 @@ export class VehicleService {
         if (!vehicle) {
             throw new NotFoundException('Kendaraan tidak ditemukan');
         }
+
+        // VALIDATION 1: isShowroom=true requires at least 1 photo
+        if (data.isShowroom === true) {
+            // Check incoming images OR existing images
+            const imagesRaw = data.images !== undefined ? data.images : vehicle.images;
+            const parsedImages = imagesRaw ? JSON.parse(imagesRaw) : [];
+
+            if (!Array.isArray(parsedImages) || parsedImages.length === 0) {
+                // If it's just a status update, we might not want to throw, 
+                // BUT the requirement says "Showroom wajib minimal 1 foto".
+                // So we force it to false if no photos.
+                // OR we throw error. Requirement implies validation/block.
+                throw new BadRequestException(
+                    'Minimal 1 foto kendaraan diperlukan untuk menampilkannya di Showroom/Website'
+                );
+            }
+        }
+
+        // VALIDATION 2: isOwnerDifferent=true requires bpkbOwnerName
+        if (data.isOwnerDifferent === true) {
+            const name = data.bpkbOwnerName || vehicle.bpkbOwnerName;
+            if (!name || name.trim() === '') {
+                throw new BadRequestException(
+                    'Nama pemilik pada BPKB wajib diisi jika identitas berbeda dengan pemilik KTP'
+                );
+            }
+        }
+
         return this.prisma.vehicle.update({
             where: { id },
             data,
@@ -213,7 +241,7 @@ export class VehicleService {
         let costs = [];
         try {
             costs = await (this.prisma as any).vehicleCost.findMany({
-                where: { vehicleId },
+                where: { vehicleId, tenantId },
                 orderBy: { date: 'desc' },
             });
         } catch (e) {

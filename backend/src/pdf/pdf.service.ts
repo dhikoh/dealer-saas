@@ -71,7 +71,6 @@ export class PdfService {
         const profitPercentage = totalCost > 0 ? ((profitMargin / totalCost) * 100).toFixed(1) : '0';
 
         // Create PDF
-        // Create PDF
         const doc = new PDFDocument({ margin: 50 });
 
         // Set response headers
@@ -80,8 +79,6 @@ export class PdfService {
             'Content-Disposition',
             `attachment; filename=Vehicle_Internal_${vehicle.licensePlate || vehicle.id}.pdf`,
         );
-
-        doc.pipe(res);
 
         doc.pipe(res);
 
@@ -108,10 +105,25 @@ export class PdfService {
         // Add to subsequent pages
         doc.on('pageAdded', drawWatermark);
 
-        // Header
-        doc.fontSize(20).font('Helvetica-Bold').fillColor('black').opacity(1).text('LAPORAN INTERNAL KENDARAAN', { align: 'center' });
+        // === PROFESSIONAL HEADER ===
+        doc.opacity(1);
+        doc.fontSize(22).font('Helvetica-Bold').fillColor('#1a1a2e')
+            .text((tenant?.name || 'DEALER').toUpperCase(), { align: 'center' });
+        doc.moveDown(0.2);
+        if (tenant?.address) {
+            doc.fontSize(9).font('Helvetica').fillColor('#555')
+                .text(tenant.address, { align: 'center' });
+        }
+        if (tenant?.phone) {
+            doc.fontSize(9).font('Helvetica').fillColor('#555')
+                .text(`Telp: ${tenant.phone}`, { align: 'center' });
+        }
         doc.moveDown(0.5);
-        doc.fontSize(12).font('Helvetica').text(tenant?.name || 'Dealer', { align: 'center' });
+        doc.fontSize(14).font('Helvetica-Bold').fillColor('#00bfa5')
+            .text('LAPORAN INTERNAL KENDARAAN', { align: 'center' });
+        doc.moveDown(0.3);
+        doc.fontSize(8).font('Helvetica').fillColor('#999')
+            .text('DOKUMEN RAHASIA — HANYA UNTUK PENGGUNAAN INTERNAL', { align: 'center' });
         doc.moveDown();
 
         // Draw line
@@ -188,12 +200,9 @@ export class PdfService {
 
         // Footer
         doc.moveDown(2);
-        doc.fontSize(8).font('Helvetica')
-            .text(`Dicetak: ${this.formatDate(new Date())}`, { align: 'right' });
-        doc.text('DOKUMEN INI BERSIFAT RAHASIA - HANYA UNTUK PENGGUNAAN INTERNAL', { align: 'center' });
-
-        // Add Watermark
-        this.addWatermark(doc, tenant?.name || 'CONFIDENTIAL');
+        doc.fontSize(8).font('Helvetica').fillColor('#999')
+            .text(`Dicetak: ${this.formatDate(new Date())} | ${tenant?.name || 'OTOHUB'}`, { align: 'right' });
+        doc.text('DOKUMEN INI BERSIFAT RAHASIA — HANYA UNTUK PENGGUNAAN INTERNAL', { align: 'center', fillColor: '#cc0000' });
 
         doc.end();
     }
@@ -255,14 +264,23 @@ export class PdfService {
 
         doc.pipe(res);
 
-        // Header with dealer branding
-        doc.fontSize(22).font('Helvetica-Bold').text(tenant?.name || 'Auto Dealer', { align: 'center' });
-        doc.moveDown(0.3);
-        doc.fontSize(10).font('Helvetica').text(tenant?.address || '', { align: 'center' });
-        doc.moveDown(1.5);
+        // === PROFESSIONAL HEADER ===
+        doc.fontSize(22).font('Helvetica-Bold').fillColor('#1a1a2e')
+            .text((tenant?.name || 'Auto Dealer').toUpperCase(), { align: 'center' });
+        doc.moveDown(0.2);
+        if (tenant?.address) {
+            doc.fontSize(9).font('Helvetica').fillColor('#555')
+                .text(tenant.address, { align: 'center' });
+        }
+        if (tenant?.phone) {
+            doc.fontSize(9).font('Helvetica').fillColor('#555')
+                .text(`Telp/WA: ${tenant.phone}`, { align: 'center' });
+        }
+        doc.moveDown(1);
 
         // Title
-        doc.fontSize(16).font('Helvetica-Bold').text('INFORMASI KENDARAAN', { align: 'center' });
+        doc.fontSize(16).font('Helvetica-Bold').fillColor('#1a1a2e')
+            .text('INFORMASI KENDARAAN', { align: 'center' });
         doc.moveDown();
 
         // Draw decorative line
@@ -380,14 +398,17 @@ export class PdfService {
 
         doc.pipe(res);
 
-        // === HEADER ===
-        doc.fontSize(20).font('Helvetica-Bold')
-            .text(tenant?.name || 'Auto Dealer', { align: 'center' });
-        doc.moveDown(0.3);
-        doc.fontSize(10).font('Helvetica')
-            .text(tenant?.address || '', { align: 'center' });
+        // === PROFESSIONAL HEADER ===
+        doc.fontSize(22).font('Helvetica-Bold').fillColor('#1a1a2e')
+            .text((tenant?.name || 'Auto Dealer').toUpperCase(), { align: 'center' });
+        doc.moveDown(0.2);
+        if (tenant?.address) {
+            doc.fontSize(9).font('Helvetica').fillColor('#555')
+                .text(tenant.address, { align: 'center' });
+        }
         if (tenant?.phone) {
-            doc.text(`Telp: ${tenant.phone}`, { align: 'center' });
+            doc.fontSize(9).font('Helvetica').fillColor('#555')
+                .text(`Telp/WA: ${tenant.phone}`, { align: 'center' });
         }
         doc.moveDown();
 
@@ -711,6 +732,133 @@ export class PdfService {
             `attachment; filename=Penjualan_OTOHUB_${new Date().toISOString().split('T')[0]}.csv`,
         );
         res.send(csvContent);
+    }
+
+    /**
+     * Generate System Invoice PDF (for billing/subscription invoices)
+     * Used by superadmin and tenant for subscription billing
+     */
+    async generateSystemInvoicePdf(invoiceId: string, res: any) {
+        const invoice = await (this.prisma as any).systemInvoice.findUnique({
+            where: { id: invoiceId },
+            include: { tenant: true },
+        });
+
+        if (!invoice) {
+            throw new Error('Invoice not found');
+        }
+
+        const doc = new PDFDocument({ margin: 50 });
+
+        res.setHeader('Content-Type', 'application/pdf');
+        res.setHeader(
+            'Content-Disposition',
+            `attachment; filename=Invoice_${invoice.invoiceNumber}.pdf`,
+        );
+
+        doc.pipe(res);
+
+        // === HEADER ===
+        doc.fontSize(24).font('Helvetica-Bold')
+            .text('OTOHUB', { align: 'center' });
+        doc.moveDown(0.3);
+        doc.fontSize(10).font('Helvetica')
+            .text('Smart Dealer Management System', { align: 'center' });
+        doc.moveDown(0.3);
+        doc.fontSize(9).font('Helvetica')
+            .text('support@otohub.id | www.otohub.id', { align: 'center' });
+        doc.moveDown();
+
+        // === INVOICE TITLE ===
+        doc.fontSize(18).font('Helvetica-Bold')
+            .text('INVOICE', { align: 'center' });
+        doc.moveDown(0.5);
+
+        // Divider
+        doc.moveTo(50, doc.y).lineTo(550, doc.y).stroke('#00bfa5');
+        doc.moveDown();
+
+        // === INVOICE INFO ===
+        doc.fontSize(10).font('Helvetica');
+        doc.text(`No. Invoice: ${invoice.invoiceNumber}`);
+        doc.text(`Tanggal: ${this.formatDate(invoice.date || invoice.createdAt)}`);
+        doc.text(`Jatuh Tempo: ${this.formatDate(invoice.dueDate)}`);
+        doc.moveDown();
+
+        // === BILL TO ===
+        doc.fontSize(12).font('Helvetica-Bold').text('Kepada:');
+        doc.fontSize(10).font('Helvetica');
+        doc.text(invoice.tenant?.name || '-');
+        doc.text(invoice.tenant?.address || '');
+        doc.text(`Email: ${invoice.tenant?.email || '-'}`);
+        doc.text(`Telp: ${invoice.tenant?.phone || '-'}`);
+        doc.moveDown();
+
+        doc.moveTo(50, doc.y).lineTo(550, doc.y).stroke('#ddd');
+        doc.moveDown();
+
+        // === ITEMS TABLE ===
+        doc.fontSize(12).font('Helvetica-Bold').text('Rincian:');
+        doc.moveDown(0.5);
+
+        // Table header
+        const tableTop = doc.y;
+        doc.fontSize(10).font('Helvetica-Bold');
+        doc.text('No', 50, tableTop, { width: 30 });
+        doc.text('Deskripsi', 80, tableTop, { width: 320 });
+        doc.text('Jumlah', 400, tableTop, { width: 150, align: 'right' });
+        doc.moveDown();
+        doc.moveTo(50, doc.y).lineTo(550, doc.y).stroke('#ddd');
+
+        // Parse items
+        let items: any[] = [];
+        try {
+            items = typeof invoice.items === 'string' ? JSON.parse(invoice.items) : (invoice.items || []);
+        } catch (e) {
+            items = [{ description: 'Langganan OTOHUB', amount: invoice.amount }];
+        }
+
+        doc.font('Helvetica').fontSize(10);
+        items.forEach((item: any, i: number) => {
+            const y = doc.y + 5;
+            doc.text(`${i + 1}`, 50, y, { width: 30 });
+            doc.text(item.description || '-', 80, y, { width: 320 });
+            doc.text(this.formatCurrency(Number(item.amount || 0)), 400, y, { width: 150, align: 'right' });
+            doc.moveDown();
+        });
+
+        doc.moveDown();
+        doc.moveTo(50, doc.y).lineTo(550, doc.y).stroke('#00bfa5');
+        doc.moveDown();
+
+        // === TOTAL ===
+        doc.fontSize(14).font('Helvetica-Bold').text('TOTAL', { align: 'center' });
+        doc.fontSize(24).font('Helvetica-Bold')
+            .text(this.formatCurrency(Number(invoice.amount)), { align: 'center' });
+
+        doc.moveDown();
+
+        // Status badge
+        const statusMap: Record<string, string> = {
+            PENDING: '⏳ Menunggu Pembayaran',
+            VERIFYING: '🔍 Sedang Diverifikasi',
+            PAID: '✅ Lunas',
+            REJECTED: '❌ Ditolak',
+            OVERDUE: '⚠️ Terlambat',
+        };
+
+        doc.fontSize(12).font('Helvetica-Bold')
+            .text(`Status: ${statusMap[invoice.status] || invoice.status}`, { align: 'center' });
+
+        // === FOOTER ===
+        doc.moveDown(3);
+        doc.fontSize(8).font('Helvetica');
+        doc.text('Pembayaran dapat dilakukan melalui transfer bank ke rekening OTOHUB.', { align: 'center' });
+        doc.text('Hubungi support@otohub.id jika ada pertanyaan.', { align: 'center' });
+        doc.moveDown();
+        doc.text(`Dicetak: ${this.formatDate(new Date())}`, { align: 'center' });
+
+        doc.end();
     }
 }
 

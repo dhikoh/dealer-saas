@@ -4,11 +4,16 @@ import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { RolesGuard } from '../auth/roles.guard';
 import { Roles } from '../auth/roles.decorator';
 
+import { PublicService } from '../public/public.service';
+
 @Controller('superadmin')
 @UseGuards(JwtAuthGuard, RolesGuard)
-@Roles('SUPERADMIN')
+@Roles('SUPERADMIN', 'ADMIN_STAFF')
 export class SuperadminController {
-    constructor(private readonly superadminService: SuperadminService) { }
+    constructor(
+        private readonly superadminService: SuperadminService,
+        private readonly publicService: PublicService
+    ) { }
 
     // ==================== DASHBOARD ====================
 
@@ -43,6 +48,25 @@ export class SuperadminController {
         return this.superadminService.getTenantById(id);
     }
 
+    @Post('tenants')
+    @Roles('SUPERADMIN')
+    async createTenant(
+        @Body() data: {
+            name: string;
+            email: string;
+            phone?: string;
+            address?: string;
+            planTier: string;
+            billingMonths: number;
+            ownerName: string;
+            ownerEmail: string;
+            ownerPassword: string;
+        },
+        @Request() req: any
+    ) {
+        return this.superadminService.createTenant(data, req.user.userId);
+    }
+
     @Patch('tenants/:id')
     async updateTenant(
         @Param('id') id: string,
@@ -60,6 +84,7 @@ export class SuperadminController {
     }
 
     @Post('tenants/:id/suspend')
+    @Roles('SUPERADMIN')
     async suspendTenant(
         @Param('id') id: string,
         @Body('reason') reason: string,
@@ -69,6 +94,7 @@ export class SuperadminController {
     }
 
     @Post('tenants/:id/activate')
+    @Roles('SUPERADMIN')
     async activateTenant(
         @Param('id') id: string,
         @Request() req: any
@@ -77,6 +103,7 @@ export class SuperadminController {
     }
 
     @Patch('tenants/:id/upgrade')
+    @Roles('SUPERADMIN')
     async upgradeTenantPlan(
         @Param('id') id: string,
         @Body('planTier') planTier: string,
@@ -85,7 +112,18 @@ export class SuperadminController {
         return this.superadminService.upgradeTenantPlan(id, planTier, req.user.userId);
     }
 
+    @Patch('tenants/:id/plan-direct')
+    @Roles('SUPERADMIN')
+    async directPlanChange(
+        @Param('id') id: string,
+        @Body() data: { planTier: string; billingMonths: number },
+        @Request() req: any
+    ) {
+        return this.superadminService.directPlanChange(id, data, req.user.userId);
+    }
+
     @Delete('tenants/:id')
+    @Roles('SUPERADMIN')
     async deleteTenant(
         @Param('id') id: string,
         @Request() req: any
@@ -108,7 +146,7 @@ export class SuperadminController {
         return this.superadminService.updatePlan(planId, data);
     }
 
-    // ==================== INVOICES ======================================
+    // ==================== INVOICES ====================
 
     @Get('invoices')
     async getInvoices(
@@ -127,12 +165,84 @@ export class SuperadminController {
     }
 
     @Post('invoices/:id/verify')
+    @Roles('SUPERADMIN')
     async verifyInvoice(
         @Param('id') id: string,
         @Body('approved') approved: boolean,
         @Request() req: any
     ) {
         return this.superadminService.verifyInvoice(id, approved, req.user.userId, req.user.email);
+    }
+
+    // ==================== ADMIN STAFF ====================
+
+    @Get('staff')
+    async getAdminStaff() {
+        return this.superadminService.getAdminStaff();
+    }
+
+    @Post('staff')
+    @Roles('SUPERADMIN')
+    async createAdminStaff(
+        @Body() data: { name: string; email: string; password: string; phone?: string },
+        @Request() req: any
+    ) {
+        return this.superadminService.createAdminStaff(data, req.user.userId);
+    }
+
+    @Delete('staff/:id')
+    @Roles('SUPERADMIN')
+    async deleteAdminStaff(
+        @Param('id') id: string,
+        @Request() req: any
+    ) {
+        return this.superadminService.deleteAdminStaff(id, req.user.userId);
+    }
+
+    // ==================== APPROVAL REQUESTS ====================
+
+    @Get('approvals')
+    async getApprovalRequests(@Query('status') status?: string) {
+        return this.superadminService.getApprovalRequests(status);
+    }
+
+    @Post('approvals')
+    async createApprovalRequest(
+        @Body() data: { type: string; payload: string },
+        @Request() req: any
+    ) {
+        return this.superadminService.createApprovalRequest(data, req.user.userId);
+    }
+
+    @Patch('approvals/:id')
+    @Roles('SUPERADMIN')
+    async processApprovalRequest(
+        @Param('id') id: string,
+        @Body() data: { approved: boolean; note?: string },
+        @Request() req: any
+    ) {
+        return this.superadminService.processApprovalRequest(id, data.approved, req.user.userId, data.note);
+    }
+
+    // ==================== API KEYS ====================
+
+    @Get('api-keys')
+    async getApiKeys() {
+        return this.superadminService.getApiKeys();
+    }
+
+    @Post('api-keys')
+    @Roles('SUPERADMIN')
+    async generateApiKey(
+        @Body() data: { name: string; scopes?: string[] }
+    ) {
+        return this.superadminService.generateApiKey(data.name, data.scopes);
+    }
+
+    @Delete('api-keys/:id')
+    @Roles('SUPERADMIN')
+    async revokeApiKey(@Param('id') id: string) {
+        return this.superadminService.revokeApiKey(id);
     }
 
     // ==================== ACTIVITY LOG ====================
@@ -142,13 +252,25 @@ export class SuperadminController {
         return this.superadminService.getRecentActivity(limit ? parseInt(limit) : 20);
     }
 
+    @Get('activity/full')
+    async getActivityLog(
+        @Query('action') action?: string,
+        @Query('page') page?: string,
+        @Query('limit') limit?: string,
+    ) {
+        return this.superadminService.getActivityLog({
+            action,
+            page: page ? parseInt(page) : 1,
+            limit: limit ? parseInt(limit) : 50,
+        });
+    }
+
     @Get('activity/user/:userId')
     async getActivityByUser(@Param('userId') userId: string) {
         return this.superadminService.getActivityByUser(userId);
     }
 
     // ==================== MARKETPLACE API ====================
-    // Public API untuk menampilkan semua kendaraan dari semua tenant
 
     @Get('marketplace/vehicles')
     async getMarketplaceVehicles(
@@ -161,7 +283,7 @@ export class SuperadminController {
         @Query('location') location?: string,
         @Query('status') status?: string,
     ) {
-        return this.superadminService.getMarketplaceVehicles({
+        return this.publicService.getMarketplaceVehicles({
             page: page ? parseInt(page) : 1,
             limit: limit ? parseInt(limit) : 20,
             category,
@@ -175,7 +297,7 @@ export class SuperadminController {
 
     @Get('marketplace/vehicles/:id')
     async getMarketplaceVehicleDetail(@Param('id') id: string) {
-        return this.superadminService.getMarketplaceVehicleDetail(id);
+        return this.publicService.getMarketplaceVehicleDetail(id);
     }
 
     @Get('marketplace/dealers')
@@ -184,7 +306,7 @@ export class SuperadminController {
         @Query('limit') limit?: string,
         @Query('search') search?: string,
     ) {
-        return this.superadminService.getMarketplaceDealers({
+        return this.publicService.getMarketplaceDealers({
             page: page ? parseInt(page) : 1,
             limit: limit ? parseInt(limit) : 20,
             search,
@@ -193,7 +315,6 @@ export class SuperadminController {
 
     @Get('marketplace/stats')
     async getMarketplaceStats() {
-        return this.superadminService.getMarketplaceStats();
+        return this.publicService.getMarketplaceStats();
     }
 }
-

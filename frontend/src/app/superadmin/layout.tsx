@@ -5,7 +5,8 @@ import { useRouter, usePathname } from 'next/navigation';
 import Link from 'next/link';
 import {
     LayoutDashboard, Users, CreditCard, FileText, Settings, Bell,
-    ChevronLeft, ChevronRight, LogOut, Check, CheckCheck, X
+    ChevronLeft, ChevronRight, LogOut, Check, CheckCheck, X,
+    ShieldCheck, Activity
 } from 'lucide-react';
 import { API_URL } from '@/lib/api';
 
@@ -23,6 +24,8 @@ const menuItems = [
     { id: 'tenants', label: 'Tenants', icon: Users, href: '/superadmin/tenants' },
     { id: 'plans', label: 'Plan Tiers', icon: CreditCard, href: '/superadmin/plans' },
     { id: 'invoices', label: 'Invoices & Billing', icon: FileText, href: '/superadmin/invoices' },
+    { id: 'approvals', label: 'Approvals', icon: ShieldCheck, href: '/superadmin/approvals' },
+    { id: 'activity', label: 'Activity Log', icon: Activity, href: '/superadmin/activity' },
     { id: 'settings', label: 'Settings', icon: Settings, href: '/superadmin/settings' },
 ];
 

@@ -16,6 +16,7 @@ import {
 import { useLanguage } from '@/hooks/useLanguage';
 import Link from 'next/link';
 import { API_URL } from '@/lib/api';
+import SubscriptionWidget from '@/components/dashboard/SubscriptionWidget';
 
 interface Reminder {
     tax: {
@@ -167,6 +168,9 @@ export default function DashboardPage() {
                 <p className="text-sm text-gray-500 mt-1">Ringkasan bisnis dan peringatan penting</p>
             </div>
 
+            {/* SUBSCRIPTION WIDGET */}
+            <SubscriptionWidget />
+
             {/* ALERT SECTION */}
             {reminders && reminders.summary.totalAlerts > 0 && (
                 <div className="bg-gradient-to-r from-red-50 to-orange-50 rounded-2xl p-6 shadow-[5px_5px_10px_#cbced1,-5px_-5px_10px_#ffffff]">
@@ -217,6 +221,24 @@ export default function DashboardPage() {
                     </Link>
                 ))}
             </div>
+
+            {/* EMPTY STATE: USER BARU */}
+            {stats && stats.total === 0 && (
+                <div className="bg-[#ecf0f3] rounded-2xl p-8 shadow-[9px_9px_16px_#cbced1,-9px_-9px_16px_#ffffff] text-center">
+                    <div className="w-20 h-20 bg-blue-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                        <FontAwesomeIcon icon={faCar} className="text-4xl text-blue-500" />
+                    </div>
+                    <h2 className="text-2xl font-bold text-gray-800 mb-2">Selamat Datang di OTOHUB!</h2>
+                    <p className="text-gray-500 mb-6 max-w-md mx-auto">
+                        Dealer Anda belum memiliki inventaris kendaraan. Yuk, mulai tambahkan stok mobil pertama Anda untuk melihat statistik berjalan.
+                    </p>
+                    <Link href="/app/inventory">
+                        <button className="px-6 py-3 rounded-xl bg-[#00bfa5] text-white font-bold shadow-[4px_4px_8px_#cbced1,-4px_-4px_8px_#ffffff] hover:shadow-[inset_2px_2px_4px_#cbced1,inset_-2px_-2px_4px_#ffffff] active:shadow-[inset_2px_2px_4px_#cbced1,inset_-2px_-2px_4px_#ffffff] transition-all">
+                            + Tambah Kendaraan Pertama
+                        </button>
+                    </Link>
+                </div>
+            )}
 
             {/* TAX EXPIRING VEHICLES */}
             {reminders && reminders.tax.expiring.length > 0 && (

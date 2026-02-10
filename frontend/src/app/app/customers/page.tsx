@@ -385,9 +385,27 @@ export default function CustomersPage() {
             )}
 
             {filteredCustomers.length === 0 && (
-                <div className="text-center py-12 text-gray-400">
-                    <FontAwesomeIcon icon={faUsers} className="text-4xl mb-4" />
-                    <p>Belum ada customer</p>
+                <div className="p-12 text-center flex flex-col items-center justify-center min-h-[400px]">
+                    <div className="w-24 h-24 bg-gray-200 rounded-full flex items-center justify-center mb-6 shadow-inner">
+                        <FontAwesomeIcon icon={faUsers} className="text-5xl text-gray-400" />
+                    </div>
+                    <h3 className="text-xl font-bold text-gray-700 mb-2">
+                        {searchTerm ? 'Tidak ada hasil pencarian' : 'Belum ada customer'}
+                    </h3>
+                    <p className="text-gray-500 max-w-sm mx-auto mb-8">
+                        {searchTerm
+                            ? `Tidak ditemukan customer dengan kata kunci "${searchTerm}".`
+                            : 'Kelola data pelanggan Anda dengan rapi. Tambahkan customer baru untuk memulai.'}
+                    </p>
+                    {!searchTerm && (
+                        <button
+                            onClick={() => setShowAddModal(true)}
+                            className="px-8 py-3 rounded-xl bg-[#00bfa5] text-white font-bold shadow-[4px_4px_8px_#cbced1,-4px_-4px_8px_#ffffff] hover:shadow-[inset_2px_2px_4px_#cbced1,inset_-2px_-2px_4px_#ffffff] transition-all flex items-center gap-2"
+                        >
+                            <FontAwesomeIcon icon={faPlus} className="mr-2" />
+                            Tambah Customer
+                        </button>
+                    )}
                 </div>
             )}
 

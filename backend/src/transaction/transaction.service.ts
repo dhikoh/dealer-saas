@@ -144,6 +144,20 @@ export class TransactionService {
             throw new BadRequestException('Customer tidak ditemukan');
         }
 
+        // VALIDATION: Documents required for SALE
+        if (data.type === 'SALE') {
+            if (!vehicle.stnkImage) {
+                throw new BadRequestException(
+                    'Foto STNK wajib diunggah sebelum kendaraan dapat dijual'
+                );
+            }
+            if (!vehicle.ktpOwnerImage) {
+                throw new BadRequestException(
+                    'Foto KTP pemilik/atas nama BPKB wajib diunggah sebelum kendaraan dapat dijual'
+                );
+            }
+        }
+
         // Create transaction
         const transaction = await this.prisma.transaction.create({
             data: {
@@ -154,6 +168,10 @@ export class TransactionService {
                 type: data.type,
                 paymentType: data.paymentType,
                 finalPrice: new Decimal(data.finalPrice),
+                basePrice: new Decimal(data.finalPrice), // Default for now
+                taxPercentage: new Decimal(0),
+                taxAmount: new Decimal(0),
+                paymentStatus: 'UNPAID', // Will be updated by Payment Logic
                 notes: data.notes,
                 status: 'PENDING',
             },

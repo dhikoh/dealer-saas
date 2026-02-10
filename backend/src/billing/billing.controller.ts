@@ -87,5 +87,29 @@ export class BillingController {
     async getExpiredTrials() {
         return this.billingService.getExpiredTrials();
     }
+
+    // ==================== TENANT-FACING ENDPOINTS ====================
+
+    @Get('my-subscription')
+    async getMySubscription(@Request() req) {
+        if (!req.user.tenantId) throw new ForbiddenException('No tenant associated');
+        return this.billingService.checkSubscriptionStatus(req.user.tenantId);
+    }
+
+    @Get('my-invoices')
+    async getMyInvoices(@Request() req) {
+        if (!req.user.tenantId) throw new ForbiddenException('No tenant associated');
+        return this.billingService.getMyInvoices(req.user.tenantId);
+    }
+
+    @Post('my-invoices/:id/upload-proof')
+    async uploadPaymentProof(
+        @Param('id') invoiceId: string,
+        @Body() body: { proofUrl: string },
+        @Request() req
+    ) {
+        if (!req.user.tenantId) throw new ForbiddenException('No tenant associated');
+        return this.billingService.uploadPaymentProof(invoiceId, req.user.tenantId, body.proofUrl);
+    }
 }
 

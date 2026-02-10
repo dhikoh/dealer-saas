@@ -29,6 +29,10 @@ import { SearchModule } from './search/search.module';
 import { ActivityLogModule } from './activity-log/activity-log.module';
 import { ExportModule } from './export/export.module';
 import { ReportModule } from './report/report.module';
+import { PublicModule } from './public/public.module';
+import { BranchModule } from './branch/branch.module';
+import { StockTransferModule } from './stock-transfer/stock-transfer.module';
+import { DealerGroupModule } from './dealer-group/dealer-group.module';
 
 @Module({
   imports: [
@@ -66,6 +70,10 @@ import { ReportModule } from './report/report.module';
     ActivityLogModule,
     ExportModule,
     ReportModule,
+    PublicModule,
+    BranchModule,
+    StockTransferModule,
+    DealerGroupModule,
     ScheduleModule.forRoot(), // Cron job support
     CleanupModule, // Auto-delete inactive tenants
   ],

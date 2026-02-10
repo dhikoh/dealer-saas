@@ -1,8 +1,9 @@
 'use client';
 
-import React, { useEffect, useState } from 'react';
-import { Search, MoreHorizontal, Eye, Power, PowerOff, ArrowUpCircle, Pencil, Trash2, X, Building2, Users, Car, ShoppingCart, AlertTriangle } from 'lucide-react';
+import React, { useEffect, useState, useCallback } from 'react';
+import { Search, MoreHorizontal, Eye, Power, PowerOff, ArrowUpCircle, Pencil, Trash2, X, Building2, Users, Car, ShoppingCart, Plus, CheckCircle, Calendar } from 'lucide-react';
 import { API_URL } from '@/lib/api';
+import ConfirmDialog from '@/components/ui/ConfirmDialog';
 
 interface Tenant {
     id: string;
@@ -16,6 +17,7 @@ interface Tenant {
     subscriptionStatus: string;
     trialEndsAt: string | null;
     subscriptionEndsAt: string | null;
+    nextBillingDate: string | null;
     monthlyBill: number;
     autoRenew: boolean;
     usage: {
@@ -24,6 +26,7 @@ interface Tenant {
         customers: number;
         transactions: number;
     };
+    subscriptionStartedAt?: string | null;
     createdAt: string;
 }
 
@@ -34,10 +37,11 @@ const StatusBadge = ({ status }: { status: string }) => {
         SUSPENDED: 'bg-rose-100 text-rose-700 border-rose-200',
         CANCELLED: 'bg-slate-100 text-slate-600 border-slate-200',
         EXPIRED: 'bg-amber-100 text-amber-700 border-amber-200',
+        PENDING_PAYMENT: 'bg-amber-50 text-amber-600 border-amber-200',
     };
     return (
         <span className={`px-2.5 py-0.5 rounded-full text-xs font-medium border ${styles[status] || styles.CANCELLED}`}>
-            {status}
+            {status.replace('_', ' ')}
         </span>
     );
 };
@@ -66,34 +70,31 @@ export default function TenantsPage() {
     const [actionMenuId, setActionMenuId] = useState<string | null>(null);
     const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
 
-    // Edit modal state
+    // Create Modal
+    const [showCreateModal, setShowCreateModal] = useState(false);
+    const [createForm, setCreateForm] = useState({ name: '', slug: '', ownerName: '', ownerEmail: '', ownerPassword: '', planTier: 'DEMO' });
+    const [createLoading, setCreateLoading] = useState(false);
+
+    // Edit Modal
     const [editTenant, setEditTenant] = useState<Tenant | null>(null);
-    const [editForm, setEditForm] = useState({ name: '', email: '', phone: '', address: '', planTier: '' });
+    const [editForm, setEditForm] = useState({ name: '', email: '', phone: '', address: '' });
     const [editLoading, setEditLoading] = useState(false);
 
-    // Delete modal state
-    const [deleteTenant, setDeleteTenant] = useState<Tenant | null>(null);
-    const [deleteLoading, setDeleteLoading] = useState(false);
+    // Direct Plan Change Modal
+    const [planTenant, setPlanTenant] = useState<Tenant | null>(null);
+    const [planForm, setPlanForm] = useState({ planTier: 'PRO', durationMonths: 1, immediate: true });
+    const [planLoading, setPlanLoading] = useState(false);
 
-    // Upgrade modal state
-    const [upgradeTenant, setUpgradeTenant] = useState<Tenant | null>(null);
-    const [upgradeTarget, setUpgradeTarget] = useState('PRO');
-    const [upgradeLoading, setUpgradeLoading] = useState(false);
+    // Confirm Dialogs
+    const [confirmAction, setConfirmAction] = useState<{
+        type: 'suspend' | 'activate' | 'delete';
+        tenant: Tenant;
+    } | null>(null);
+    const [actionLoading, setActionLoading] = useState(false);
 
-    useEffect(() => {
-        fetchTenants();
-    }, [statusFilter]);
+    const getToken = useCallback(() => localStorage.getItem('access_token'), []);
 
-    useEffect(() => {
-        if (toast) {
-            const timer = setTimeout(() => setToast(null), 3000);
-            return () => clearTimeout(timer);
-        }
-    }, [toast]);
-
-    const getToken = () => localStorage.getItem('access_token');
-
-    const fetchTenants = async () => {
+    const fetchTenants = useCallback(async () => {
         try {
             const params = new URLSearchParams();
             if (statusFilter) params.append('status', statusFilter);
@@ -111,69 +112,46 @@ export default function TenantsPage() {
         } finally {
             setLoading(false);
         }
+    }, [getToken, statusFilter, search]); // Add dependencies here
+
+    useEffect(() => {
+        fetchTenants();
+    }, [fetchTenants]); // Used the memoized function
+
+    useEffect(() => {
+        if (toast) {
+            const timer = setTimeout(() => setToast(null), 3000);
+            return () => clearTimeout(timer);
+        }
+    }, [toast]);
+
+    const showToast = (message: string, type: 'success' | 'error') => {
+        setToast({ message, type });
     };
 
-    const handleSuspend = async (tenantId: string) => {
+    // --- ACTIONS ---
+
+    const handleCreate = async () => {
+        setCreateLoading(true);
         try {
-            const res = await fetch(`${API_URL}/superadmin/tenants/${tenantId}/suspend`, {
+            const res = await fetch(`${API_URL}/superadmin/tenants`, {
                 method: 'POST',
                 headers: { 'Authorization': `Bearer ${getToken()}`, 'Content-Type': 'application/json' },
-                body: JSON.stringify({ reason: 'Admin action' }),
+                body: JSON.stringify(createForm),
             });
-            if (!res.ok) throw new Error('Suspend failed');
-            setToast({ message: 'Tenant berhasil di-suspend', type: 'success' });
+            if (!res.ok) {
+                const err = await res.json();
+                throw new Error(err.message || 'Create failed');
+            }
+            showToast('Tenant berhasil dibuat', 'success');
+            setShowCreateModal(false);
+            setCreateForm({ name: '', slug: '', ownerName: '', ownerEmail: '', ownerPassword: '', planTier: 'DEMO' });
             fetchTenants();
-        } catch {
-            setToast({ message: 'Gagal suspend tenant', type: 'error' });
-        }
-        setActionMenuId(null);
-    };
-
-    const handleActivate = async (tenantId: string) => {
-        try {
-            const res = await fetch(`${API_URL}/superadmin/tenants/${tenantId}/activate`, {
-                method: 'POST',
-                headers: { 'Authorization': `Bearer ${getToken()}`, 'Content-Type': 'application/json' },
-            });
-            if (!res.ok) throw new Error('Activate failed');
-            setToast({ message: 'Tenant berhasil diaktifkan', type: 'success' });
-            fetchTenants();
-        } catch {
-            setToast({ message: 'Gagal mengaktifkan tenant', type: 'error' });
-        }
-        setActionMenuId(null);
-    };
-
-    const handleUpgrade = async () => {
-        if (!upgradeTenant) return;
-        setUpgradeLoading(true);
-        try {
-            const res = await fetch(`${API_URL}/superadmin/tenants/${upgradeTenant.id}/upgrade`, {
-                method: 'PATCH',
-                headers: { 'Authorization': `Bearer ${getToken()}`, 'Content-Type': 'application/json' },
-                body: JSON.stringify({ planTier: upgradeTarget }),
-            });
-            if (!res.ok) throw new Error('Upgrade failed');
-            setToast({ message: `Plan berhasil di-upgrade ke ${upgradeTarget}`, type: 'success' });
-            setUpgradeTenant(null);
-            fetchTenants();
-        } catch {
-            setToast({ message: 'Gagal upgrade plan', type: 'error' });
+        } catch (e: any) {
+            showToast(e.message, 'error');
         } finally {
-            setUpgradeLoading(false);
+            setCreateLoading(false);
         }
-    };
-
-    const openEditModal = (tenant: Tenant) => {
-        setEditTenant(tenant);
-        setEditForm({
-            name: tenant.name,
-            email: tenant.email || '',
-            phone: tenant.phone || '',
-            address: tenant.address || '',
-            planTier: tenant.planTier,
-        });
-        setActionMenuId(null);
     };
 
     const handleEditSave = async () => {
@@ -186,32 +164,64 @@ export default function TenantsPage() {
                 body: JSON.stringify(editForm),
             });
             if (!res.ok) throw new Error('Update failed');
-            setToast({ message: 'Tenant berhasil diupdate', type: 'success' });
+            showToast('Tenant berhasil diupdate', 'success');
             setEditTenant(null);
             fetchTenants();
         } catch {
-            setToast({ message: 'Gagal mengupdate tenant', type: 'error' });
+            showToast('Gagal mengupdate tenant', 'error');
         } finally {
             setEditLoading(false);
         }
     };
 
-    const handleDelete = async () => {
-        if (!deleteTenant) return;
-        setDeleteLoading(true);
+    const handlePlanChange = async () => {
+        if (!planTenant) return;
+        setPlanLoading(true);
         try {
-            const res = await fetch(`${API_URL}/superadmin/tenants/${deleteTenant.id}`, {
-                method: 'DELETE',
-                headers: { 'Authorization': `Bearer ${getToken()}` },
+            const res = await fetch(`${API_URL}/superadmin/tenants/${planTenant.id}/plan-direct`, {
+                method: 'PATCH',
+                headers: { 'Authorization': `Bearer ${getToken()}`, 'Content-Type': 'application/json' },
+                body: JSON.stringify(planForm),
             });
-            if (!res.ok) throw new Error('Delete failed');
-            setToast({ message: 'Tenant berhasil dihapus', type: 'success' });
-            setDeleteTenant(null);
+            if (!res.ok) throw new Error('Plan change failed');
+            showToast('Plan berhasil diubah', 'success');
+            setPlanTenant(null);
             fetchTenants();
         } catch {
-            setToast({ message: 'Gagal menghapus tenant', type: 'error' });
+            showToast('Gagal mengubah plan', 'error');
         } finally {
-            setDeleteLoading(false);
+            setPlanLoading(false);
+        }
+    };
+
+    const handleConfirmAction = async () => {
+        if (!confirmAction) return;
+        setActionLoading(true);
+        try {
+            let url = '';
+            let method = 'POST';
+
+            if (confirmAction.type === 'suspend') url = `${API_URL}/superadmin/tenants/${confirmAction.tenant.id}/suspend`;
+            if (confirmAction.type === 'activate') url = `${API_URL}/superadmin/tenants/${confirmAction.tenant.id}/activate`;
+            if (confirmAction.type === 'delete') {
+                url = `${API_URL}/superadmin/tenants/${confirmAction.tenant.id}`;
+                method = 'DELETE';
+            }
+
+            const res = await fetch(url, {
+                method,
+                headers: { 'Authorization': `Bearer ${getToken()}`, 'Content-Type': 'application/json' },
+                body: confirmAction.type === 'suspend' ? JSON.stringify({ reason: 'Admin action' }) : undefined,
+            });
+
+            if (!res.ok) throw new Error('Action failed');
+            showToast(`Aksi ${confirmAction.type} berhasil`, 'success');
+            fetchTenants();
+        } catch {
+            showToast(`Gagal melakukan aksi ${confirmAction.type}`, 'error');
+        } finally {
+            setActionLoading(false);
+            setConfirmAction(null);
         }
     };
 
@@ -219,20 +229,24 @@ export default function TenantsPage() {
         return new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', minimumFractionDigits: 0 }).format(value);
     };
 
-    const filteredTenants = tenants.filter(t =>
-        t.name.toLowerCase().includes(search.toLowerCase()) ||
-        t.email?.toLowerCase().includes(search.toLowerCase())
-    );
+    const formatDate = (date: string | null) => {
+        if (!date) return '-';
+        return new Date(date).toLocaleDateString('id-ID', { day: 'numeric', month: 'short', year: 'numeric' });
+    };
 
     if (loading) {
-        return <div className="p-8 text-center text-slate-500">Loading tenants...</div>;
+        return (
+            <div className="flex items-center justify-center h-64">
+                <div className="w-8 h-8 border-4 border-slate-200 border-t-indigo-600 rounded-full animate-spin" />
+            </div>
+        );
     }
 
     return (
         <div className="space-y-6">
             {/* TOAST */}
             {toast && (
-                <div className={`fixed top-4 right-4 z-[100] px-4 py-3 rounded-lg shadow-lg text-white text-sm font-medium transition-all ${toast.type === 'success' ? 'bg-emerald-600' : 'bg-rose-600'}`}>
+                <div className={`fixed top-4 right-4 z-[100] px-4 py-3 rounded-lg shadow-lg text-white text-sm font-medium transition-all animate-in fade-in slide-in-from-top-2 ${toast.type === 'success' ? 'bg-emerald-600' : 'bg-rose-600'}`}>
                     {toast.message}
                 </div>
             )}
@@ -265,12 +279,19 @@ export default function TenantsPage() {
                             <option value="ACTIVE">Active</option>
                             <option value="TRIAL">Trial</option>
                             <option value="SUSPENDED">Suspended</option>
+                            <option value="EXPIRED">Expired</option>
                         </select>
+                        <button
+                            onClick={() => setShowCreateModal(true)}
+                            className="px-4 py-2 bg-indigo-600 text-white rounded-lg text-sm font-medium hover:bg-indigo-700 flex items-center gap-2"
+                        >
+                            <Plus className="w-4 h-4" /> Tenant Baru
+                        </button>
                     </div>
                 </div>
 
                 {/* TABLE */}
-                <div className="overflow-x-auto">
+                <div className="overflow-x-auto min-h-[400px]">
                     <table className="w-full text-sm text-left">
                         <thead className="bg-slate-50 text-slate-500 font-medium border-b border-slate-200">
                             <tr>
@@ -278,13 +299,13 @@ export default function TenantsPage() {
                                 <th className="px-6 py-4">Plan</th>
                                 <th className="px-6 py-4">Status</th>
                                 <th className="px-6 py-4">Usage</th>
-                                <th className="px-6 py-4">Monthly Bill</th>
+                                <th className="px-6 py-4">Billing</th>
                                 <th className="px-6 py-4 text-right">Actions</th>
                             </tr>
                         </thead>
                         <tbody className="divide-y divide-slate-100">
-                            {filteredTenants.map((tenant) => (
-                                <tr key={tenant.id} className="hover:bg-slate-50 transition-colors">
+                            {tenants.map((tenant) => (
+                                <tr key={tenant.id} className="hover:bg-slate-50 transition-colors group">
                                     <td className="px-6 py-4">
                                         <div className="font-medium text-slate-900">{tenant.name}</div>
                                         <div className="text-xs text-slate-500">{tenant.email || tenant.slug}</div>
@@ -302,7 +323,10 @@ export default function TenantsPage() {
                                         </div>
                                     </td>
                                     <td className="px-6 py-4 font-medium text-slate-700">
-                                        {formatCurrency(tenant.monthlyBill)}
+                                        <div className="flex flex-col">
+                                            <span>{formatCurrency(tenant.monthlyBill)}/bln</span>
+                                            <span className="text-[10px] text-slate-400">Next: {formatDate(tenant.nextBillingDate)}</span>
+                                        </div>
                                     </td>
                                     <td className="px-6 py-4 text-right relative">
                                         <button
@@ -313,63 +337,207 @@ export default function TenantsPage() {
                                         </button>
 
                                         {actionMenuId === tenant.id && (
-                                            <div className="absolute right-6 top-12 bg-white border border-slate-200 rounded-lg shadow-lg z-10 py-1 min-w-[180px]">
-                                                <button
-                                                    onClick={() => { setSelectedTenant(tenant); setActionMenuId(null); }}
-                                                    className="w-full px-4 py-2 text-left text-sm text-slate-700 hover:bg-slate-50 flex items-center gap-2"
-                                                >
-                                                    <Eye className="w-4 h-4" /> View Details
-                                                </button>
-                                                <button
-                                                    onClick={() => openEditModal(tenant)}
-                                                    className="w-full px-4 py-2 text-left text-sm text-blue-600 hover:bg-blue-50 flex items-center gap-2"
-                                                >
-                                                    <Pencil className="w-4 h-4" /> Edit Tenant
-                                                </button>
-                                                {tenant.subscriptionStatus !== 'SUSPENDED' ? (
+                                            <>
+                                                <div
+                                                    className="fixed inset-0 z-0"
+                                                    onClick={() => setActionMenuId(null)}
+                                                />
+                                                <div className="absolute right-6 top-10 bg-white border border-slate-200 rounded-lg shadow-xl z-10 py-1 min-w-[180px] animate-in fade-in zoom-in-95 duration-200">
                                                     <button
-                                                        onClick={() => handleSuspend(tenant.id)}
-                                                        className="w-full px-4 py-2 text-left text-sm text-amber-600 hover:bg-amber-50 flex items-center gap-2"
+                                                        onClick={() => { setSelectedTenant(tenant); setActionMenuId(null); }}
+                                                        className="w-full px-4 py-2 text-left text-sm text-slate-700 hover:bg-slate-50 flex items-center gap-2"
                                                     >
-                                                        <PowerOff className="w-4 h-4" /> Suspend
+                                                        <Eye className="w-4 h-4" /> View Details
                                                     </button>
-                                                ) : (
                                                     <button
-                                                        onClick={() => handleActivate(tenant.id)}
-                                                        className="w-full px-4 py-2 text-left text-sm text-emerald-600 hover:bg-emerald-50 flex items-center gap-2"
+                                                        onClick={() => {
+                                                            setEditTenant(tenant);
+                                                            setEditForm({ name: tenant.name, email: tenant.email || '', phone: tenant.phone || '', address: tenant.address || '' });
+                                                            setActionMenuId(null);
+                                                        }}
+                                                        className="w-full px-4 py-2 text-left text-sm text-blue-600 hover:bg-blue-50 flex items-center gap-2"
                                                     >
-                                                        <Power className="w-4 h-4" /> Activate
+                                                        <Pencil className="w-4 h-4" /> Edit Profile
                                                     </button>
-                                                )}
-                                                {tenant.planTier !== 'UNLIMITED' && (
                                                     <button
-                                                        onClick={() => { setUpgradeTenant(tenant); setActionMenuId(null); }}
+                                                        onClick={() => { setPlanTenant(tenant); setActionMenuId(null); }}
                                                         className="w-full px-4 py-2 text-left text-sm text-indigo-600 hover:bg-indigo-50 flex items-center gap-2"
                                                     >
-                                                        <ArrowUpCircle className="w-4 h-4" /> Upgrade Plan
+                                                        <ArrowUpCircle className="w-4 h-4" /> Change Plan
                                                     </button>
-                                                )}
-                                                <div className="border-t border-slate-100 my-1" />
-                                                <button
-                                                    onClick={() => { setDeleteTenant(tenant); setActionMenuId(null); }}
-                                                    className="w-full px-4 py-2 text-left text-sm text-rose-600 hover:bg-rose-50 flex items-center gap-2"
-                                                >
-                                                    <Trash2 className="w-4 h-4" /> Hapus Tenant
-                                                </button>
-                                            </div>
+
+                                                    <div className="border-t border-slate-100 my-1" />
+
+                                                    {tenant.subscriptionStatus !== 'SUSPENDED' ? (
+                                                        <button
+                                                            onClick={() => { setConfirmAction({ type: 'suspend', tenant }); setActionMenuId(null); }}
+                                                            className="w-full px-4 py-2 text-left text-sm text-amber-600 hover:bg-amber-50 flex items-center gap-2"
+                                                        >
+                                                            <PowerOff className="w-4 h-4" /> Suspend
+                                                        </button>
+                                                    ) : (
+                                                        <button
+                                                            onClick={() => { setConfirmAction({ type: 'activate', tenant }); setActionMenuId(null); }}
+                                                            className="w-full px-4 py-2 text-left text-sm text-emerald-600 hover:bg-emerald-50 flex items-center gap-2"
+                                                        >
+                                                            <Power className="w-4 h-4" /> Activate
+                                                        </button>
+                                                    )}
+                                                    <button
+                                                        onClick={() => { setConfirmAction({ type: 'delete', tenant }); setActionMenuId(null); }}
+                                                        className="w-full px-4 py-2 text-left text-sm text-rose-600 hover:bg-rose-50 flex items-center gap-2"
+                                                    >
+                                                        <Trash2 className="w-4 h-4" /> Hapus Tenant
+                                                    </button>
+                                                </div>
+                                            </>
                                         )}
                                     </td>
                                 </tr>
                             ))}
-                            {filteredTenants.length === 0 && (
-                                <tr><td colSpan={6} className="px-6 py-12 text-center text-slate-400">Tidak ada tenant</td></tr>
+                            {tenants.length === 0 && (
+                                <tr><td colSpan={6} className="px-6 py-12 text-center text-slate-400">Tidak ada tenant ditemukan</td></tr>
                             )}
                         </tbody>
                     </table>
                 </div>
             </div>
 
-            {/* VIEW DETAILS MODAL */}
+            {/* CREATE MODAL */}
+            {showCreateModal && (
+                <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+                    <div className="bg-white rounded-xl shadow-xl max-w-lg w-full max-h-[90vh] overflow-y-auto animate-in fade-in zoom-in-95 duration-200">
+                        <div className="p-6 border-b border-slate-200 flex justify-between items-center">
+                            <h3 className="text-lg font-semibold text-slate-900">Buat Tenant Baru</h3>
+                            <button onClick={() => setShowCreateModal(false)} className="p-1 hover:bg-slate-100 rounded"><X className="w-5 h-5" /></button>
+                        </div>
+                        <div className="p-6 space-y-4">
+                            <div>
+                                <label className="block text-sm font-medium text-slate-700 mb-1">Nama Dealer</label>
+                                <input type="text" value={createForm.name} onChange={e => setCreateForm({ ...createForm, name: e.target.value })}
+                                    className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm" placeholder="Contoh: Jaya Motor" />
+                            </div>
+                            <div>
+                                <label className="block text-sm font-medium text-slate-700 mb-1">Slug (URL)</label>
+                                <input type="text" value={createForm.slug} onChange={e => setCreateForm({ ...createForm, slug: e.target.value })}
+                                    className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm" placeholder="jaya-motor" />
+                            </div>
+                            <div className="grid grid-cols-2 gap-4">
+                                <div>
+                                    <label className="block text-sm font-medium text-slate-700 mb-1">Nama Owner</label>
+                                    <input type="text" value={createForm.ownerName} onChange={e => setCreateForm({ ...createForm, ownerName: e.target.value })}
+                                        className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm" />
+                                </div>
+                                <div>
+                                    <label className="block text-sm font-medium text-slate-700 mb-1">Plan Tier</label>
+                                    <select value={createForm.planTier} onChange={e => setCreateForm({ ...createForm, planTier: e.target.value })}
+                                        className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm">
+                                        <option value="DEMO">DEMO</option>
+                                        <option value="BASIC">BASIC</option>
+                                        <option value="PRO">PRO</option>
+                                        <option value="UNLIMITED">UNLIMITED</option>
+                                    </select>
+                                </div>
+                            </div>
+                            <div>
+                                <label className="block text-sm font-medium text-slate-700 mb-1">Email Owner</label>
+                                <input type="email" value={createForm.ownerEmail} onChange={e => setCreateForm({ ...createForm, ownerEmail: e.target.value })}
+                                    className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm" />
+                            </div>
+                            <div>
+                                <label className="block text-sm font-medium text-slate-700 mb-1">Password</label>
+                                <input type="password" value={createForm.ownerPassword} onChange={e => setCreateForm({ ...createForm, ownerPassword: e.target.value })}
+                                    className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm" />
+                            </div>
+                        </div>
+                        <div className="p-6 border-t border-slate-200 flex justify-end gap-2">
+                            <button onClick={() => setShowCreateModal(false)} className="px-4 py-2 text-sm text-slate-600 hover:bg-slate-100 rounded-lg">Batal</button>
+                            <button onClick={handleCreate} disabled={createLoading}
+                                className="px-4 py-2 text-sm bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 disabled:opacity-50">
+                                {createLoading ? 'Memproses...' : 'Buat Tenant'}
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* EDIT TENANT MODAL */}
+            {editTenant && (
+                <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+                    <div className="bg-white rounded-xl shadow-xl max-w-lg w-full" onClick={e => e.stopPropagation()}>
+                        <div className="p-6 border-b border-slate-200 text-lg font-bold">Edit Profile Tenant</div>
+                        <div className="p-6 space-y-4">
+                            <input type="text" value={editForm.name} onChange={e => setEditForm({ ...editForm, name: e.target.value })} className="w-full p-2 border rounded" placeholder="Nama" />
+                            <input type="email" value={editForm.email} onChange={e => setEditForm({ ...editForm, email: e.target.value })} className="w-full p-2 border rounded" placeholder="Email" />
+                            <input type="text" value={editForm.phone} onChange={e => setEditForm({ ...editForm, phone: e.target.value })} className="w-full p-2 border rounded" placeholder="Telepon" />
+                            <textarea value={editForm.address} onChange={e => setEditForm({ ...editForm, address: e.target.value })} className="w-full p-2 border rounded" placeholder="Alamat" />
+                        </div>
+                        <div className="p-6 border-t flex justify-end gap-2">
+                            <button onClick={() => setEditTenant(null)} className="px-4 py-2 bg-slate-100 rounded">Batal</button>
+                            <button onClick={handleEditSave} disabled={editLoading} className="px-4 py-2 bg-indigo-600 text-white rounded">{editLoading ? 'Saving...' : 'Save'}</button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* CHANGE PLAN MODAL */}
+            {planTenant && (
+                <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+                    <div className="bg-white rounded-xl shadow-xl max-w-md w-full" onClick={e => e.stopPropagation()}>
+                        <div className="p-6 border-b border-slate-200">
+                            <h3 className="text-lg font-semibold text-slate-900">Ubah Plan Langganan</h3>
+                            <p className="text-sm text-slate-500 mt-1">Ubah plan untuk <strong>{planTenant.name}</strong></p>
+                        </div>
+                        <div className="p-6 space-y-4">
+                            <div className="bg-amber-50 p-3 rounded-lg flex gap-2 text-xs text-amber-700">
+                                <CheckCircle className="w-4 h-4 flex-shrink-0" />
+                                <p>Perubahan plan ini akan langsung aktif tanpa perlu konfirmasi pembayaran (Direct Change).</p>
+                            </div>
+                            <div>
+                                <label className="block text-sm font-medium text-slate-700 mb-1">Target Plan</label>
+                                <select value={planForm.planTier} onChange={e => setPlanForm({ ...planForm, planTier: e.target.value })}
+                                    className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm">
+                                    {['DEMO', 'BASIC', 'PRO', 'UNLIMITED'].map(p => (
+                                        <option key={p} value={p}>{p}</option>
+                                    ))}
+                                </select>
+                            </div>
+                            <div>
+                                <label className="block text-sm font-medium text-slate-700 mb-1">Durasi Tambahan (Bulan)</label>
+                                <input type="number" min="1" max="12" value={planForm.durationMonths} onChange={e => setPlanForm({ ...planForm, durationMonths: parseInt(e.target.value) })}
+                                    className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm" />
+                            </div>
+                            <div className="flex items-center gap-2">
+                                <input type="checkbox" id="immediate" checked={planForm.immediate} onChange={e => setPlanForm({ ...planForm, immediate: e.target.checked })} />
+                                <label htmlFor="immediate" className="text-sm text-slate-700">Aktifkan Sekarang</label>
+                            </div>
+                        </div>
+                        <div className="p-6 border-t border-slate-200 flex justify-end gap-2">
+                            <button onClick={() => setPlanTenant(null)} className="px-4 py-2 text-sm text-slate-600 hover:bg-slate-100 rounded-lg">Batal</button>
+                            <button onClick={handlePlanChange} disabled={planLoading}
+                                className="px-4 py-2 text-sm bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 disabled:opacity-50">
+                                {planLoading ? 'Memproses...' : 'Ubah Plan'}
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* CONFIRM DIALOGS */}
+            <ConfirmDialog
+                isOpen={!!confirmAction}
+                onClose={() => setConfirmAction(null)}
+                onConfirm={handleConfirmAction}
+                title={confirmAction?.type === 'suspend' ? 'Suspend Tenant?' : confirmAction?.type === 'activate' ? 'Aktifkan Tenant?' : 'Hapus Tenant?'}
+                message={confirmAction?.type === 'delete'
+                    ? `Apakah yakin ingin menghapus ${confirmAction?.tenant.name}?`
+                    : `Konfirmasi tindakan ${confirmAction?.type} untuk ${confirmAction?.tenant.name}?`
+                }
+                variant={confirmAction?.type === 'activate' ? 'success' : 'danger'}
+                isLoading={actionLoading}
+            />
+
+            {/* DETAILS MODAL */}
             {selectedTenant && (
                 <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4" onClick={() => setSelectedTenant(null)}>
                     <div className="bg-white rounded-xl shadow-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
@@ -386,6 +554,19 @@ export default function TenantsPage() {
                                 <div><p className="text-xs text-slate-500">Alamat</p><p className="font-medium">{selectedTenant.address || '-'}</p></div>
                                 <div><p className="text-xs text-slate-500">Slug</p><p className="font-medium font-mono text-sm">{selectedTenant.slug}</p></div>
                             </div>
+
+                            <div className="bg-slate-50 p-4 rounded-xl border border-slate-100">
+                                <h4 className="text-sm font-semibold text-slate-700 mb-3 flex items-center gap-2">
+                                    <Calendar className="w-4 h-4" /> Subscription Info
+                                </h4>
+                                <div className="grid grid-cols-2 gap-4 text-sm">
+                                    <div><p className="text-slate-500">Start Date</p><p>{formatDate(selectedTenant.subscriptionStartedAt || selectedTenant.createdAt)}</p></div>
+                                    <div><p className="text-slate-500">End Date</p><p>{formatDate(selectedTenant.subscriptionEndsAt)}</p></div>
+                                    <div><p className="text-slate-500">Trial Ends</p><p>{formatDate(selectedTenant.trialEndsAt)}</p></div>
+                                    <div><p className="text-slate-500">Next Billing</p><p className="font-bold text-indigo-600">{formatDate(selectedTenant.nextBillingDate)}</p></div>
+                                </div>
+                            </div>
+
                             <div>
                                 <h4 className="text-sm font-semibold text-slate-700 mb-3">Usage Statistics</h4>
                                 <div className="grid grid-cols-4 gap-3">
@@ -395,133 +576,6 @@ export default function TenantsPage() {
                                     <UsageStat icon={<ShoppingCart className="w-4 h-4" />} label="Transactions" value={selectedTenant.usage.transactions} />
                                 </div>
                             </div>
-                            <div>
-                                <h4 className="text-sm font-semibold text-slate-700 mb-3">Billing</h4>
-                                <div className="bg-slate-50 p-4 rounded-lg">
-                                    <div className="flex justify-between items-center">
-                                        <span className="text-slate-600">Monthly Bill</span>
-                                        <span className="font-bold text-lg">{formatCurrency(selectedTenant.monthlyBill)}</span>
-                                    </div>
-                                    <div className="flex justify-between items-center mt-2 text-sm">
-                                        <span className="text-slate-500">Auto-renew</span>
-                                        <span className={selectedTenant.autoRenew ? 'text-emerald-600' : 'text-slate-400'}>
-                                            {selectedTenant.autoRenew ? 'Enabled' : 'Disabled'}
-                                        </span>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            )}
-
-            {/* EDIT TENANT MODAL */}
-            {editTenant && (
-                <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4" onClick={() => setEditTenant(null)}>
-                    <div className="bg-white rounded-xl shadow-xl max-w-lg w-full" onClick={e => e.stopPropagation()}>
-                        <div className="p-6 border-b border-slate-200 flex justify-between items-center">
-                            <h3 className="text-lg font-semibold text-slate-900">Edit Tenant</h3>
-                            <button onClick={() => setEditTenant(null)} className="p-1 hover:bg-slate-100 rounded"><X className="w-5 h-5" /></button>
-                        </div>
-                        <div className="p-6 space-y-4">
-                            <div>
-                                <label className="block text-sm font-medium text-slate-700 mb-1">Nama Dealer</label>
-                                <input type="text" value={editForm.name} onChange={e => setEditForm({ ...editForm, name: e.target.value })}
-                                    className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500" />
-                            </div>
-                            <div>
-                                <label className="block text-sm font-medium text-slate-700 mb-1">Email</label>
-                                <input type="email" value={editForm.email} onChange={e => setEditForm({ ...editForm, email: e.target.value })}
-                                    className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500" />
-                            </div>
-                            <div className="grid grid-cols-2 gap-4">
-                                <div>
-                                    <label className="block text-sm font-medium text-slate-700 mb-1">Telepon</label>
-                                    <input type="tel" value={editForm.phone} onChange={e => setEditForm({ ...editForm, phone: e.target.value })}
-                                        className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500" />
-                                </div>
-                                <div>
-                                    <label className="block text-sm font-medium text-slate-700 mb-1">Plan Tier</label>
-                                    <select value={editForm.planTier} onChange={e => setEditForm({ ...editForm, planTier: e.target.value })}
-                                        className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500">
-                                        <option value="DEMO">DEMO</option>
-                                        <option value="BASIC">BASIC</option>
-                                        <option value="PRO">PRO</option>
-                                        <option value="UNLIMITED">UNLIMITED</option>
-                                    </select>
-                                </div>
-                            </div>
-                            <div>
-                                <label className="block text-sm font-medium text-slate-700 mb-1">Alamat</label>
-                                <textarea value={editForm.address} onChange={e => setEditForm({ ...editForm, address: e.target.value })}
-                                    rows={2} className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500" />
-                            </div>
-                        </div>
-                        <div className="p-6 border-t border-slate-200 flex justify-end gap-2">
-                            <button onClick={() => setEditTenant(null)} className="px-4 py-2 text-sm text-slate-600 hover:bg-slate-100 rounded-lg">Batal</button>
-                            <button onClick={handleEditSave} disabled={editLoading}
-                                className="px-4 py-2 text-sm bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 disabled:opacity-50">
-                                {editLoading ? 'Menyimpan...' : 'Simpan'}
-                            </button>
-                        </div>
-                    </div>
-                </div>
-            )}
-
-            {/* UPGRADE PLAN MODAL */}
-            {upgradeTenant && (
-                <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4" onClick={() => setUpgradeTenant(null)}>
-                    <div className="bg-white rounded-xl shadow-xl max-w-md w-full" onClick={e => e.stopPropagation()}>
-                        <div className="p-6 border-b border-slate-200">
-                            <h3 className="text-lg font-semibold text-slate-900">Upgrade Plan</h3>
-                            <p className="text-sm text-slate-500 mt-1">Upgrade plan untuk <strong>{upgradeTenant.name}</strong></p>
-                        </div>
-                        <div className="p-6 space-y-4">
-                            <div className="p-3 bg-slate-50 rounded-lg text-sm">
-                                <span className="text-slate-500">Plan saat ini:</span>
-                                <span className="ml-2 font-semibold">{upgradeTenant.planTier}</span>
-                            </div>
-                            <div>
-                                <label className="block text-sm font-medium text-slate-700 mb-1">Target Plan</label>
-                                <select value={upgradeTarget} onChange={e => setUpgradeTarget(e.target.value)}
-                                    className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500">
-                                    {['BASIC', 'PRO', 'UNLIMITED'].filter(p => p !== upgradeTenant.planTier).map(p => (
-                                        <option key={p} value={p}>{p}</option>
-                                    ))}
-                                </select>
-                            </div>
-                        </div>
-                        <div className="p-6 border-t border-slate-200 flex justify-end gap-2">
-                            <button onClick={() => setUpgradeTenant(null)} className="px-4 py-2 text-sm text-slate-600 hover:bg-slate-100 rounded-lg">Batal</button>
-                            <button onClick={handleUpgrade} disabled={upgradeLoading}
-                                className="px-4 py-2 text-sm bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 disabled:opacity-50">
-                                {upgradeLoading ? 'Processing...' : 'Upgrade'}
-                            </button>
-                        </div>
-                    </div>
-                </div>
-            )}
-
-            {/* DELETE CONFIRMATION MODAL */}
-            {deleteTenant && (
-                <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4" onClick={() => setDeleteTenant(null)}>
-                    <div className="bg-white rounded-xl shadow-xl max-w-md w-full" onClick={e => e.stopPropagation()}>
-                        <div className="p-6 text-center">
-                            <div className="w-12 h-12 bg-rose-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                                <AlertTriangle className="w-6 h-6 text-rose-600" />
-                            </div>
-                            <h3 className="text-lg font-semibold text-slate-900 mb-2">Hapus Tenant?</h3>
-                            <p className="text-sm text-slate-500">
-                                Apakah Anda yakin ingin menghapus <strong>{deleteTenant.name}</strong>?
-                                Tenant akan di-nonaktifkan dan tidak bisa login lagi. Data tidak dihapus permanen.
-                            </p>
-                        </div>
-                        <div className="p-6 border-t border-slate-200 flex justify-center gap-3">
-                            <button onClick={() => setDeleteTenant(null)} className="px-4 py-2 text-sm text-slate-600 hover:bg-slate-100 rounded-lg">Batal</button>
-                            <button onClick={handleDelete} disabled={deleteLoading}
-                                className="px-4 py-2 text-sm bg-rose-600 text-white rounded-lg hover:bg-rose-700 disabled:opacity-50">
-                                {deleteLoading ? 'Menghapus...' : 'Ya, Hapus'}
-                            </button>
                         </div>
                     </div>
                 </div>
@@ -532,7 +586,7 @@ export default function TenantsPage() {
 
 function UsageStat({ icon, label, value }: { icon: React.ReactNode; label: string; value: number }) {
     return (
-        <div className="bg-slate-50 p-3 rounded-lg text-center">
+        <div className="bg-slate-50 p-3 rounded-lg text-center border border-slate-100">
             <div className="text-slate-400 flex justify-center mb-1">{icon}</div>
             <p className="text-lg font-bold text-slate-900">{value}</p>
             <p className="text-xs text-slate-500">{label}</p>

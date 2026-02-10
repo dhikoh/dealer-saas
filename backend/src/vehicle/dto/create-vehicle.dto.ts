@@ -104,4 +104,28 @@ export class CreateVehicleDto {
     @IsOptional()
     @IsString()
     branchId?: string;
+
+    @IsOptional()
+    @IsString()
+    bpkbOwnerName?: string;
+
+    @IsOptional()
+    @IsBoolean()
+    isOwnerDifferent?: boolean;
+
+    @IsOptional()
+    @IsString()
+    ktpOwnerImage?: string;
+
+    @IsOptional()
+    @IsString()
+    stnkImage?: string;
+
+    @IsOptional()
+    @IsString()
+    bpkbImage?: string;
+
+    @IsOptional()
+    @IsString()
+    taxImage?: string;
 }

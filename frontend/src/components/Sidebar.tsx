@@ -48,6 +48,7 @@ const OTHER_MENU_ITEMS: MenuItem[] = [
     { icon: faBuilding, labelKey: 'branch', href: '/app/branches', premium: true },
     { icon: faReceipt, labelKey: 'billing', href: '/app/billing' },
     { icon: faBell, labelKey: 'activity', href: '/app/activity' },
+    { icon: faUsers, labelKey: 'dealerGroup', href: '/app/settings/dealer-group' },
     { icon: faCog, labelKey: 'settings', href: '/app/settings' },
     { icon: faQuestionCircle, labelKey: 'helpCenter', href: '/app/help' },
 ];

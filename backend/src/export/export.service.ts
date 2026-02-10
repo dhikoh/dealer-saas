@@ -37,7 +37,7 @@ export class ExportService {
             new Date(v.createdAt).toLocaleDateString('id-ID'),
         ]);
 
-        return this.toCsv(headers, rows);
+        return this.toCsv(headers, rows as any);
     }
 
     async exportCustomersCsv(tenantId: string): Promise<string> {
@@ -58,7 +58,7 @@ export class ExportService {
             new Date(c.createdAt).toLocaleDateString('id-ID'),
         ]);
 
-        return this.toCsv(headers, rows);
+        return this.toCsv(headers, rows as any);
     }
 
     async exportTransactionsCsv(tenantId: string): Promise<string> {
@@ -92,7 +92,7 @@ export class ExportService {
             t.notes || '',
         ]);
 
-        return this.toCsv(headers, rows);
+        return this.toCsv(headers, rows as any);
     }
 
     private toCsv(headers: string[], rows: (string | number)[][]): string {
@@ -108,5 +108,62 @@ export class ExportService {
         const dataLines = rows.map(row => row.map(escape).join(','));
         // BOM for Excel UTF-8 detection
         return '\uFEFF' + [headerLine, ...dataLines].join('\n');
+    }
+
+    // ==================== ADMIN-LEVEL EXPORT ====================
+
+    async exportTenantsCsv(): Promise<string> {
+        const tenants = await this.prisma.tenant.findMany({
+            orderBy: { createdAt: 'desc' },
+        });
+
+        const headers = [
+            'No', 'Nama Dealer', 'Slug', 'Email', 'Telepon', 'Alamat',
+            'Plan', 'Status', 'Tagihan Bulanan', 'Mulai Berlangganan',
+            'Berakhir', 'Auto Renew', 'Tanggal Daftar',
+        ];
+
+        const rows = tenants.map((t, i) => [
+            i + 1,
+            t.name,
+            t.slug,
+            t.email || '',
+            t.phone || '',
+            t.address || '',
+            t.planTier,
+            t.subscriptionStatus,
+            Number(t.monthlyBill || 0),
+            t.subscriptionStartedAt ? new Date(t.subscriptionStartedAt).toLocaleDateString('id-ID') : '',
+            t.subscriptionEndsAt ? new Date(t.subscriptionEndsAt).toLocaleDateString('id-ID') : '',
+            t.autoRenew ? 'Ya' : 'Tidak',
+            new Date(t.createdAt).toLocaleDateString('id-ID'),
+        ]);
+
+        return this.toCsv(headers, rows as any);
+    }
+
+    async exportInvoicesCsv(): Promise<string> {
+        const invoices = await (this.prisma as any).systemInvoice.findMany({
+            include: { tenant: { select: { name: true } } },
+            orderBy: { createdAt: 'desc' },
+        });
+
+        const headers = [
+            'No', 'No. Invoice', 'Dealer', 'Jumlah', 'Tanggal',
+            'Jatuh Tempo', 'Status', 'Tanggal Dibuat',
+        ];
+
+        const rows = invoices.map((inv: any, i: number) => [
+            i + 1,
+            inv.invoiceNumber,
+            inv.tenant?.name || '',
+            Number(inv.amount),
+            inv.date ? new Date(inv.date).toLocaleDateString('id-ID') : '',
+            inv.dueDate ? new Date(inv.dueDate).toLocaleDateString('id-ID') : '',
+            inv.status,
+            new Date(inv.createdAt).toLocaleDateString('id-ID'),
+        ]);
+
+        return this.toCsv(headers, rows as any);
     }
 }

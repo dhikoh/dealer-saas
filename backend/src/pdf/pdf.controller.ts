@@ -97,4 +97,16 @@ export class PdfController {
             res,
         );
     }
+
+    /**
+     * Generate System Invoice PDF (subscription billing)
+     * Accessible by tenants and superadmins
+     */
+    @Get('invoice/:invoiceId')
+    async getSystemInvoicePdf(
+        @Param('invoiceId') invoiceId: string,
+        @Res() res: any,
+    ) {
+        return this.pdfService.generateSystemInvoicePdf(invoiceId, res);
+    }
 }

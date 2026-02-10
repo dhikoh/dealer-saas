@@ -430,6 +430,404 @@ export class SuperadminService {
         });
     }
 
+    async getActivityLog(filters?: { action?: string; page?: number; limit?: number }) {
+        const page = filters?.page || 1;
+        const limit = filters?.limit || 50;
+        const skip = (page - 1) * limit;
+        const where: any = {};
+        if (filters?.action) where.action = filters.action;
+
+        const [data, total] = await Promise.all([
+            (this.prisma as any).adminActivityLog.findMany({
+                where,
+                orderBy: { createdAt: 'desc' },
+                skip,
+                take: limit,
+            }),
+            (this.prisma as any).adminActivityLog.count({ where }),
+        ]);
+
+        return { data, pagination: { page, limit, total, totalPages: Math.ceil(total / limit) } };
+    }
+
+    // ==================== DIRECT PLAN CHANGE (No Invoice) ====================
+
+    async directPlanChange(tenantId: string, data: {
+        planTier: string;
+        billingMonths: number;
+    }, adminId: string) {
+        const plan = getPlanById(data.planTier);
+        if (!plan) throw new NotFoundException('Plan not found');
+
+        const tenant = await this.prisma.tenant.findUnique({ where: { id: tenantId } });
+        if (!tenant) throw new NotFoundException('Tenant not found');
+
+        const now = new Date();
+        const endsAt = new Date(now.getTime() + data.billingMonths * 30 * 24 * 60 * 60 * 1000);
+
+        const updated = await this.prisma.tenant.update({
+            where: { id: tenantId },
+            data: {
+                planTier: data.planTier,
+                monthlyBill: plan.price,
+                subscriptionStatus: 'ACTIVE',
+                subscriptionStartedAt: now,
+                subscriptionEndsAt: endsAt,
+                nextBillingDate: endsAt,
+                trialEndsAt: null,
+            },
+        });
+
+        await this.logActivity({
+            userId: adminId,
+            action: 'DIRECT_PLAN_CHANGE',
+            entityType: 'TENANT',
+            entityId: tenantId,
+            entityName: updated.name,
+            details: JSON.stringify({
+                planTier: data.planTier,
+                billingMonths: data.billingMonths,
+                endsAt: endsAt.toISOString(),
+                monthlyBill: plan.price,
+            }),
+        });
+
+        // Send notification to tenant owner
+        const owner = await this.prisma.user.findFirst({
+            where: { tenantId, role: 'OWNER' },
+        });
+        if (owner) {
+            await (this.prisma as any).notification.create({
+                data: {
+                    userId: owner.id,
+                    title: 'Plan berhasil diubah',
+                    message: `Plan Anda telah diubah ke ${plan.name} untuk ${data.billingMonths} bulan.`,
+                    type: 'success',
+                    link: '/app/billing',
+                },
+            });
+        }
+
+        return updated;
+    }
+
+    // ==================== CREATE TENANT ====================
+
+    async createTenant(data: {
+        name: string;
+        email: string;
+        phone?: string;
+        address?: string;
+        planTier: string;
+        billingMonths: number;
+        ownerName: string;
+        ownerEmail: string;
+        ownerPassword: string;
+    }, adminId: string) {
+        const plan = getPlanById(data.planTier);
+        if (!plan) throw new BadRequestException('Invalid plan tier');
+
+        // Check if owner email already exists
+        const existingUser = await this.prisma.user.findUnique({ where: { email: data.ownerEmail } });
+        if (existingUser) throw new BadRequestException('Email owner sudah terdaftar');
+
+        const slug = data.name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '');
+        const existingSlug = await this.prisma.tenant.findUnique({ where: { slug } });
+        const finalSlug = existingSlug ? `${slug}-${Date.now()}` : slug;
+
+        const now = new Date();
+        const endsAt = data.planTier === 'DEMO'
+            ? new Date(now.getTime() + 14 * 24 * 60 * 60 * 1000)
+            : new Date(now.getTime() + data.billingMonths * 30 * 24 * 60 * 60 * 1000);
+
+        const bcrypt = require('bcrypt');
+        const hashedPassword = await bcrypt.hash(data.ownerPassword, 10);
+
+        const tenant = await this.prisma.tenant.create({
+            data: {
+                name: data.name,
+                slug: finalSlug,
+                email: data.email,
+                phone: data.phone,
+                address: data.address,
+                planTier: data.planTier,
+                subscriptionStatus: data.planTier === 'DEMO' ? 'TRIAL' : 'ACTIVE',
+                monthlyBill: plan.price,
+                subscriptionStartedAt: now,
+                subscriptionEndsAt: endsAt,
+                nextBillingDate: data.planTier === 'DEMO' ? null : endsAt,
+                trialEndsAt: data.planTier === 'DEMO' ? endsAt : null,
+            },
+        });
+
+        const owner = await this.prisma.user.create({
+            data: {
+                email: data.ownerEmail,
+                username: data.ownerEmail.split('@')[0],
+                password: hashedPassword,
+                name: data.ownerName,
+                role: 'OWNER',
+                tenantId: tenant.id,
+                phone: data.phone,
+                isVerified: true,
+                onboardingCompleted: true,
+                language: 'id',
+            },
+        });
+
+        await this.logActivity({
+            userId: adminId,
+            action: 'TENANT_CREATE',
+            entityType: 'TENANT',
+            entityId: tenant.id,
+            entityName: tenant.name,
+            details: JSON.stringify({ ownerEmail: data.ownerEmail, plan: data.planTier }),
+        });
+
+        return { tenant, owner: { id: owner.id, email: owner.email, name: owner.name } };
+    }
+
+    // ==================== ADMIN STAFF MANAGEMENT ====================
+
+    async getAdminStaff() {
+        return this.prisma.user.findMany({
+            where: { role: { in: ['SUPERADMIN', 'ADMIN_STAFF'] }, tenantId: null },
+            select: {
+                id: true,
+                name: true,
+                email: true,
+                phone: true,
+                role: true,
+                createdAt: true,
+            },
+            orderBy: { createdAt: 'desc' },
+        });
+    }
+
+    async createAdminStaff(data: {
+        name: string;
+        email: string;
+        password: string;
+        phone?: string;
+    }, adminId: string) {
+        const existing = await this.prisma.user.findUnique({ where: { email: data.email } });
+        if (existing) throw new BadRequestException('Email sudah terdaftar');
+
+        const bcrypt = require('bcrypt');
+        const hashedPassword = await bcrypt.hash(data.password, 10);
+
+        const staff = await this.prisma.user.create({
+            data: {
+                email: data.email,
+                username: data.email.split('@')[0],
+                password: hashedPassword,
+                name: data.name,
+                phone: data.phone,
+                role: 'ADMIN_STAFF',
+                tenantId: null,
+                isVerified: true,
+                onboardingCompleted: true,
+                language: 'id',
+            },
+            select: { id: true, name: true, email: true, phone: true, role: true, createdAt: true },
+        });
+
+        await this.logActivity({
+            userId: adminId,
+            action: 'ADMIN_STAFF_CREATE',
+            entityType: 'USER',
+            entityId: staff.id,
+            entityName: staff.name,
+        });
+
+        return staff;
+    }
+
+    async deleteAdminStaff(staffId: string, adminId: string) {
+        const staff = await this.prisma.user.findUnique({ where: { id: staffId } });
+        if (!staff) throw new NotFoundException('Staff not found');
+        if (staff.role === 'SUPERADMIN') throw new BadRequestException('Cannot delete superadmin');
+
+        await this.prisma.user.delete({ where: { id: staffId } });
+
+        await this.logActivity({
+            userId: adminId,
+            action: 'ADMIN_STAFF_DELETE',
+            entityType: 'USER',
+            entityId: staffId,
+            entityName: staff.name,
+        });
+
+        return { message: 'Staff deleted' };
+    }
+
+    // ==================== APPROVAL REQUESTS ====================
+
+    async getApprovalRequests(status?: string) {
+        const where: any = {};
+        if (status) where.status = status;
+
+        const requests = await (this.prisma as any).adminApprovalRequest.findMany({
+            where,
+            orderBy: { createdAt: 'desc' },
+        });
+
+        // Enrich with requester info
+        const enriched = await Promise.all(requests.map(async (r: any) => {
+            const requester = await this.prisma.user.findUnique({
+                where: { id: r.requestedById },
+                select: { name: true, email: true },
+            });
+            const approver = r.approvedById ? await this.prisma.user.findUnique({
+                where: { id: r.approvedById },
+                select: { name: true, email: true },
+            }) : null;
+            return { ...r, requester, approver };
+        }));
+
+        return enriched;
+    }
+
+    async createApprovalRequest(data: {
+        type: string;
+        payload: string;
+    }, requestedById: string) {
+        const request = await (this.prisma as any).adminApprovalRequest.create({
+            data: {
+                type: data.type,
+                payload: data.payload,
+                requestedById,
+                status: 'PENDING',
+            },
+        });
+
+        // Notify all superadmins
+        const superadmins = await this.prisma.user.findMany({
+            where: { role: 'SUPERADMIN' },
+        });
+        for (const sa of superadmins) {
+            await (this.prisma as any).notification.create({
+                data: {
+                    userId: sa.id,
+                    title: 'Approval Request Baru',
+                    message: `Staff mengajukan ${data.type}. Perlu persetujuan Anda.`,
+                    type: 'warning',
+                    link: '/superadmin/approvals',
+                },
+            });
+        }
+
+        return request;
+    }
+
+    async processApprovalRequest(requestId: string, approved: boolean, adminId: string, note?: string) {
+        const request = await (this.prisma as any).adminApprovalRequest.findUnique({
+            where: { id: requestId },
+        });
+        if (!request) throw new NotFoundException('Request not found');
+        if (request.status !== 'PENDING') throw new BadRequestException('Request already processed');
+
+        const updated = await (this.prisma as any).adminApprovalRequest.update({
+            where: { id: requestId },
+            data: {
+                status: approved ? 'APPROVED' : 'REJECTED',
+                approvedById: adminId,
+                note,
+            },
+        });
+
+        // If approved, execute the action
+        if (approved) {
+            const payload = JSON.parse(request.payload);
+            switch (request.type) {
+                case 'PLAN_CHANGE':
+                    await this.directPlanChange(payload.tenantId, {
+                        planTier: payload.planTier,
+                        billingMonths: payload.billingMonths || 1,
+                    }, adminId);
+                    break;
+                case 'BILLING_EXTEND':
+                    await this.directPlanChange(payload.tenantId, {
+                        planTier: payload.planTier || 'BASIC',
+                        billingMonths: payload.billingMonths,
+                    }, adminId);
+                    break;
+                case 'INVOICE_ACTION':
+                    if (payload.action === 'APPROVE') {
+                        await this.verifyInvoice(payload.invoiceId, true, adminId);
+                    }
+                    break;
+            }
+        }
+
+        // Notify the requester
+        await (this.prisma as any).notification.create({
+            data: {
+                userId: request.requestedById,
+                title: approved ? 'Request Disetujui' : 'Request Ditolak',
+                message: note || (approved ? 'Permintaan Anda telah disetujui.' : 'Permintaan Anda ditolak.'),
+                type: approved ? 'success' : 'error',
+                link: '/superadmin/approvals',
+            },
+        });
+
+        await this.logActivity({
+            userId: adminId,
+            action: approved ? 'APPROVAL_APPROVE' : 'APPROVAL_REJECT',
+            entityType: 'APPROVAL',
+            entityId: requestId,
+            details: JSON.stringify({ type: request.type, note }),
+        });
+
+        return updated;
+    }
+
+    // ==================== API KEYS ====================
+
+    async getApiKeys() {
+        return (this.prisma as any).apiKey.findMany({
+            where: { active: true },
+            select: {
+                id: true,
+                name: true,
+                prefix: true,
+                scopes: true,
+                lastUsed: true,
+                createdAt: true,
+                expiresAt: true,
+            },
+            orderBy: { createdAt: 'desc' },
+        });
+    }
+
+    async generateApiKey(name: string, scopes?: string[]) {
+        const crypto = require('crypto');
+        const bcrypt = require('bcrypt');
+        const rawKey = `oh_live_${crypto.randomBytes(24).toString('hex')}`;
+        const keyHash = await bcrypt.hash(rawKey, 10);
+        const prefix = rawKey.substring(0, 16);
+
+        await (this.prisma as any).apiKey.create({
+            data: {
+                name,
+                keyHash,
+                prefix,
+                scopes: scopes ? JSON.stringify(scopes) : null,
+            },
+        });
+
+        // Return the raw key ONCE (cannot be retrieved later)
+        return { key: rawKey, prefix, name };
+    }
+
+    async revokeApiKey(keyId: string) {
+        await (this.prisma as any).apiKey.update({
+            where: { id: keyId },
+            data: { active: false },
+        });
+        return { message: 'API key revoked' };
+    }
+
     // ==================== ANALYTICS ====================
 
     async getPlanDistribution() {
@@ -471,261 +869,7 @@ export class SuperadminService {
     }
 
     // ==================== MARKETPLACE API ====================
-    // API untuk aggregasi semua kendaraan dari semua tenant (untuk marketplace)
-
-    async getMarketplaceVehicles(options: {
-        page: number;
-        limit: number;
-        category?: string;
-        minPrice?: number;
-        maxPrice?: number;
-        make?: string;
-        location?: string;
-        status?: string;
-    }) {
-        const { page, limit, category, minPrice, maxPrice, make, location, status } = options;
-        const skip = (page - 1) * limit;
-
-        const where: any = {
-            status: status || 'AVAILABLE',
-            tenant: {
-                subscriptionStatus: { in: ['ACTIVE', 'TRIAL'] }, // Hanya tenant aktif
-            },
-        };
-
-        if (category) where.category = category;
-        if (make) where.make = { contains: make, mode: 'insensitive' };
-        if (minPrice) where.price = { ...where.price, gte: minPrice };
-        if (maxPrice) where.price = { ...where.price, lte: maxPrice };
-        if (location) {
-            where.tenant = {
-                ...where.tenant,
-                address: { contains: location, mode: 'insensitive' },
-            };
-        }
-
-        const [vehicles, total] = await Promise.all([
-            this.prisma.vehicle.findMany({
-                where,
-                skip,
-                take: limit,
-                orderBy: { createdAt: 'desc' },
-                include: {
-                    tenant: {
-                        select: {
-                            id: true,
-                            name: true,
-                            slug: true,
-                            address: true,
-                            phone: true,
-                            email: true,
-                        },
-                    },
-                },
-            }),
-            this.prisma.vehicle.count({ where }),
-        ]);
-
-        return {
-            data: vehicles.map(v => ({
-                id: v.id,
-                category: v.category,
-                make: v.make,
-                model: v.model,
-                variant: v.variant,
-                year: v.year,
-                color: v.color,
-                price: Number(v.price),
-                status: v.status,
-                condition: v.condition,
-                licensePlate: v.licensePlate,
-                images: v.images,
-                specs: v.specs,
-                // Dealer/Showroom info
-                dealer: {
-                    id: v.tenant.id,
-                    name: v.tenant.name,
-                    slug: v.tenant.slug,
-                    address: v.tenant.address,
-                    phone: v.tenant.phone,
-                    email: v.tenant.email,
-                },
-                createdAt: v.createdAt,
-            })),
-            pagination: {
-                page,
-                limit,
-                total,
-                totalPages: Math.ceil(total / limit),
-            },
-        };
-    }
-
-    async getMarketplaceVehicleDetail(vehicleId: string) {
-        const vehicle = await this.prisma.vehicle.findFirst({
-            where: {
-                id: vehicleId,
-                status: 'AVAILABLE',
-                tenant: {
-                    subscriptionStatus: { in: ['ACTIVE', 'TRIAL'] },
-                },
-            },
-            include: {
-                tenant: {
-                    select: {
-                        id: true,
-                        name: true,
-                        slug: true,
-                        address: true,
-                        phone: true,
-                        email: true,
-                    },
-                },
-            },
-        });
-
-        if (!vehicle) {
-            return null;
-        }
-
-        return {
-            id: vehicle.id,
-            category: vehicle.category,
-            make: vehicle.make,
-            model: vehicle.model,
-            variant: vehicle.variant,
-            year: vehicle.year,
-            color: vehicle.color,
-            price: Number(vehicle.price),
-            status: vehicle.status,
-            condition: vehicle.condition,
-            licensePlate: vehicle.licensePlate,
-            images: vehicle.images,
-            specs: vehicle.specs,
-            stnkExpiry: vehicle.stnkExpiry,
-            bpkbAvailable: vehicle.bpkbAvailable,
-            dealer: {
-                id: vehicle.tenant.id,
-                name: vehicle.tenant.name,
-                slug: vehicle.tenant.slug,
-                address: vehicle.tenant.address,
-                phone: vehicle.tenant.phone,
-                email: vehicle.tenant.email,
-            },
-            createdAt: vehicle.createdAt,
-        };
-    }
-
-
-    async getMarketplaceDealers(options: { page: number; limit: number; search?: string }) {
-        const { page, limit, search } = options;
-        const skip = (page - 1) * limit;
-
-        const where: any = {
-            subscriptionStatus: { in: ['ACTIVE', 'TRIAL'] },
-        };
-
-        if (search) {
-            where.OR = [
-                { name: { contains: search, mode: 'insensitive' } },
-                { address: { contains: search, mode: 'insensitive' } },
-            ];
-        }
-
-        const [dealers, total] = await Promise.all([
-            this.prisma.tenant.findMany({
-                where,
-                skip,
-                take: limit,
-                orderBy: { createdAt: 'desc' },
-                select: {
-                    id: true,
-                    name: true,
-                    slug: true,
-                    address: true,
-                    phone: true,
-                    email: true,
-                    createdAt: true,
-                    _count: {
-                        select: {
-                            vehicles: {
-                                where: { status: 'AVAILABLE' },
-                            },
-                        },
-                    },
-                },
-            }),
-            this.prisma.tenant.count({ where }),
-        ]);
-
-        return {
-            data: dealers.map(d => ({
-                id: d.id,
-                name: d.name,
-                slug: d.slug,
-                address: d.address,
-                phone: d.phone,
-                email: d.email,
-                vehicleCount: d._count.vehicles,
-                createdAt: d.createdAt,
-            })),
-            pagination: {
-                page,
-                limit,
-                total,
-                totalPages: Math.ceil(total / limit),
-            },
-        };
-    }
-
-    async getMarketplaceStats() {
-        const [
-            totalVehicles,
-            totalDealers,
-            vehiclesByCategory,
-            priceRange,
-        ] = await Promise.all([
-            this.prisma.vehicle.count({
-                where: {
-                    status: 'AVAILABLE',
-                    tenant: { subscriptionStatus: { in: ['ACTIVE', 'TRIAL'] } },
-                },
-            }),
-            this.prisma.tenant.count({
-                where: { subscriptionStatus: { in: ['ACTIVE', 'TRIAL'] } },
-            }),
-            this.prisma.vehicle.groupBy({
-                by: ['category'],
-                where: {
-                    status: 'AVAILABLE',
-                    tenant: { subscriptionStatus: { in: ['ACTIVE', 'TRIAL'] } },
-                },
-                _count: { id: true },
-            }),
-            this.prisma.vehicle.aggregate({
-                where: {
-                    status: 'AVAILABLE',
-                    tenant: { subscriptionStatus: { in: ['ACTIVE', 'TRIAL'] } },
-                },
-                _min: { price: true },
-                _max: { price: true },
-                _avg: { price: true },
-            }),
-        ]);
-
-        return {
-            totalVehicles,
-            totalDealers,
-            vehiclesByCategory: vehiclesByCategory.map(c => ({
-                category: c.category,
-                count: c._count.id,
-            })),
-            priceRange: {
-                min: Number(priceRange._min.price || 0),
-                max: Number(priceRange._max.price || 0),
-                avg: Number(priceRange._avg.price || 0),
-            },
-        };
-    }
+    // Logic moved to PublicService to avoid duplication
+    // and allow consumption by both Superadmin and Public APIs
 }
 
