@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useEffect, useState } from 'react';
-import { Plus, Search, Edit2, Trash2, User, Shield, Mail, Phone, X, UserPlus, Check } from 'lucide-react';
+import { Plus, Search, Edit2, Trash2, User, Shield, Mail, Phone, X, UserPlus, Check, AlertTriangle } from 'lucide-react';
 import { toast } from 'sonner';
 
 interface Staff {
@@ -25,6 +25,7 @@ export default function StaffPage() {
     const [staff, setStaff] = useState<Staff[]>([]);
     const [loading, setLoading] = useState(true);
     const [saving, setSaving] = useState(false);
+    const [deleteTargetId, setDeleteTargetId] = useState<string | null>(null);
     const [search, setSearch] = useState('');
     const [showModal, setShowModal] = useState(false);
     const [editingStaff, setEditingStaff] = useState<Staff | null>(null);
@@ -127,7 +128,7 @@ export default function StaffPage() {
     };
 
     const handleDelete = async (id: string) => {
-        if (!confirm('Hapus staff ini?')) return;
+        setDeleteTargetId(null);
 
         try {
             const token = localStorage.getItem('access_token');
@@ -288,7 +289,7 @@ export default function StaffPage() {
                                             <Edit2 className="w-4 h-4" />
                                         </button>
                                         <button
-                                            onClick={() => handleDelete(s.id)}
+                                            onClick={() => setDeleteTargetId(s.id)}
                                             className="p-2 rounded-lg text-gray-500 hover:bg-red-100 hover:text-red-500 transition-colors"
                                         >
                                             <Trash2 className="w-4 h-4" />
@@ -388,6 +389,26 @@ export default function StaffPage() {
                                 <Check className="w-5 h-5" />
                                 {editingStaff ? 'Simpan Perubahan' : 'Tambah Staff'}
                             </button>
+                        </div>
+                    </div>
+                </div>
+            )}
+            {/* Delete Confirmation Dialog */}
+            {deleteTargetId && (
+                <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+                    <div className="bg-[#ecf0f3] dark:bg-gray-800 rounded-2xl shadow-xl max-w-sm w-full p-6">
+                        <div className="text-center">
+                            <div className="w-16 h-16 rounded-full bg-red-100 flex items-center justify-center mx-auto mb-4">
+                                <AlertTriangle className="w-8 h-8 text-red-500" />
+                            </div>
+                            <h3 className="text-lg font-bold text-gray-800 dark:text-white mb-2">Hapus Staff?</h3>
+                            <p className="text-gray-500 dark:text-gray-400 mb-6">
+                                Apakah Anda yakin ingin menghapus staff ini? Tindakan ini tidak dapat dibatalkan.
+                            </p>
+                            <div className="flex gap-3">
+                                <button onClick={() => setDeleteTargetId(null)} className="flex-1 py-3 rounded-xl bg-[#ecf0f3] dark:bg-gray-700 text-gray-600 dark:text-gray-300 font-medium shadow-[3px_3px_6px_#cbced1,-3px_-3px_6px_#ffffff] dark:shadow-none">Batal</button>
+                                <button onClick={() => handleDelete(deleteTargetId)} className="flex-1 py-3 rounded-xl bg-red-500 text-white font-medium shadow-lg hover:bg-red-600 transition-all">Ya, Hapus</button>
+                            </div>
                         </div>
                     </div>
                 </div>

@@ -60,13 +60,7 @@ export default function ActivityLogPage() {
                     user: null,
                 })));
             } else {
-                // Mock data
-                setActivities([
-                    { id: '1', type: 'VEHICLE', title: 'Kendaraan ditambahkan', description: 'Toyota Avanza 2023 berhasil ditambahkan', createdAt: new Date().toISOString() },
-                    { id: '2', type: 'TRANSACTION', title: 'Transaksi berhasil', description: 'Penjualan Honda Jazz ke Budi Santoso', createdAt: new Date(Date.now() - 3600000).toISOString() },
-                    { id: '3', type: 'CUSTOMER', title: 'Customer baru', description: 'Dewi Sari telah terdaftar', createdAt: new Date(Date.now() - 7200000).toISOString() },
-                    { id: '4', type: 'STAFF', title: 'Staff ditambahkan', description: 'Andi bergabung sebagai Sales', createdAt: new Date(Date.now() - 86400000).toISOString() },
-                ]);
+                setActivities([]);
             }
         } catch (err) {
             console.error('Error:', err);
@@ -123,8 +117,8 @@ export default function ActivityLogPage() {
                         key={type}
                         onClick={() => setFilter(type)}
                         className={`px-4 py-2 rounded-xl font-medium text-sm transition-all ${filter === type
-                                ? 'bg-[#00bfa5] text-white'
-                                : 'bg-[#ecf0f3] dark:bg-gray-800 text-gray-600 dark:text-gray-300 shadow-[3px_3px_6px_#cbced1,-3px_-3px_6px_#ffffff] dark:shadow-none'
+                            ? 'bg-[#00bfa5] text-white'
+                            : 'bg-[#ecf0f3] dark:bg-gray-800 text-gray-600 dark:text-gray-300 shadow-[3px_3px_6px_#cbced1,-3px_-3px_6px_#ffffff] dark:shadow-none'
                             }`}
                     >
                         {type === 'ALL' ? 'Semua' : type === 'VEHICLE' ? 'Kendaraan' : type === 'TRANSACTION' ? 'Transaksi' : type === 'CUSTOMER' ? 'Customer' : 'Staff'}

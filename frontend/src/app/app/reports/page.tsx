@@ -2,6 +2,7 @@
 
 import React, { useEffect, useState } from 'react';
 import { BarChart3, TrendingUp, TrendingDown, Car, DollarSign, Users, Package, Download, Calendar, RefreshCw } from 'lucide-react';
+import { toast } from 'sonner';
 
 interface DashboardStats {
     totalVehicles: number;
@@ -130,7 +131,7 @@ export default function ReportsPage() {
             window.URL.revokeObjectURL(url);
         } catch (error) {
             console.error('Export error:', error);
-            alert('Gagal mengekspor data. Silakan coba lagi.');
+            toast.error('Gagal mengekspor data. Silakan coba lagi.');
         }
     };
 

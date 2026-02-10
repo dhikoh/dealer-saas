@@ -44,7 +44,7 @@ export default function CreditPage() {
     const [selectedCredit, setSelectedCredit] = useState<Credit | null>(null);
     const [paymentAmount, setPaymentAmount] = useState('');
 
-    const getToken = () => localStorage.getItem('token');
+    const getToken = () => localStorage.getItem('access_token');
 
     useEffect(() => {
         fetchCredits();

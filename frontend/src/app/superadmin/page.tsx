@@ -32,7 +32,7 @@ export default function SuperadminDashboard() {
 
     const fetchDashboardData = async () => {
         try {
-            const token = localStorage.getItem('token');
+            const token = localStorage.getItem('access_token');
             const headers = { 'Authorization': `Bearer ${token}` };
 
             const [statsRes, revenueRes] = await Promise.all([
@@ -51,29 +51,6 @@ export default function SuperadminDashboard() {
             setRevenue(revenueData);
         } catch (err: any) {
             setError(err.message);
-            // Fallback to mock data for development
-            setStats({
-                totalTenants: 156,
-                activeTenants: 124,
-                trialTenants: 28,
-                suspendedTenants: 4,
-                totalMrr: 45000000,
-                pendingInvoices: 12,
-                churnRate: 2.5,
-                recentActivity: [
-                    { id: 1, userEmail: 'admin@otohub.id', action: 'INVOICE_APPROVE', entityName: 'INV-2024-001', createdAt: new Date().toISOString() },
-                    { id: 2, userEmail: 'admin@otohub.id', action: 'TENANT_ACTIVATE', entityName: 'Jaya Motor', createdAt: new Date(Date.now() - 3600000).toISOString() },
-                    { id: 3, userEmail: 'admin@otohub.id', action: 'TENANT_UPGRADE', entityName: 'Berkah Auto', createdAt: new Date(Date.now() - 7200000).toISOString() },
-                ],
-            });
-            setRevenue([
-                { month: 'Jul', year: 2025, revenue: 38000000 },
-                { month: 'Ags', year: 2025, revenue: 41000000 },
-                { month: 'Sep', year: 2025, revenue: 39000000 },
-                { month: 'Okt', year: 2025, revenue: 44000000 },
-                { month: 'Nov', year: 2025, revenue: 42000000 },
-                { month: 'Des', year: 2025, revenue: 45000000 },
-            ]);
         } finally {
             setLoading(false);
         }

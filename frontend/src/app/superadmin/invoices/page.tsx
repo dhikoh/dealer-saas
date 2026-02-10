@@ -53,7 +53,7 @@ export default function InvoicesPage() {
 
     const fetchInvoices = async () => {
         try {
-            const token = localStorage.getItem('token');
+            const token = localStorage.getItem('access_token');
             const params = new URLSearchParams();
             if (statusFilter) params.append('status', statusFilter);
 
@@ -67,14 +67,8 @@ export default function InvoicesPage() {
             setInvoices(data);
             setError(null);
         } catch (err) {
-            // Fallback mock data
-            setInvoices([
-                { id: '1', invoiceNumber: 'INV-2026-001', tenantId: '1', tenant: { name: 'Mitra Motor Jaya', email: 'admin@mitramotorjaya.com' }, amount: 599000, date: '2026-02-01', dueDate: '2026-02-08', status: 'VERIFYING', paymentProof: '/proof/1.jpg' },
-                { id: '2', invoiceNumber: 'INV-2026-002', tenantId: '2', tenant: { name: 'Berkah Auto', email: 'owner@berkahauto.id' }, amount: 299000, date: '2026-02-01', dueDate: '2026-02-08', status: 'PENDING', paymentProof: null },
-                { id: '3', invoiceNumber: 'INV-2026-003', tenantId: '3', tenant: { name: 'Mobil Bekas Bandung' }, amount: 599000, date: '2026-01-15', dueDate: '2026-01-22', status: 'PAID', paymentProof: '/proof/3.jpg' },
-                { id: '4', invoiceNumber: 'INV-2026-004', tenantId: '4', tenant: { name: 'Jaya Dealer' }, amount: 1499000, date: '2026-01-01', dueDate: '2026-01-08', status: 'OVERDUE', paymentProof: null },
-            ]);
-            setError('Using sample data');
+            setInvoices([]);
+            setError('Gagal memuat data invoice');
         } finally {
             setLoading(false);
         }
@@ -83,7 +77,7 @@ export default function InvoicesPage() {
     const handleVerify = async (invoiceId: string, approved: boolean) => {
         setProcessing(invoiceId);
         try {
-            const token = localStorage.getItem('token');
+            const token = localStorage.getItem('access_token');
             const res = await fetch(
                 `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000'}/superadmin/invoices/${invoiceId}/verify`,
                 {

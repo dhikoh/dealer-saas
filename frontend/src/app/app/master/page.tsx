@@ -58,12 +58,7 @@ export default function MasterDataPage() {
             }
         } catch (err) {
             console.error('Error fetching brands:', err);
-            // Mock data
-            setBrands([
-                { id: '1', name: 'Toyota', category: 'CAR', models: [{ id: 'm1', name: 'Avanza', variants: 'G,E,S' }, { id: 'm2', name: 'Innova', variants: 'G,V,Q' }] },
-                { id: '2', name: 'Honda', category: 'CAR', models: [{ id: 'm3', name: 'Jazz', variants: 'S,RS' }, { id: 'm4', name: 'Civic', variants: null }] },
-                { id: '3', name: 'Suzuki', category: 'CAR', models: [{ id: 'm5', name: 'Ertiga', variants: 'GL,GX' }] },
-            ]);
+            setBrands([]);
         } finally {
             setLoading(false);
         }
@@ -163,8 +158,8 @@ export default function MasterDataPage() {
                     <button
                         onClick={() => setShowCategoryModal(true)}
                         className={`flex items-center gap-2 px-4 py-2.5 rounded-xl font-medium transition-colors ${theme === 'dark'
-                                ? 'bg-gray-700 text-gray-300 hover:bg-gray-600'
-                                : 'bg-[#ecf0f3] text-gray-600 shadow-[3px_3px_6px_#cbced1,-3px_-3px_6px_#ffffff] hover:text-[#00bfa5]'
+                            ? 'bg-gray-700 text-gray-300 hover:bg-gray-600'
+                            : 'bg-[#ecf0f3] text-gray-600 shadow-[3px_3px_6px_#cbced1,-3px_-3px_6px_#ffffff] hover:text-[#00bfa5]'
                             }`}
                     >
                         <Settings className="w-5 h-5" /> Kategori
@@ -209,8 +204,8 @@ export default function MasterDataPage() {
                     onChange={(e) => setSearch(e.target.value)}
                     placeholder="Cari merek..."
                     className={`w-full pl-12 pr-4 py-3 rounded-xl border-none focus:outline-none focus:ring-2 focus:ring-[#00bfa5] ${theme === 'dark'
-                            ? 'bg-gray-800 text-white placeholder-gray-400'
-                            : 'bg-[#ecf0f3] text-gray-700 shadow-[inset_3px_3px_6px_#cbced1,inset_-3px_-3px_6px_#ffffff]'
+                        ? 'bg-gray-800 text-white placeholder-gray-400'
+                        : 'bg-[#ecf0f3] text-gray-700 shadow-[inset_3px_3px_6px_#cbced1,inset_-3px_-3px_6px_#ffffff]'
                         }`}
                 />
             </div>
@@ -219,8 +214,8 @@ export default function MasterDataPage() {
             <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4">
                 {filteredBrands.map((brand) => (
                     <div key={brand.id} className={`rounded-2xl p-5 ${theme === 'dark'
-                            ? 'bg-gray-800'
-                            : 'bg-[#ecf0f3] shadow-[5px_5px_10px_#cbced1,-5px_-5px_10px_#ffffff]'
+                        ? 'bg-gray-800'
+                        : 'bg-[#ecf0f3] shadow-[5px_5px_10px_#cbced1,-5px_-5px_10px_#ffffff]'
                         }`}>
                         <div className="flex justify-between items-start mb-4">
                             <div className="flex items-center gap-3">
@@ -289,8 +284,8 @@ export default function MasterDataPage() {
                                 onChange={(e) => setBrandForm({ ...brandForm, name: e.target.value })}
                                 placeholder="Contoh: Toyota, Honda"
                                 className={`w-full px-4 py-3 rounded-xl border-none focus:outline-none focus:ring-2 focus:ring-[#00bfa5] ${theme === 'dark'
-                                        ? 'bg-gray-700 text-white placeholder-gray-400'
-                                        : 'bg-[#ecf0f3] text-gray-700 shadow-[inset_3px_3px_6px_#cbced1,inset_-3px_-3px_6px_#ffffff]'
+                                    ? 'bg-gray-700 text-white placeholder-gray-400'
+                                    : 'bg-[#ecf0f3] text-gray-700 shadow-[inset_3px_3px_6px_#cbced1,inset_-3px_-3px_6px_#ffffff]'
                                     }`}
                             />
                         </div>
@@ -300,8 +295,8 @@ export default function MasterDataPage() {
                                 value={brandForm.category}
                                 onChange={(e) => setBrandForm({ ...brandForm, category: e.target.value })}
                                 className={`w-full px-4 py-3 rounded-xl border-none focus:outline-none focus:ring-2 focus:ring-[#00bfa5] ${theme === 'dark'
-                                        ? 'bg-gray-700 text-white'
-                                        : 'bg-[#ecf0f3] text-gray-700 shadow-[inset_3px_3px_6px_#cbced1,inset_-3px_-3px_6px_#ffffff]'
+                                    ? 'bg-gray-700 text-white'
+                                    : 'bg-[#ecf0f3] text-gray-700 shadow-[inset_3px_3px_6px_#cbced1,inset_-3px_-3px_6px_#ffffff]'
                                     }`}
                             >
                                 {categories.map((cat) => (
@@ -331,8 +326,8 @@ export default function MasterDataPage() {
                                 onChange={(e) => setModelForm({ ...modelForm, name: e.target.value })}
                                 placeholder="Contoh: Avanza, Jazz"
                                 className={`w-full px-4 py-3 rounded-xl border-none focus:outline-none focus:ring-2 focus:ring-[#00bfa5] ${theme === 'dark'
-                                        ? 'bg-gray-700 text-white placeholder-gray-400'
-                                        : 'bg-[#ecf0f3] text-gray-700 shadow-[inset_3px_3px_6px_#cbced1,inset_-3px_-3px_6px_#ffffff]'
+                                    ? 'bg-gray-700 text-white placeholder-gray-400'
+                                    : 'bg-[#ecf0f3] text-gray-700 shadow-[inset_3px_3px_6px_#cbced1,inset_-3px_-3px_6px_#ffffff]'
                                     }`}
                             />
                         </div>
@@ -344,8 +339,8 @@ export default function MasterDataPage() {
                                 onChange={(e) => setModelForm({ ...modelForm, variants: e.target.value })}
                                 placeholder="Contoh: G, E, S"
                                 className={`w-full px-4 py-3 rounded-xl border-none focus:outline-none focus:ring-2 focus:ring-[#00bfa5] ${theme === 'dark'
-                                        ? 'bg-gray-700 text-white placeholder-gray-400'
-                                        : 'bg-[#ecf0f3] text-gray-700 shadow-[inset_3px_3px_6px_#cbced1,inset_-3px_-3px_6px_#ffffff]'
+                                    ? 'bg-gray-700 text-white placeholder-gray-400'
+                                    : 'bg-[#ecf0f3] text-gray-700 shadow-[inset_3px_3px_6px_#cbced1,inset_-3px_-3px_6px_#ffffff]'
                                     }`}
                             />
                         </div>
@@ -371,8 +366,8 @@ export default function MasterDataPage() {
                                 onChange={(e) => setCategoryForm({ ...categoryForm, name: e.target.value })}
                                 placeholder="e.g. Bicycle"
                                 className={`w-full px-4 py-3 rounded-xl border-none focus:outline-none focus:ring-2 focus:ring-[#00bfa5] ${theme === 'dark'
-                                        ? 'bg-gray-700 text-white placeholder-gray-400'
-                                        : 'bg-[#ecf0f3] text-gray-700 shadow-[inset_3px_3px_6px_#cbced1,inset_-3px_-3px_6px_#ffffff]'
+                                    ? 'bg-gray-700 text-white placeholder-gray-400'
+                                    : 'bg-[#ecf0f3] text-gray-700 shadow-[inset_3px_3px_6px_#cbced1,inset_-3px_-3px_6px_#ffffff]'
                                     }`}
                             />
                         </div>
@@ -384,8 +379,8 @@ export default function MasterDataPage() {
                                 onChange={(e) => setCategoryForm({ ...categoryForm, nameId: e.target.value })}
                                 placeholder="e.g. Sepeda"
                                 className={`w-full px-4 py-3 rounded-xl border-none focus:outline-none focus:ring-2 focus:ring-[#00bfa5] ${theme === 'dark'
-                                        ? 'bg-gray-700 text-white placeholder-gray-400'
-                                        : 'bg-[#ecf0f3] text-gray-700 shadow-[inset_3px_3px_6px_#cbced1,inset_-3px_-3px_6px_#ffffff]'
+                                    ? 'bg-gray-700 text-white placeholder-gray-400'
+                                    : 'bg-[#ecf0f3] text-gray-700 shadow-[inset_3px_3px_6px_#cbced1,inset_-3px_-3px_6px_#ffffff]'
                                     }`}
                             />
                         </div>
@@ -398,8 +393,8 @@ export default function MasterDataPage() {
                                         type="button"
                                         onClick={() => setCategoryForm({ ...categoryForm, icon: opt.key })}
                                         className={`p-3 rounded-xl flex flex-col items-center gap-1 transition-all ${categoryForm.icon === opt.key
-                                                ? 'bg-[#00bfa5]/20 ring-2 ring-[#00bfa5]'
-                                                : theme === 'dark' ? 'bg-gray-700 hover:bg-gray-600' : 'bg-white/50 hover:bg-white'
+                                            ? 'bg-[#00bfa5]/20 ring-2 ring-[#00bfa5]'
+                                            : theme === 'dark' ? 'bg-gray-700 hover:bg-gray-600' : 'bg-white/50 hover:bg-white'
                                             }`}
                                     >
                                         {getCategoryIcon(opt.key)}

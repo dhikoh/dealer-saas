@@ -2,6 +2,7 @@
 
 import React, { useEffect, useState } from 'react';
 import { CreditCard, Check, X, AlertCircle, Upload, Clock, Crown, Zap, Star } from 'lucide-react';
+import { toast } from 'sonner';
 
 interface TenantProfile {
     planTier: string;
@@ -78,24 +79,6 @@ export default function BillingPage() {
             if (invoicesRes.ok) setInvoices(await invoicesRes.json());
         } catch (err) {
             console.error('Error fetching data:', err);
-            // Mock data fallback
-            setProfile({
-                planTier: 'DEMO',
-                planDetails: { name: 'Demo', price: 0 },
-                subscriptionStatus: 'TRIAL',
-                trialEndsAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(),
-                trialDaysRemaining: 7,
-                subscriptionEndsAt: null,
-                monthlyBill: 0,
-                usage: { users: 1, vehicles: 3, customers: 8 },
-                limits: { maxUsers: 1, maxVehicles: 5, maxCustomers: 20 },
-            });
-            setPlans([
-                { id: 'DEMO', name: 'Demo', nameId: 'Demo', description: 'Free trial', descriptionId: 'Uji coba gratis', price: 0, priceLabel: 'Gratis', features: {}, badge: 'Trial', badgeColor: 'gray', recommended: false, isCurrent: true, canUpgrade: false },
-                { id: 'BASIC', name: 'Basic', nameId: 'Basic', description: 'For small dealers', descriptionId: 'Untuk dealer kecil', price: 299000, priceLabel: 'Rp 299.000', features: { maxVehicles: 50, maxUsers: 3 }, badge: 'Starter', badgeColor: 'blue', recommended: false, isCurrent: false, canUpgrade: true },
-                { id: 'PRO', name: 'Pro', nameId: 'Pro', description: 'Best for growing', descriptionId: 'Terbaik untuk berkembang', price: 599000, priceLabel: 'Rp 599.000', features: { maxVehicles: 200, maxUsers: 10 }, badge: 'Popular', badgeColor: 'indigo', recommended: true, isCurrent: false, canUpgrade: true },
-                { id: 'UNLIMITED', name: 'Unlimited', nameId: 'Unlimited', description: 'Enterprise', descriptionId: 'Enterprise', price: 1499000, priceLabel: 'Rp 1.499.000', features: { maxVehicles: -1, maxUsers: -1 }, badge: 'Enterprise', badgeColor: 'purple', recommended: false, isCurrent: false, canUpgrade: true },
-            ]);
         } finally {
             setLoading(false);
         }
@@ -117,11 +100,13 @@ export default function BillingPage() {
 
             if (res.ok) {
                 const data = await res.json();
-                alert(`Invoice ${data.invoice.invoiceNumber} telah dibuat. Silakan lakukan pembayaran.`);
-                fetchData(); // Refresh
+                toast.success(`Invoice ${data.invoice.invoiceNumber} telah dibuat. Silakan lakukan pembayaran.`);
+                fetchData();
+            } else {
+                toast.error('Gagal membuat invoice. Silakan coba lagi.');
             }
         } catch (err) {
-            alert('Gagal membuat invoice. Silakan coba lagi.');
+            toast.error('Gagal membuat invoice. Silakan coba lagi.');
         } finally {
             setUpgrading(false);
             setSelectedPlan(null);
@@ -163,8 +148,8 @@ export default function BillingPage() {
                 <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
                     <div className="flex items-center gap-4">
                         <div className={`w-14 h-14 rounded-xl flex items-center justify-center ${profile?.subscriptionStatus === 'TRIAL' ? 'bg-blue-100 text-blue-600' :
-                                profile?.subscriptionStatus === 'ACTIVE' ? 'bg-emerald-100 text-emerald-600' :
-                                    'bg-amber-100 text-amber-600'
+                            profile?.subscriptionStatus === 'ACTIVE' ? 'bg-emerald-100 text-emerald-600' :
+                                'bg-amber-100 text-amber-600'
                             }`}>
                             {getPlanIcon(profile?.planTier || 'DEMO')}
                         </div>
@@ -174,8 +159,8 @@ export default function BillingPage() {
                             </h2>
                             <div className="flex items-center gap-2 mt-1">
                                 <span className={`px-2.5 py-0.5 rounded-full text-xs font-medium ${profile?.subscriptionStatus === 'TRIAL' ? 'bg-blue-100 text-blue-700' :
-                                        profile?.subscriptionStatus === 'ACTIVE' ? 'bg-emerald-100 text-emerald-700' :
-                                            'bg-amber-100 text-amber-700'
+                                    profile?.subscriptionStatus === 'ACTIVE' ? 'bg-emerald-100 text-emerald-700' :
+                                        'bg-amber-100 text-amber-700'
                                     }`}>
                                     {profile?.subscriptionStatus}
                                 </span>
@@ -247,9 +232,9 @@ export default function BillingPage() {
 
                             <div className="text-center mb-4 pt-2">
                                 <div className={`w-12 h-12 mx-auto rounded-xl flex items-center justify-center mb-3 ${plan.id === 'DEMO' ? 'bg-gray-100 text-gray-500' :
-                                        plan.id === 'BASIC' ? 'bg-blue-100 text-blue-600' :
-                                            plan.id === 'PRO' ? 'bg-indigo-100 text-indigo-600' :
-                                                'bg-purple-100 text-purple-600'
+                                    plan.id === 'BASIC' ? 'bg-blue-100 text-blue-600' :
+                                        plan.id === 'PRO' ? 'bg-indigo-100 text-indigo-600' :
+                                            'bg-purple-100 text-purple-600'
                                     }`}>
                                     {getPlanIcon(plan.id)}
                                 </div>
@@ -276,8 +261,8 @@ export default function BillingPage() {
                                     onClick={() => handleUpgrade(plan.id)}
                                     disabled={upgrading && selectedPlan === plan.id}
                                     className={`w-full py-2.5 rounded-xl font-medium transition-all ${plan.recommended
-                                            ? 'bg-gradient-to-r from-indigo-500 to-purple-500 text-white hover:opacity-90'
-                                            : 'bg-[#00bfa5] text-white hover:bg-[#00a896]'
+                                        ? 'bg-gradient-to-r from-indigo-500 to-purple-500 text-white hover:opacity-90'
+                                        : 'bg-[#00bfa5] text-white hover:bg-[#00a896]'
                                         } disabled:opacity-50`}
                                 >
                                     {upgrading && selectedPlan === plan.id ? 'Processing...' : 'Upgrade'}
@@ -314,9 +299,9 @@ export default function BillingPage() {
                                         <td className="py-3 font-medium">{formatCurrency(inv.amount)}</td>
                                         <td className="py-3">
                                             <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${inv.status === 'PAID' ? 'bg-emerald-100 text-emerald-700' :
-                                                    inv.status === 'PENDING' ? 'bg-amber-100 text-amber-700' :
-                                                        inv.status === 'VERIFYING' ? 'bg-blue-100 text-blue-700' :
-                                                            'bg-gray-100 text-gray-600'
+                                                inv.status === 'PENDING' ? 'bg-amber-100 text-amber-700' :
+                                                    inv.status === 'VERIFYING' ? 'bg-blue-100 text-blue-700' :
+                                                        'bg-gray-100 text-gray-600'
                                                 }`}>
                                                 {inv.status}
                                             </span>

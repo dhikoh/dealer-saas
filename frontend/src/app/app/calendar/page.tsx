@@ -63,13 +63,7 @@ export default function CalendarPage() {
 
                     setEvents(mappedEvents);
                 } else {
-                    // Fallback to mock data
-                    const today = new Date();
-                    setEvents([
-                        { id: '1', title: 'Follow up Customer', date: formatDate(today), type: 'FOLLOW_UP', description: 'Customer tertarik, hubungi untuk negosiasi' },
-                        { id: '2', title: 'STNK Renewal', date: formatDate(addDays(today, 3)), type: 'REMINDER', description: 'STNK habis dalam 7 hari' },
-                        { id: '3', title: 'Pembayaran DP', date: formatDate(addDays(today, 5)), type: 'PAYMENT', description: 'DP Rp 50.000.000' },
-                    ]);
+                    setEvents([]);
                 }
             } catch (err) {
                 console.error('Error fetching reminders:', err);

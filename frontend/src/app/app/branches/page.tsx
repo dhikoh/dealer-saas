@@ -1,8 +1,9 @@
 'use client';
 
 import React, { useEffect, useState } from 'react';
-import { Plus, Search, Edit2, Trash2, MapPin, Building, Phone, Users, X, Check, Crown } from 'lucide-react';
+import { Plus, Search, Edit2, Trash2, MapPin, Building, Phone, Users, X, Check, Crown, AlertTriangle } from 'lucide-react';
 import Link from 'next/link';
+import { toast } from 'sonner';
 
 interface Branch {
     id: string;
@@ -20,6 +21,7 @@ export default function BranchesPage() {
     const [search, setSearch] = useState('');
     const [showModal, setShowModal] = useState(false);
     const [editingBranch, setEditingBranch] = useState<Branch | null>(null);
+    const [deleteTargetId, setDeleteTargetId] = useState<string | null>(null);
     const [isPro, setIsPro] = useState(false);
 
     const [form, setForm] = useState({
@@ -92,20 +94,22 @@ export default function BranchesPage() {
             });
 
             if (res.ok) {
+                toast.success(editingBranch ? 'Cabang berhasil diperbarui' : 'Cabang berhasil ditambahkan');
                 setShowModal(false);
                 resetForm();
                 fetchBranches();
             } else {
                 const error = await res.json();
-                alert(error.message || 'Gagal menyimpan cabang');
+                toast.error(error.message || 'Gagal menyimpan cabang');
             }
         } catch (err) {
             console.error('Error saving branch:', err);
+            toast.error('Gagal menyimpan cabang');
         }
     };
 
     const handleDelete = async (id: string) => {
-        if (!confirm('Hapus cabang ini?')) return;
+        setDeleteTargetId(null);
         try {
             const token = localStorage.getItem('access_token');
             const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000'}/tenant/branches/${id}`, {
@@ -113,13 +117,15 @@ export default function BranchesPage() {
                 headers: { 'Authorization': `Bearer ${token}` },
             });
             if (res.ok) {
+                toast.success('Cabang berhasil dihapus');
                 fetchBranches();
             } else {
                 const error = await res.json();
-                alert(error.message || 'Gagal menghapus cabang');
+                toast.error(error.message || 'Gagal menghapus cabang');
             }
         } catch (err) {
             console.error('Error deleting branch:', err);
+            toast.error('Gagal menghapus cabang');
         }
     };
 
@@ -271,7 +277,7 @@ export default function BranchesPage() {
                                     <Edit2 className="w-4 h-4" />
                                 </button>
                                 <button
-                                    onClick={() => handleDelete(branch.id)}
+                                    onClick={() => setDeleteTargetId(branch.id)}
                                     className="p-2 rounded-lg text-gray-500 hover:bg-red-100 hover:text-red-500 transition-colors"
                                 >
                                     <Trash2 className="w-4 h-4" />
@@ -362,6 +368,27 @@ export default function BranchesPage() {
                                 <Check className="w-5 h-5" />
                                 {editingBranch ? 'Simpan Perubahan' : 'Tambah Cabang'}
                             </button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* Delete Confirmation Dialog */}
+            {deleteTargetId && (
+                <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+                    <div className="bg-[#ecf0f3] rounded-2xl shadow-xl max-w-sm w-full p-6">
+                        <div className="text-center">
+                            <div className="w-16 h-16 rounded-full bg-red-100 flex items-center justify-center mx-auto mb-4">
+                                <AlertTriangle className="w-8 h-8 text-red-500" />
+                            </div>
+                            <h3 className="text-lg font-bold text-gray-800 mb-2">Hapus Cabang?</h3>
+                            <p className="text-gray-500 mb-6">
+                                Apakah Anda yakin ingin menghapus cabang ini? Tindakan ini tidak dapat dibatalkan.
+                            </p>
+                            <div className="flex gap-3">
+                                <button onClick={() => setDeleteTargetId(null)} className="flex-1 py-3 rounded-xl bg-[#ecf0f3] text-gray-600 font-medium shadow-[3px_3px_6px_#cbced1,-3px_-3px_6px_#ffffff]">Batal</button>
+                                <button onClick={() => handleDelete(deleteTargetId)} className="flex-1 py-3 rounded-xl bg-red-500 text-white font-medium shadow-lg hover:bg-red-600 transition-all">Ya, Hapus</button>
+                            </div>
                         </div>
                     </div>
                 </div>

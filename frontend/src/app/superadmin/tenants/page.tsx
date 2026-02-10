@@ -68,7 +68,7 @@ export default function TenantsPage() {
 
     const fetchTenants = async () => {
         try {
-            const token = localStorage.getItem('token');
+            const token = localStorage.getItem('access_token');
             const params = new URLSearchParams();
             if (statusFilter) params.append('status', statusFilter);
             if (search) params.append('search', search);
@@ -82,13 +82,7 @@ export default function TenantsPage() {
             const data = await res.json();
             setTenants(data);
         } catch (err) {
-            // Fallback mock data
-            setTenants([
-                { id: '1', name: 'Mitra Motor Jaya', slug: 'mitra-motor', email: 'admin@mitramotorjaya.com', phone: '08123456789', planTier: 'PRO', planDetails: null, subscriptionStatus: 'ACTIVE', trialEndsAt: null, subscriptionEndsAt: '2026-03-01', monthlyBill: 599000, autoRenew: true, usage: { users: 5, vehicles: 45, customers: 180, transactions: 23 }, createdAt: '2025-06-15' },
-                { id: '2', name: 'Berkah Auto', slug: 'berkah-auto', email: 'owner@berkahauto.id', phone: '08198765432', planTier: 'BASIC', planDetails: null, subscriptionStatus: 'ACTIVE', trialEndsAt: null, subscriptionEndsAt: '2026-02-15', monthlyBill: 299000, autoRenew: true, usage: { users: 2, vehicles: 18, customers: 65, transactions: 8 }, createdAt: '2025-08-20' },
-                { id: '3', name: 'Dealer Sejahtera', slug: 'dealer-sejahtera', email: 'info@dealersejahtera.com', phone: '08111222333', planTier: 'DEMO', planDetails: null, subscriptionStatus: 'TRIAL', trialEndsAt: '2026-02-21', subscriptionEndsAt: null, monthlyBill: 0, autoRenew: false, usage: { users: 1, vehicles: 3, customers: 5, transactions: 0 }, createdAt: '2026-02-07' },
-                { id: '4', name: 'Mobil Bekas Bandung', slug: 'mobil-bekas-bdg', email: 'sales@mobekbdg.com', phone: '08555666777', planTier: 'PRO', planDetails: null, subscriptionStatus: 'SUSPENDED', trialEndsAt: null, subscriptionEndsAt: '2026-01-15', monthlyBill: 599000, autoRenew: false, usage: { users: 8, vehicles: 120, customers: 450, transactions: 56 }, createdAt: '2024-11-10' },
-            ]);
+            setTenants([]);
         } finally {
             setLoading(false);
         }
@@ -96,7 +90,7 @@ export default function TenantsPage() {
 
     const handleAction = async (tenantId: string, action: 'suspend' | 'activate' | 'upgrade') => {
         try {
-            const token = localStorage.getItem('token');
+            const token = localStorage.getItem('access_token');
             const endpoint = action === 'upgrade'
                 ? `/superadmin/tenants/${tenantId}/upgrade`
                 : `/superadmin/tenants/${tenantId}/${action}`;

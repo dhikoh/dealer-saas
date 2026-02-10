@@ -18,8 +18,11 @@ import {
     faReceipt,
     faExclamationTriangle,
     faFileExport,
+    faChevronLeft,
+    faChevronRight,
 } from '@fortawesome/free-solid-svg-icons';
 import { useLanguage } from '@/hooks/useLanguage';
+import { toast } from 'sonner';
 
 interface Vehicle {
     id: string;
@@ -80,18 +83,44 @@ export default function InventoryPage() {
     const [selectedVehicle, setSelectedVehicle] = useState<Vehicle | null>(null);
     const [detailLoading, setDetailLoading] = useState(false);
     const [showAddCostModal, setShowAddCostModal] = useState(false);
+    const [showVehicleModal, setShowVehicleModal] = useState(false);
+    const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+    const [deleteTarget, setDeleteTarget] = useState<Vehicle | null>(null);
+    const [editingVehicle, setEditingVehicle] = useState<Vehicle | null>(null);
+    const [submitting, setSubmitting] = useState(false);
+    const [vehicleForm, setVehicleForm] = useState({
+        category: 'CAR',
+        make: '',
+        model: '',
+        variant: '',
+        year: new Date().getFullYear(),
+        color: '',
+        price: '',
+        purchasePrice: '',
+        condition: 'READY',
+        licensePlate: '',
+        chassisNumber: '',
+        engineNumber: '',
+    });
     const [costForm, setCostForm] = useState({
         costType: 'MAINTENANCE',
         amount: '',
         description: '',
         date: new Date().toISOString().split('T')[0],
     });
+    const [currentPage, setCurrentPage] = useState(1);
+    const ITEMS_PER_PAGE = 15;
 
-    const getToken = () => localStorage.getItem('token');
+    const getToken = () => localStorage.getItem('access_token');
+
+    const resetVehicleForm = () => {
+        setVehicleForm({ category: 'CAR', make: '', model: '', variant: '', year: new Date().getFullYear(), color: '', price: '', purchasePrice: '', condition: 'READY', licensePlate: '', chassisNumber: '', engineNumber: '' });
+        setEditingVehicle(null);
+    };
 
     useEffect(() => {
         fetchVehicles();
-    }, []);
+    }, []);;
 
     const fetchVehicles = async () => {
         const token = getToken();
@@ -149,12 +178,82 @@ export default function InventoryPage() {
             });
 
             if (res.ok) {
+                toast.success('Biaya berhasil ditambahkan');
                 setShowAddCostModal(false);
                 setCostForm({ costType: 'MAINTENANCE', amount: '', description: '', date: new Date().toISOString().split('T')[0] });
                 fetchVehicleDetail(selectedVehicle.id);
+            } else {
+                toast.error('Gagal menambah biaya');
             }
         } catch (error) {
-            console.error('Failed to add cost:', error);
+            toast.error('Gagal menambah biaya');
+        }
+    };
+
+    const handleSaveVehicle = async () => {
+        const token = getToken();
+        if (!token || !vehicleForm.make || !vehicleForm.model || !vehicleForm.price) {
+            toast.error('Mohon lengkapi merk, model, dan harga');
+            return;
+        }
+
+        setSubmitting(true);
+        try {
+            const url = editingVehicle
+                ? `${process.env.NEXT_PUBLIC_API_URL}/vehicles/${editingVehicle.id}`
+                : `${process.env.NEXT_PUBLIC_API_URL}/vehicles`;
+            const method = editingVehicle ? 'PUT' : 'POST';
+
+            const res = await fetch(url, {
+                method,
+                headers: {
+                    'Content-Type': 'application/json',
+                    Authorization: `Bearer ${token}`,
+                },
+                body: JSON.stringify({
+                    ...vehicleForm,
+                    price: parseFloat(vehicleForm.price),
+                    purchasePrice: vehicleForm.purchasePrice ? parseFloat(vehicleForm.purchasePrice) : undefined,
+                    year: Number(vehicleForm.year),
+                }),
+            });
+
+            if (res.ok) {
+                toast.success(editingVehicle ? 'Kendaraan berhasil diperbarui' : 'Kendaraan berhasil ditambahkan');
+                setShowVehicleModal(false);
+                resetVehicleForm();
+                fetchVehicles();
+            } else {
+                const err = await res.json();
+                toast.error(err.message || 'Gagal menyimpan kendaraan');
+            }
+        } catch (error) {
+            toast.error('Gagal menyimpan kendaraan');
+        } finally {
+            setSubmitting(false);
+        }
+    };
+
+    const handleDeleteVehicle = async () => {
+        const token = getToken();
+        if (!token || !deleteTarget) return;
+
+        try {
+            const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/vehicles/${deleteTarget.id}`, {
+                method: 'DELETE',
+                headers: { Authorization: `Bearer ${token}` },
+            });
+
+            if (res.ok) {
+                toast.success('Kendaraan berhasil dihapus');
+                setShowDeleteConfirm(false);
+                setDeleteTarget(null);
+                fetchVehicles();
+            } else {
+                toast.error('Gagal menghapus kendaraan');
+            }
+        } catch (error) {
+            toast.error('Gagal menghapus kendaraan');
         }
     };
 
@@ -219,7 +318,10 @@ export default function InventoryPage() {
                     <h1 className="text-2xl font-bold text-gray-800">{t.inventoryTitle}</h1>
                     <p className="text-sm text-gray-500 mt-1">{vehicles.length} kendaraan</p>
                 </div>
-                <button className="px-6 py-3 rounded-xl bg-[#00bfa5] text-white font-medium shadow-lg hover:bg-[#00a891] transition-all flex items-center gap-2">
+                <button
+                    onClick={() => { resetVehicleForm(); setShowVehicleModal(true); }}
+                    className="px-6 py-3 rounded-xl bg-[#00bfa5] text-white font-medium shadow-lg hover:bg-[#00a891] transition-all flex items-center gap-2"
+                >
                     <FontAwesomeIcon icon={faPlus} />
                     {t.addVehicle}
                 </button>
@@ -269,7 +371,7 @@ export default function InventoryPage() {
                             </tr>
                         </thead>
                         <tbody className="divide-y divide-gray-200">
-                            {filteredData.map((item) => (
+                            {filteredData.slice((currentPage - 1) * ITEMS_PER_PAGE, currentPage * ITEMS_PER_PAGE).map((item) => (
                                 <tr key={item.id} className="hover:bg-[#e8ecef] transition-colors">
                                     <td className="px-6 py-4">
                                         <div className="flex items-center gap-3">
@@ -312,10 +414,36 @@ export default function InventoryPage() {
                                             >
                                                 <FontAwesomeIcon icon={faEye} size="sm" />
                                             </button>
-                                            <button className="w-8 h-8 rounded-lg bg-[#ecf0f3] shadow-[2px_2px_5px_#cbced1,-2px_-2px_5px_#ffffff] flex items-center justify-center text-yellow-500 hover:text-yellow-700 transition-all">
+                                            <button
+                                                onClick={() => {
+                                                    setEditingVehicle(item);
+                                                    setVehicleForm({
+                                                        category: item.category,
+                                                        make: item.make,
+                                                        model: item.model,
+                                                        variant: item.variant || '',
+                                                        year: item.year,
+                                                        color: item.color,
+                                                        price: String(item.price),
+                                                        purchasePrice: item.purchasePrice ? String(item.purchasePrice) : '',
+                                                        condition: item.condition,
+                                                        licensePlate: item.licensePlate || '',
+                                                        chassisNumber: item.chassisNumber || '',
+                                                        engineNumber: item.engineNumber || '',
+                                                    });
+                                                    setShowVehicleModal(true);
+                                                }}
+                                                className="w-8 h-8 rounded-lg bg-[#ecf0f3] shadow-[2px_2px_5px_#cbced1,-2px_-2px_5px_#ffffff] flex items-center justify-center text-yellow-500 hover:text-yellow-700 transition-all"
+                                            >
                                                 <FontAwesomeIcon icon={faEdit} size="sm" />
                                             </button>
-                                            <button className="w-8 h-8 rounded-lg bg-[#ecf0f3] shadow-[2px_2px_5px_#cbced1,-2px_-2px_5px_#ffffff] flex items-center justify-center text-red-500 hover:text-red-700 transition-all">
+                                            <button
+                                                onClick={() => {
+                                                    setDeleteTarget(item);
+                                                    setShowDeleteConfirm(true);
+                                                }}
+                                                className="w-8 h-8 rounded-lg bg-[#ecf0f3] shadow-[2px_2px_5px_#cbced1,-2px_-2px_5px_#ffffff] flex items-center justify-center text-red-500 hover:text-red-700 transition-all"
+                                            >
                                                 <FontAwesomeIcon icon={faTrash} size="sm" />
                                             </button>
                                         </div>
@@ -333,6 +461,29 @@ export default function InventoryPage() {
                     </div>
                 )}
             </div>
+
+            {/* PAGINATION */}
+            {filteredData.length > ITEMS_PER_PAGE && (
+                <div className="flex items-center justify-center gap-2 pt-2">
+                    <button
+                        onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+                        disabled={currentPage === 1}
+                        className="w-10 h-10 rounded-xl bg-[#ecf0f3] shadow-[3px_3px_6px_#cbced1,-3px_-3px_6px_#ffffff] flex items-center justify-center text-gray-500 disabled:opacity-30"
+                    >
+                        <FontAwesomeIcon icon={faChevronLeft} />
+                    </button>
+                    <span className="text-sm text-gray-600 px-3">
+                        Halaman {currentPage} dari {Math.ceil(filteredData.length / ITEMS_PER_PAGE)}
+                    </span>
+                    <button
+                        onClick={() => setCurrentPage(p => Math.min(Math.ceil(filteredData.length / ITEMS_PER_PAGE), p + 1))}
+                        disabled={currentPage >= Math.ceil(filteredData.length / ITEMS_PER_PAGE)}
+                        className="w-10 h-10 rounded-xl bg-[#ecf0f3] shadow-[3px_3px_6px_#cbced1,-3px_-3px_6px_#ffffff] flex items-center justify-center text-gray-500 disabled:opacity-30"
+                    >
+                        <FontAwesomeIcon icon={faChevronRight} />
+                    </button>
+                </div>
+            )}
 
             {/* VEHICLE DETAIL MODAL */}
             {showDetailModal && selectedVehicle && (
@@ -455,7 +606,7 @@ export default function InventoryPage() {
                                 <div className="flex gap-3 pt-4 border-t border-gray-200">
                                     <button
                                         onClick={() => {
-                                            const token = localStorage.getItem('token');
+                                            const token = localStorage.getItem('access_token');
                                             window.open(`${process.env.NEXT_PUBLIC_API_URL}/pdf/vehicle/${selectedVehicle.id}/internal?token=${token}`, '_blank');
                                         }}
                                         className="flex-1 py-3 rounded-xl bg-blue-500 text-white font-medium hover:bg-blue-600 flex items-center justify-center gap-2"
@@ -465,7 +616,7 @@ export default function InventoryPage() {
                                     </button>
                                     <button
                                         onClick={() => {
-                                            const token = localStorage.getItem('token');
+                                            const token = localStorage.getItem('access_token');
                                             window.open(`${process.env.NEXT_PUBLIC_API_URL}/pdf/vehicle/${selectedVehicle.id}/customer?token=${token}`, '_blank');
                                         }}
                                         className="flex-1 py-3 rounded-xl bg-green-500 text-white font-medium hover:bg-green-600 flex items-center justify-center gap-2"
@@ -548,6 +699,141 @@ export default function InventoryPage() {
                                     className="flex-1 py-3 rounded-xl bg-[#00bfa5] text-white font-medium shadow-lg hover:bg-[#00a891]"
                                 >
                                     Simpan
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* Vehicle Create/Edit Modal */}
+            {showVehicleModal && (
+                <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+                    <div className="bg-[#ecf0f3] rounded-2xl shadow-xl max-w-lg w-full max-h-[90vh] overflow-y-auto">
+                        <div className="flex justify-between items-center p-5 border-b border-gray-200 sticky top-0 bg-[#ecf0f3] z-10">
+                            <h3 className="text-lg font-semibold text-gray-800">
+                                {editingVehicle ? 'Edit Kendaraan' : 'Tambah Kendaraan'}
+                            </h3>
+                            <button onClick={() => { setShowVehicleModal(false); resetVehicleForm(); }} className="text-gray-400 hover:text-gray-600">
+                                <FontAwesomeIcon icon={faTimes} />
+                            </button>
+                        </div>
+                        <div className="p-5 space-y-4">
+                            {/* Category */}
+                            <div>
+                                <label className="block text-sm font-medium text-gray-600 mb-1">Kategori</label>
+                                <select
+                                    value={vehicleForm.category}
+                                    onChange={(e) => setVehicleForm({ ...vehicleForm, category: e.target.value })}
+                                    className="w-full px-4 py-3 rounded-xl bg-[#ecf0f3] shadow-[inset_3px_3px_6px_#cbced1,inset_-3px_-3px_6px_#ffffff] focus:outline-none focus:ring-2 focus:ring-[#00bfa5]"
+                                >
+                                    <option value="CAR">Mobil</option>
+                                    <option value="MOTORCYCLE">Motor</option>
+                                    <option value="TRUCK">Truk</option>
+                                </select>
+                            </div>
+
+                            {/* Make + Model */}
+                            <div className="grid grid-cols-2 gap-3">
+                                <div>
+                                    <label className="block text-sm font-medium text-gray-600 mb-1">Merk *</label>
+                                    <input type="text" value={vehicleForm.make} onChange={(e) => setVehicleForm({ ...vehicleForm, make: e.target.value })} placeholder="Toyota" className="w-full px-4 py-3 rounded-xl bg-[#ecf0f3] shadow-[inset_3px_3px_6px_#cbced1,inset_-3px_-3px_6px_#ffffff] focus:outline-none focus:ring-2 focus:ring-[#00bfa5]" />
+                                </div>
+                                <div>
+                                    <label className="block text-sm font-medium text-gray-600 mb-1">Model *</label>
+                                    <input type="text" value={vehicleForm.model} onChange={(e) => setVehicleForm({ ...vehicleForm, model: e.target.value })} placeholder="Avanza" className="w-full px-4 py-3 rounded-xl bg-[#ecf0f3] shadow-[inset_3px_3px_6px_#cbced1,inset_-3px_-3px_6px_#ffffff] focus:outline-none focus:ring-2 focus:ring-[#00bfa5]" />
+                                </div>
+                            </div>
+
+                            {/* Variant + Year */}
+                            <div className="grid grid-cols-2 gap-3">
+                                <div>
+                                    <label className="block text-sm font-medium text-gray-600 mb-1">Varian</label>
+                                    <input type="text" value={vehicleForm.variant} onChange={(e) => setVehicleForm({ ...vehicleForm, variant: e.target.value })} placeholder="1.5 G AT" className="w-full px-4 py-3 rounded-xl bg-[#ecf0f3] shadow-[inset_3px_3px_6px_#cbced1,inset_-3px_-3px_6px_#ffffff] focus:outline-none focus:ring-2 focus:ring-[#00bfa5]" />
+                                </div>
+                                <div>
+                                    <label className="block text-sm font-medium text-gray-600 mb-1">Tahun</label>
+                                    <input type="number" value={vehicleForm.year} onChange={(e) => setVehicleForm({ ...vehicleForm, year: parseInt(e.target.value) })} className="w-full px-4 py-3 rounded-xl bg-[#ecf0f3] shadow-[inset_3px_3px_6px_#cbced1,inset_-3px_-3px_6px_#ffffff] focus:outline-none focus:ring-2 focus:ring-[#00bfa5]" />
+                                </div>
+                            </div>
+
+                            {/* Color + Condition */}
+                            <div className="grid grid-cols-2 gap-3">
+                                <div>
+                                    <label className="block text-sm font-medium text-gray-600 mb-1">Warna</label>
+                                    <input type="text" value={vehicleForm.color} onChange={(e) => setVehicleForm({ ...vehicleForm, color: e.target.value })} placeholder="Putih" className="w-full px-4 py-3 rounded-xl bg-[#ecf0f3] shadow-[inset_3px_3px_6px_#cbced1,inset_-3px_-3px_6px_#ffffff] focus:outline-none focus:ring-2 focus:ring-[#00bfa5]" />
+                                </div>
+                                <div>
+                                    <label className="block text-sm font-medium text-gray-600 mb-1">Kondisi</label>
+                                    <select value={vehicleForm.condition} onChange={(e) => setVehicleForm({ ...vehicleForm, condition: e.target.value })} className="w-full px-4 py-3 rounded-xl bg-[#ecf0f3] shadow-[inset_3px_3px_6px_#cbced1,inset_-3px_-3px_6px_#ffffff] focus:outline-none focus:ring-2 focus:ring-[#00bfa5]">
+                                        <option value="READY">Siap Jual</option>
+                                        <option value="REPAIR">Perlu Perbaikan</option>
+                                    </select>
+                                </div>
+                            </div>
+
+                            {/* Price + Purchase Price */}
+                            <div className="grid grid-cols-2 gap-3">
+                                <div>
+                                    <label className="block text-sm font-medium text-gray-600 mb-1">Harga Jual *</label>
+                                    <input type="number" value={vehicleForm.price} onChange={(e) => setVehicleForm({ ...vehicleForm, price: e.target.value })} placeholder="195000000" className="w-full px-4 py-3 rounded-xl bg-[#ecf0f3] shadow-[inset_3px_3px_6px_#cbced1,inset_-3px_-3px_6px_#ffffff] focus:outline-none focus:ring-2 focus:ring-[#00bfa5]" />
+                                </div>
+                                <div>
+                                    <label className="block text-sm font-medium text-gray-600 mb-1">Harga Beli</label>
+                                    <input type="number" value={vehicleForm.purchasePrice} onChange={(e) => setVehicleForm({ ...vehicleForm, purchasePrice: e.target.value })} placeholder="180000000" className="w-full px-4 py-3 rounded-xl bg-[#ecf0f3] shadow-[inset_3px_3px_6px_#cbced1,inset_-3px_-3px_6px_#ffffff] focus:outline-none focus:ring-2 focus:ring-[#00bfa5]" />
+                                </div>
+                            </div>
+
+                            {/* License Plate */}
+                            <div>
+                                <label className="block text-sm font-medium text-gray-600 mb-1">Plat Nomor</label>
+                                <input type="text" value={vehicleForm.licensePlate} onChange={(e) => setVehicleForm({ ...vehicleForm, licensePlate: e.target.value })} placeholder="B 1234 ABC" className="w-full px-4 py-3 rounded-xl bg-[#ecf0f3] shadow-[inset_3px_3px_6px_#cbced1,inset_-3px_-3px_6px_#ffffff] focus:outline-none focus:ring-2 focus:ring-[#00bfa5]" />
+                            </div>
+
+                            {/* Chassis + Engine */}
+                            <div className="grid grid-cols-2 gap-3">
+                                <div>
+                                    <label className="block text-sm font-medium text-gray-600 mb-1">No. Rangka</label>
+                                    <input type="text" value={vehicleForm.chassisNumber} onChange={(e) => setVehicleForm({ ...vehicleForm, chassisNumber: e.target.value })} className="w-full px-4 py-3 rounded-xl bg-[#ecf0f3] shadow-[inset_3px_3px_6px_#cbced1,inset_-3px_-3px_6px_#ffffff] focus:outline-none focus:ring-2 focus:ring-[#00bfa5]" />
+                                </div>
+                                <div>
+                                    <label className="block text-sm font-medium text-gray-600 mb-1">No. Mesin</label>
+                                    <input type="text" value={vehicleForm.engineNumber} onChange={(e) => setVehicleForm({ ...vehicleForm, engineNumber: e.target.value })} className="w-full px-4 py-3 rounded-xl bg-[#ecf0f3] shadow-[inset_3px_3px_6px_#cbced1,inset_-3px_-3px_6px_#ffffff] focus:outline-none focus:ring-2 focus:ring-[#00bfa5]" />
+                                </div>
+                            </div>
+
+                            {/* Buttons */}
+                            <div className="flex gap-3 pt-2">
+                                <button onClick={() => { setShowVehicleModal(false); resetVehicleForm(); }} className="flex-1 py-3 rounded-xl bg-[#ecf0f3] text-gray-600 font-medium shadow-[3px_3px_6px_#cbced1,-3px_-3px_6px_#ffffff]">
+                                    Batal
+                                </button>
+                                <button onClick={handleSaveVehicle} disabled={submitting} className="flex-1 py-3 rounded-xl bg-[#00bfa5] text-white font-medium shadow-lg hover:bg-[#00a891] disabled:opacity-50 transition-all">
+                                    {submitting ? 'Menyimpan...' : (editingVehicle ? 'Simpan Perubahan' : 'Tambah Kendaraan')}
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* Delete Confirmation */}
+            {showDeleteConfirm && deleteTarget && (
+                <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+                    <div className="bg-[#ecf0f3] rounded-2xl shadow-xl max-w-sm w-full p-6">
+                        <div className="text-center">
+                            <div className="w-16 h-16 rounded-full bg-red-100 flex items-center justify-center mx-auto mb-4">
+                                <FontAwesomeIcon icon={faTrash} className="text-red-500 text-2xl" />
+                            </div>
+                            <h3 className="text-lg font-bold text-gray-800 mb-2">Hapus Kendaraan?</h3>
+                            <p className="text-gray-500 mb-6">
+                                Apakah Anda yakin ingin menghapus <strong>{deleteTarget.make} {deleteTarget.model}</strong>? Tindakan ini tidak dapat dibatalkan.
+                            </p>
+                            <div className="flex gap-3">
+                                <button onClick={() => { setShowDeleteConfirm(false); setDeleteTarget(null); }} className="flex-1 py-3 rounded-xl bg-[#ecf0f3] text-gray-600 font-medium shadow-[3px_3px_6px_#cbced1,-3px_-3px_6px_#ffffff]">
+                                    Batal
+                                </button>
+                                <button onClick={handleDeleteVehicle} className="flex-1 py-3 rounded-xl bg-red-500 text-white font-medium shadow-lg hover:bg-red-600 transition-all">
+                                    Ya, Hapus
                                 </button>
                             </div>
                         </div>
