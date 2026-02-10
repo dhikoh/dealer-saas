@@ -1,6 +1,6 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
-import { getPlanById } from '../config/plan-tiers.config';
+import { getPlanById, PLAN_TIERS, PlanTier } from '../config/plan-tiers.config';
 
 @Injectable()
 export class SuperadminService {
@@ -52,7 +52,7 @@ export class SuperadminService {
     // ==================== TENANT MANAGEMENT ====================
 
     async getTenants(filters?: { status?: string; planTier?: string; search?: string }) {
-        const where: any = {};
+        const where: any = { deletedAt: null };
 
         if (filters?.status) {
             where.subscriptionStatus = filters.status;
@@ -243,6 +243,59 @@ export class SuperadminService {
         return tenant;
     }
 
+    // ==================== SOFT DELETE TENANT ====================
+
+    async softDeleteTenant(id: string, adminId?: string) {
+        const tenant = await this.prisma.tenant.findUnique({ where: { id } });
+        if (!tenant) throw new NotFoundException('Tenant not found');
+        if (tenant.deletedAt) throw new BadRequestException('Tenant already deleted');
+
+        const updated = await this.prisma.tenant.update({
+            where: { id },
+            data: {
+                deletedAt: new Date(),
+                subscriptionStatus: 'CANCELLED',
+            },
+        });
+
+        if (adminId) {
+            await this.logActivity({
+                userId: adminId,
+                action: 'TENANT_DELETE',
+                entityType: 'TENANT',
+                entityId: id,
+                entityName: tenant.name,
+            });
+        }
+
+        return updated;
+    }
+
+    // ==================== PLAN TIERS ====================
+
+    getPlans() {
+        return Object.values(PLAN_TIERS);
+    }
+
+    updatePlan(planId: string, data: Partial<PlanTier>) {
+        const plan = PLAN_TIERS[planId];
+        if (!plan) throw new NotFoundException('Plan not found');
+
+        // Update in-memory config
+        if (data.price !== undefined) plan.price = data.price;
+        if (data.priceLabel !== undefined) plan.priceLabel = data.priceLabel;
+        if (data.name !== undefined) plan.name = data.name;
+        if (data.description !== undefined) plan.description = data.description;
+        if (data.descriptionId !== undefined) plan.descriptionId = data.descriptionId;
+        if (data.trialDays !== undefined) plan.trialDays = data.trialDays;
+        if (data.yearlyDiscount !== undefined) plan.yearlyDiscount = data.yearlyDiscount;
+        if (data.features) {
+            plan.features = { ...plan.features, ...data.features };
+        }
+
+        return plan;
+    }
+
     // ==================== INVOICES ====================
 
     async getInvoices(filters?: { status?: string; tenantId?: string }) {
@@ -293,6 +346,52 @@ export class SuperadminService {
                 entityId: invoiceId,
                 entityName: invoice.invoiceNumber,
                 details: JSON.stringify({ tenantId: invoice.tenantId, tenantName: invoice.tenant.name }),
+            });
+        }
+
+        return invoice;
+    }
+
+    // ==================== CREATE INVOICE ====================
+
+    async createInvoice(data: {
+        tenantId: string;
+        amount: number;
+        dueDate: string;
+        items?: string;
+    }, adminId?: string) {
+        const tenant = await this.prisma.tenant.findUnique({ where: { id: data.tenantId } });
+        if (!tenant) throw new NotFoundException('Tenant not found');
+
+        // Auto-generate invoice number: INV-YYYY-NNN
+        const year = new Date().getFullYear();
+        const count = await (this.prisma as any).systemInvoice.count({
+            where: {
+                invoiceNumber: { startsWith: `INV-${year}` },
+            },
+        });
+        const invoiceNumber = `INV-${year}-${String(count + 1).padStart(3, '0')}`;
+
+        const invoice = await (this.prisma as any).systemInvoice.create({
+            data: {
+                tenantId: data.tenantId,
+                invoiceNumber,
+                amount: data.amount,
+                dueDate: new Date(data.dueDate),
+                status: 'PENDING',
+                items: data.items,
+            },
+            include: { tenant: { select: { name: true, email: true } } },
+        });
+
+        if (adminId) {
+            await this.logActivity({
+                userId: adminId,
+                action: 'INVOICE_CREATE',
+                entityType: 'INVOICE',
+                entityId: invoice.id,
+                entityName: invoiceNumber,
+                details: JSON.stringify({ tenantId: data.tenantId, tenantName: tenant.name, amount: data.amount }),
             });
         }
 

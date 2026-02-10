@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Patch, Param, Body, Query, UseGuards, Request } from '@nestjs/common';
+import { Controller, Get, Post, Patch, Delete, Param, Body, Query, UseGuards, Request } from '@nestjs/common';
 import { SuperadminService } from './superadmin.service';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { RolesGuard } from '../auth/roles.guard';
@@ -85,7 +85,30 @@ export class SuperadminController {
         return this.superadminService.upgradeTenantPlan(id, planTier, req.user.userId);
     }
 
-    // ==================== INVOICES ====================
+    @Delete('tenants/:id')
+    async deleteTenant(
+        @Param('id') id: string,
+        @Request() req: any
+    ) {
+        return this.superadminService.softDeleteTenant(id, req.user.userId);
+    }
+
+    // ==================== PLAN TIERS ====================
+
+    @Get('plans')
+    getPlans() {
+        return this.superadminService.getPlans();
+    }
+
+    @Patch('plans/:planId')
+    updatePlan(
+        @Param('planId') planId: string,
+        @Body() data: any
+    ) {
+        return this.superadminService.updatePlan(planId, data);
+    }
+
+    // ==================== INVOICES ======================================
 
     @Get('invoices')
     async getInvoices(
@@ -93,6 +116,14 @@ export class SuperadminController {
         @Query('tenantId') tenantId?: string,
     ) {
         return this.superadminService.getInvoices({ status, tenantId });
+    }
+
+    @Post('invoices')
+    async createInvoice(
+        @Body() data: { tenantId: string; amount: number; dueDate: string; items?: string },
+        @Request() req: any
+    ) {
+        return this.superadminService.createInvoice(data, req.user.userId);
     }
 
     @Post('invoices/:id/verify')

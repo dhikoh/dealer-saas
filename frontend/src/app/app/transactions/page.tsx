@@ -15,7 +15,7 @@ interface Transaction {
     paymentType?: 'CASH' | 'CREDIT';
     profit?: number;
     date: string;
-    status: 'PENDING' | 'PAID' | 'CANCELLED';
+    status: 'PENDING' | 'PAID' | 'CANCELLED' | 'COMPLETED';
     notes?: string;
     vehicle?: { make: string; model: string; licensePlate: string };
     customer?: { name: string; phone: string };
