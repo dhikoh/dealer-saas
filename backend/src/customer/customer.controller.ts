@@ -10,8 +10,9 @@ import {
     Request,
 } from '@nestjs/common';
 import { CustomerService } from './customer.service';
+import { CreateCustomerDto } from './dto/create-customer.dto';
+import { UpdateCustomerDto } from './dto/update-customer.dto';
 
-// Protected by global JwtAuthGuard
 @Controller('customers')
 export class CustomerController {
     constructor(private readonly customerService: CustomerService) { }
@@ -32,12 +33,12 @@ export class CustomerController {
     }
 
     @Post()
-    create(@Body() data: any, @Request() req) {
+    create(@Body() data: CreateCustomerDto, @Request() req) {
         return this.customerService.create(req.user.tenantId, data);
     }
 
     @Put(':id')
-    update(@Param('id') id: string, @Body() data: any, @Request() req) {
+    update(@Param('id') id: string, @Body() data: UpdateCustomerDto, @Request() req) {
         return this.customerService.update(id, req.user.tenantId, data);
     }
 

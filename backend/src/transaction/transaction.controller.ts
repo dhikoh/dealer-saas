@@ -10,8 +10,9 @@ import {
     Request,
 } from '@nestjs/common';
 import { TransactionService } from './transaction.service';
+import { CreateTransactionDto } from './dto/create-transaction.dto';
+import { UpdateStatusDto } from './dto/update-status.dto';
 
-// Protected by global JwtAuthGuard
 @Controller('transactions')
 export class TransactionController {
     constructor(private readonly transactionService: TransactionService) { }
@@ -43,31 +44,14 @@ export class TransactionController {
     }
 
     @Post()
-    create(
-        @Body() data: {
-            type: string;
-            vehicleId: string;
-            customerId: string;
-            paymentType: string;
-            finalPrice: number;
-            notes?: string;
-            creditData?: {
-                creditType: string;
-                leasingCompany?: string;
-                downPayment: number;
-                interestRate: number;
-                tenorMonths: number;
-            };
-        },
-        @Request() req,
-    ) {
+    create(@Body() data: CreateTransactionDto, @Request() req) {
         return this.transactionService.create(req.user.tenantId, req.user.sub, data);
     }
 
     @Patch(':id/status')
     updateStatus(
         @Param('id') id: string,
-        @Body() body: { status: string },
+        @Body() body: UpdateStatusDto,
         @Request() req,
     ) {
         return this.transactionService.updateStatus(id, req.user.tenantId, body.status);

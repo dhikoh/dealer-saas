@@ -6,6 +6,29 @@ import { Decimal } from '@prisma/client/runtime/library';
 export class TransactionService {
     constructor(private prisma: PrismaService) { }
 
+    /**
+     * Generate invoice number: INV-YYYYMM-NNN
+     */
+    private async generateInvoiceNumber(tenantId: string, type: string): Promise<string> {
+        const now = new Date();
+        const yearMonth = `${now.getFullYear()}${String(now.getMonth() + 1).padStart(2, '0')}`;
+        const prefix = type === 'SALE' ? 'INV' : 'PUR';
+
+        // Count existing transactions this month for this tenant
+        const count = await this.prisma.transaction.count({
+            where: {
+                tenantId,
+                date: {
+                    gte: new Date(now.getFullYear(), now.getMonth(), 1),
+                    lt: new Date(now.getFullYear(), now.getMonth() + 1, 1),
+                },
+            },
+        });
+
+        const seq = String(count + 1).padStart(3, '0');
+        return `${prefix}-${yearMonth}-${seq}`;
+    }
+
     async findAll(tenantId: string, filters?: { type?: string; status?: string; startDate?: Date; endDate?: Date }) {
         const where: any = { tenantId };
 

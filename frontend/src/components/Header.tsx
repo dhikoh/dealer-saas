@@ -151,6 +151,8 @@ export default function Header() {
         applyTheme(newTheme);
     };
 
+    const searchTimerRef = useRef<NodeJS.Timeout | null>(null);
+
     const handleSearch = async (query: string) => {
         setSearchQuery(query);
         if (query.length < 2) {
@@ -158,15 +160,30 @@ export default function Header() {
             return;
         }
 
-        // Mock search results - in production, this would call the API
-        const mockResults: SearchResult[] = [
-            { type: 'vehicle' as const, id: '1', title: 'Toyota Avanza 2024', subtitle: 'B 1234 CD - Rp 250.000.000', href: '/app/inventory' },
-            { type: 'vehicle' as const, id: '2', title: 'Honda Jazz RS 2023', subtitle: 'B 5678 EF - Rp 275.000.000', href: '/app/inventory' },
-            { type: 'customer' as const, id: '3', title: 'Budi Santoso', subtitle: '081234567890', href: '/app/customers' },
-            { type: 'transaction' as const, id: '4', title: 'TRX-2024-001', subtitle: 'Penjualan - Rp 250.000.000', href: '/app/transactions' },
-        ].filter(r => r.title.toLowerCase().includes(query.toLowerCase()));
+        // Debounce 300ms
+        if (searchTimerRef.current) clearTimeout(searchTimerRef.current);
+        searchTimerRef.current = setTimeout(async () => {
+            try {
+                const token = localStorage.getItem('access_token');
+                if (!token) return;
 
-        setSearchResults(mockResults);
+                const res = await fetch(`${API_URL}/search?q=${encodeURIComponent(query)}&limit=8`, {
+                    headers: { 'Authorization': `Bearer ${token}` },
+                });
+
+                if (res.ok) {
+                    const data = await res.json();
+                    const results: SearchResult[] = [
+                        ...(data.vehicles || []),
+                        ...(data.customers || []),
+                        ...(data.transactions || []),
+                    ];
+                    setSearchResults(results);
+                }
+            } catch (err) {
+                console.error('Search error:', err);
+            }
+        }, 300);
     };
 
     const markAllRead = async () => {

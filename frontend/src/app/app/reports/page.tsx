@@ -107,28 +107,24 @@ export default function ReportsPage() {
         return new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', minimumFractionDigits: 0 }).format(value);
     };
 
-    const handleExport = async (type: 'pdf' | 'excel') => {
+    const handleExport = async (entity: 'vehicles' | 'customers' | 'transactions') => {
         try {
             const token = localStorage.getItem('access_token');
-            const endpoint = type === 'pdf'
-                ? `${API_BASE}/pdf/reports/sales?months=${period}`
-                : `${API_BASE}/pdf/export/sales-csv?months=${period}`;
-
-            const response = await fetch(endpoint, {
+            const response = await fetch(`${API_BASE}/export/${entity}`, {
                 headers: { 'Authorization': `Bearer ${token}` },
             });
 
-            if (!response.ok) throw new Error('Export failed');
+            if (!response.ok) throw new Error('Export gagal');
 
             const blob = await response.blob();
             const url = window.URL.createObjectURL(blob);
             const link = document.createElement('a');
             link.href = url;
-            link.download = type === 'pdf'
-                ? `Laporan_Penjualan_${new Date().toISOString().split('T')[0]}.pdf`
-                : `Penjualan_OTOHUB_${new Date().toISOString().split('T')[0]}.csv`;
+            const names = { vehicles: 'kendaraan', customers: 'pelanggan', transactions: 'transaksi' };
+            link.download = `${names[entity]}_${new Date().toISOString().split('T')[0]}.csv`;
             link.click();
             window.URL.revokeObjectURL(url);
+            toast.success(`Data ${names[entity]} berhasil diexport`);
         } catch (error) {
             console.error('Export error:', error);
             toast.error('Gagal mengekspor data. Silakan coba lagi.');
@@ -176,8 +172,9 @@ export default function ReportsPage() {
                         <RefreshCw className="w-4 h-4" />
                     </button>
                     <ExportDropdown
-                        onExportPDF={() => handleExport('pdf')}
-                        onExportExcel={() => handleExport('excel')}
+                        onExportVehicles={() => handleExport('vehicles')}
+                        onExportCustomers={() => handleExport('customers')}
+                        onExportTransactions={() => handleExport('transactions')}
                     />
                 </div>
             </div>
@@ -405,7 +402,7 @@ function CategoryBar({ name, percent, color }: { name: string; percent: number; 
     );
 }
 
-function ExportDropdown({ onExportPDF, onExportExcel }: { onExportPDF: () => void; onExportExcel: () => void }) {
+function ExportDropdown({ onExportVehicles, onExportCustomers, onExportTransactions }: { onExportVehicles: () => void; onExportCustomers: () => void; onExportTransactions: () => void }) {
     const [open, setOpen] = React.useState(false);
 
     return (
@@ -418,18 +415,24 @@ function ExportDropdown({ onExportPDF, onExportExcel }: { onExportPDF: () => voi
             </button>
 
             {open && (
-                <div className="absolute right-0 top-12 w-40 bg-white rounded-xl shadow-xl overflow-hidden z-50 border border-gray-100">
+                <div className="absolute right-0 top-12 w-48 bg-white rounded-xl shadow-xl overflow-hidden z-50 border border-gray-100">
                     <button
-                        onClick={() => { onExportPDF(); setOpen(false); }}
+                        onClick={() => { onExportVehicles(); setOpen(false); }}
                         className="w-full px-4 py-3 text-left text-sm text-gray-700 hover:bg-gray-50 flex items-center gap-2"
                     >
-                        📄 Export PDF
+                        🚗 Kendaraan (CSV)
                     </button>
                     <button
-                        onClick={() => { onExportExcel(); setOpen(false); }}
+                        onClick={() => { onExportCustomers(); setOpen(false); }}
                         className="w-full px-4 py-3 text-left text-sm text-gray-700 hover:bg-gray-50 flex items-center gap-2"
                     >
-                        📊 Export CSV
+                        👤 Pelanggan (CSV)
+                    </button>
+                    <button
+                        onClick={() => { onExportTransactions(); setOpen(false); }}
+                        className="w-full px-4 py-3 text-left text-sm text-gray-700 hover:bg-gray-50 flex items-center gap-2"
+                    >
+                        📊 Transaksi (CSV)
                     </button>
                 </div>
             )}

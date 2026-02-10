@@ -1,17 +1,17 @@
 import { IsEmail, IsNotEmpty, MinLength, IsOptional, IsString } from 'class-validator';
 
 export class CreateAuthDto {
-    @IsEmail({}, { message: 'Please provide a valid email address' })
-    @IsNotEmpty({ message: 'Email is required' })
+    @IsEmail({}, { message: 'Format email tidak valid' })
+    @IsNotEmpty({ message: 'Email wajib diisi' })
     email: string;
 
-    @IsNotEmpty({ message: 'Password is required' })
-    @MinLength(6, { message: 'Password must be at least 6 characters' })
+    @IsNotEmpty({ message: 'Password wajib diisi' })
+    @MinLength(6, { message: 'Password minimal 6 karakter' })
     password: string;
 
-    @IsNotEmpty({ message: 'Username is required' })
-    @IsString()
-    @MinLength(3, { message: 'Username must be at least 3 characters' })
+    @IsNotEmpty({ message: 'Username wajib diisi' })
+    @IsString({ message: 'Username harus berupa teks' })
+    @MinLength(3, { message: 'Username minimal 3 karakter' })
     username: string;
 
     @IsOptional()

@@ -4,11 +4,13 @@ import { diskStorage } from 'multer';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { UploadController } from './upload.controller';
 import { UploadService } from './upload.service';
+import { PrismaModule } from '../prisma/prisma.module';
 import { extname, join } from 'path';
 import { existsSync, mkdirSync } from 'fs';
 
 @Module({
     imports: [
+        PrismaModule,
         MulterModule.registerAsync({
             imports: [ConfigModule],
             useFactory: async (configService: ConfigService) => {

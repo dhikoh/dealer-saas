@@ -6,15 +6,62 @@ import * as bcrypt from 'bcrypt';
 import { EmailService } from '../email/email.service';
 import { HttpService } from '@nestjs/axios';
 import { randomBytes } from 'crypto';
+import { ActivityLogService } from '../activity-log/activity-log.service';
 
 @Injectable()
 export class AuthService {
+  // Login attempt tracking (in-memory, resets on restart)
+  private loginAttempts = new Map<string, { count: number; lastAttempt: Date; blockedUntil?: Date }>();
+  private readonly MAX_LOGIN_ATTEMPTS = 5;
+  private readonly LOGIN_BLOCK_DURATION = 15 * 60 * 1000; // 15 minutes
+
   constructor(
     private prisma: PrismaService,
     private jwtService: JwtService,
     private emailService: EmailService,
     private httpService: HttpService,
+    private activityLogService: ActivityLogService,
   ) { }
+
+  // Clean up old entries every 30 minutes
+  private cleanupLoginAttempts() {
+    const now = new Date();
+    for (const [key, data] of this.loginAttempts) {
+      if (data.blockedUntil && now > data.blockedUntil) {
+        this.loginAttempts.delete(key);
+      } else if (now.getTime() - data.lastAttempt.getTime() > this.LOGIN_BLOCK_DURATION) {
+        this.loginAttempts.delete(key);
+      }
+    }
+  }
+
+  private checkLoginRateLimit(identifier: string) {
+    this.cleanupLoginAttempts();
+    const attempts = this.loginAttempts.get(identifier);
+    if (attempts?.blockedUntil && new Date() < attempts.blockedUntil) {
+      const minutesLeft = Math.ceil((attempts.blockedUntil.getTime() - Date.now()) / 60000);
+      throw new ForbiddenException(
+        `Terlalu banyak percobaan login gagal. Coba lagi dalam ${minutesLeft} menit.`
+      );
+    }
+  }
+
+  private recordLoginFailure(identifier: string) {
+    const existing = this.loginAttempts.get(identifier);
+    const count = (existing?.count || 0) + 1;
+    const data: { count: number; lastAttempt: Date; blockedUntil?: Date } = {
+      count,
+      lastAttempt: new Date(),
+    };
+    if (count >= this.MAX_LOGIN_ATTEMPTS) {
+      data.blockedUntil = new Date(Date.now() + this.LOGIN_BLOCK_DURATION);
+    }
+    this.loginAttempts.set(identifier, data);
+  }
+
+  private clearLoginAttempts(identifier: string) {
+    this.loginAttempts.delete(identifier);
+  }
 
   async register(createAuthDto: CreateAuthDto, tenantId?: string) {
     const { email, password, username, role = 'STAFF' } = createAuthDto;
@@ -35,7 +82,7 @@ export class AuthService {
 
     if (existingUser) {
       if (existingUser.isVerified) {
-        throw new BadRequestException('Email or Username already in use');
+        throw new BadRequestException('Email atau Username sudah terdaftar');
       }
 
       // If user exists but NOT verified, we verify if it is the same email
@@ -65,7 +112,7 @@ export class AuthService {
         return this.createToken(updatedUser);
       }
 
-      throw new BadRequestException('Email or Username already in use');
+      throw new BadRequestException('Email atau Username sudah terdaftar');
     }
 
     let targetTenantId = tenantId;
@@ -117,15 +164,15 @@ export class AuthService {
       where: { email: normalizedEmail }
     });
 
-    if (!user) throw new BadRequestException('User not found');
-    if (user.isVerified) return { message: 'Already verified' };
+    if (!user) throw new BadRequestException('Pengguna tidak ditemukan');
+    if (user.isVerified) return { message: 'Email sudah terverifikasi' };
 
     if (user.verificationCode !== code) {
-      throw new BadRequestException('Invalid OTP Code');
+      throw new BadRequestException('Kode OTP tidak valid');
     }
 
     if (user.verificationCodeExpiresAt && new Date() > user.verificationCodeExpiresAt) {
-      throw new BadRequestException('OTP Expired');
+      throw new BadRequestException('Kode OTP sudah kadaluarsa');
     }
 
     // Verify User
@@ -139,7 +186,7 @@ export class AuthService {
       }
     });
 
-    return { message: 'Email verified successfully' };
+    return { message: 'Email berhasil diverifikasi' };
   }
 
   async resendVerificationCode(email: string) {
@@ -148,8 +195,8 @@ export class AuthService {
       where: { email: normalizedEmail }
     });
 
-    if (!user) throw new BadRequestException('User not found');
-    if (user.isVerified) throw new BadRequestException('User already verified');
+    if (!user) throw new BadRequestException('Pengguna tidak ditemukan');
+    if (user.isVerified) throw new BadRequestException('Email sudah terverifikasi');
 
     // Rate Limiting Check
     await this.checkOtpRateLimit(user);
@@ -224,15 +271,15 @@ export class AuthService {
     });
 
     if (!existingUser) {
-      throw new BadRequestException('User not found');
+      throw new BadRequestException('Pengguna tidak ditemukan');
     }
 
     if (!existingUser.isVerified) {
-      throw new ForbiddenException('Email must be verified before completing onboarding');
+      throw new ForbiddenException('Email harus diverifikasi sebelum menyelesaikan onboarding');
     }
 
     if (existingUser.onboardingCompleted) {
-      throw new BadRequestException('Onboarding already completed');
+      throw new BadRequestException('Onboarding sudah diselesaikan');
     }
 
     const user = await this.prisma.user.update({
@@ -261,6 +308,9 @@ export class AuthService {
     const { email, password } = loginDto;
     const normalizedIdentifier = email.toLowerCase();
 
+    // SECURITY: Check login rate limit
+    this.checkLoginRateLimit(normalizedIdentifier);
+
     const isEmail = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(normalizedIdentifier);
 
     let user;
@@ -277,7 +327,8 @@ export class AuthService {
     }
 
     if (!user) {
-      throw new UnauthorizedException('Invalid credentials');
+      this.recordLoginFailure(normalizedIdentifier);
+      throw new UnauthorizedException('Email/username atau password salah');
     }
 
     // SECURITY: Check if user is temporarily blocked (OTP abuse)
@@ -297,7 +348,21 @@ export class AuthService {
     const isPasswordValid = await bcrypt.compare(password, user.password);
 
     if (!isPasswordValid) {
-      throw new UnauthorizedException('Invalid credentials');
+      this.recordLoginFailure(normalizedIdentifier);
+      throw new UnauthorizedException('Email/username atau password salah');
+    }
+
+    // Clear login attempts on success
+    this.clearLoginAttempts(normalizedIdentifier);
+
+    // Log successful login (fire-and-forget)
+    if (user.tenantId) {
+      this.activityLogService.log({
+        tenantId: user.tenantId,
+        userId: user.id,
+        userEmail: user.email,
+        action: 'LOGIN',
+      });
     }
 
     return this.createToken(user);
@@ -514,7 +579,62 @@ export class AuthService {
       data: { password: hashedPassword },
     });
 
+    // Log password change (fire-and-forget)
+    if (user.tenantId) {
+      this.activityLogService.log({
+        tenantId: user.tenantId,
+        userId: user.id,
+        userEmail: user.email,
+        action: 'PASSWORD_CHANGE',
+      });
+    }
+
     return { success: true, message: 'Password berhasil diubah' };
+  }
+
+  async getProfile(userId: string) {
+    const user = await this.prisma.user.findUnique({
+      where: { id: userId },
+      select: {
+        id: true,
+        name: true,
+        email: true,
+        username: true,
+        phone: true,
+        address: true,
+        birthDate: true,
+        role: true,
+        language: true,
+        tenantId: true,
+        createdAt: true,
+      },
+    });
+
+    if (!user) {
+      throw new BadRequestException('User tidak ditemukan');
+    }
+
+    return user;
+  }
+
+  async updateProfile(userId: string, data: { name?: string; phone?: string; address?: string }) {
+    return this.prisma.user.update({
+      where: { id: userId },
+      data: {
+        ...(data.name && { name: data.name }),
+        ...(data.phone !== undefined && { phone: data.phone }),
+        ...(data.address !== undefined && { address: data.address }),
+      },
+      select: {
+        id: true,
+        name: true,
+        email: true,
+        username: true,
+        phone: true,
+        address: true,
+        role: true,
+      },
+    });
   }
 
   private generateVerificationCode(): { code: string; expiresAt: Date } {

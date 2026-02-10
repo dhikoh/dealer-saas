@@ -23,7 +23,7 @@ export class TenantService {
     });
 
     if (!tenant) {
-      throw new NotFoundException('Tenant not found');
+      throw new NotFoundException('Tenant tidak ditemukan');
     }
 
     const plan = getPlanById(tenant.planTier);
@@ -82,7 +82,7 @@ export class TenantService {
     });
 
     if (!tenant) {
-      throw new NotFoundException('Tenant not found');
+      throw new NotFoundException('Tenant tidak ditemukan');
     }
 
     return this.prisma.tenant.update({
@@ -104,7 +104,7 @@ export class TenantService {
     });
 
     if (!tenant) {
-      throw new NotFoundException('Tenant not found');
+      throw new NotFoundException('Tenant tidak ditemukan');
     }
 
     const currentPlan = tenant.planTier;
@@ -124,16 +124,16 @@ export class TenantService {
     });
 
     if (!tenant) {
-      throw new NotFoundException('Tenant not found');
+      throw new NotFoundException('Tenant tidak ditemukan');
     }
 
     const plan = getPlanById(targetPlan);
     if (!plan) {
-      throw new BadRequestException('Invalid plan tier');
+      throw new BadRequestException('Paket langganan tidak valid');
     }
 
     if (!canUpgrade(tenant.planTier, targetPlan)) {
-      throw new BadRequestException('Cannot upgrade to this plan');
+      throw new BadRequestException('Tidak dapat upgrade ke paket ini');
     }
 
     // Generate invoice number
@@ -183,11 +183,11 @@ export class TenantService {
     });
 
     if (!invoice) {
-      throw new NotFoundException('Invoice not found');
+      throw new NotFoundException('Invoice tidak ditemukan');
     }
 
     if (invoice.status === 'PAID') {
-      throw new BadRequestException('Invoice already paid');
+      throw new BadRequestException('Invoice sudah dibayar');
     }
 
     // Update invoice with proof and set to VERIFYING
@@ -254,7 +254,7 @@ export class TenantService {
     });
 
     if (!tenant) {
-      throw new NotFoundException('Tenant not found');
+      throw new NotFoundException('Tenant tidak ditemukan');
     }
 
     const plan = getPlanById(tenant.planTier);
@@ -426,7 +426,7 @@ export class TenantService {
     });
 
     if (!tenant) {
-      throw new NotFoundException('Tenant not found');
+      throw new NotFoundException('Tenant tidak ditemukan');
     }
 
     const plan = getPlanById(tenant.planTier);

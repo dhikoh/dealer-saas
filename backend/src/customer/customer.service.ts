@@ -1,4 +1,4 @@
-import { Injectable, BadRequestException } from '@nestjs/common';
+import { Injectable, BadRequestException, NotFoundException, ForbiddenException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { getPlanById } from '../config/plan-tiers.config';
 
@@ -63,6 +63,13 @@ export class CustomerService {
     }
 
     async update(id: string, tenantId: string, data: any) {
+        // SECURITY: Verify ownership before update
+        const customer = await this.prisma.customer.findFirst({
+            where: { id, tenantId },
+        });
+        if (!customer) {
+            throw new NotFoundException('Customer tidak ditemukan');
+        }
         return this.prisma.customer.update({
             where: { id },
             data,
@@ -70,6 +77,13 @@ export class CustomerService {
     }
 
     async delete(id: string, tenantId: string) {
+        // SECURITY: Verify ownership before delete
+        const customer = await this.prisma.customer.findFirst({
+            where: { id, tenantId },
+        });
+        if (!customer) {
+            throw new NotFoundException('Customer tidak ditemukan');
+        }
         return this.prisma.customer.delete({
             where: { id },
         });

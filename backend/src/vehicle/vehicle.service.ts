@@ -1,4 +1,4 @@
-import { Injectable, BadRequestException } from '@nestjs/common';
+import { Injectable, BadRequestException, NotFoundException, ForbiddenException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { getPlanById } from '../config/plan-tiers.config';
 
@@ -59,6 +59,13 @@ export class VehicleService {
     }
 
     async update(id: string, tenantId: string, data: any) {
+        // SECURITY: Verify ownership before update
+        const vehicle = await this.prisma.vehicle.findFirst({
+            where: { id, tenantId },
+        });
+        if (!vehicle) {
+            throw new NotFoundException('Kendaraan tidak ditemukan');
+        }
         return this.prisma.vehicle.update({
             where: { id },
             data,
@@ -66,6 +73,13 @@ export class VehicleService {
     }
 
     async delete(id: string, tenantId: string) {
+        // SECURITY: Verify ownership before delete
+        const vehicle = await this.prisma.vehicle.findFirst({
+            where: { id, tenantId },
+        });
+        if (!vehicle) {
+            throw new NotFoundException('Kendaraan tidak ditemukan');
+        }
         return this.prisma.vehicle.delete({
             where: { id },
         });
@@ -94,7 +108,14 @@ export class VehicleService {
         });
     }
 
-    async createModel(brandId: string, name: string, variants?: string) {
+    async createModel(tenantId: string, brandId: string, name: string, variants?: string) {
+        // SECURITY: Verify brand belongs to tenant
+        const brand = await this.prisma.vehicleBrand.findFirst({
+            where: { id: brandId, tenantId },
+        });
+        if (!brand) {
+            throw new NotFoundException('Brand tidak ditemukan');
+        }
         return this.prisma.vehicleModel.upsert({
             where: {
                 brandId_name: { brandId, name },
@@ -119,33 +140,55 @@ export class VehicleService {
 
     // ==================== VEHICLE COST TRACKING ====================
 
-    async getCosts(vehicleId: string) {
+    async getCosts(vehicleId: string, tenantId: string) {
+        // SECURITY: Verify vehicle belongs to tenant
+        const vehicle = await this.prisma.vehicle.findFirst({
+            where: { id: vehicleId, tenantId },
+        });
+        if (!vehicle) {
+            throw new NotFoundException('Kendaraan tidak ditemukan');
+        }
         return this.prisma.vehicleCost.findMany({
             where: { vehicleId },
             orderBy: { date: 'desc' },
         });
     }
 
-    async addCost(vehicleId: string, data: {
+    async addCost(vehicleId: string, tenantId: string, data: {
         costType: string;
         amount: number;
         description?: string;
-        date: Date;
+        date: string | Date;
         receiptImage?: string;
     }) {
+        // SECURITY: Verify vehicle belongs to tenant
+        const vehicle = await this.prisma.vehicle.findFirst({
+            where: { id: vehicleId, tenantId },
+        });
+        if (!vehicle) {
+            throw new NotFoundException('Kendaraan tidak ditemukan');
+        }
         return this.prisma.vehicleCost.create({
             data: {
                 vehicleId,
                 costType: data.costType,
                 amount: data.amount,
                 description: data.description,
-                date: data.date,
+                date: new Date(data.date),
                 receiptImage: data.receiptImage,
             },
         });
     }
 
-    async deleteCost(costId: string) {
+    async deleteCost(costId: string, tenantId: string) {
+        // SECURITY: Verify cost → vehicle → tenant ownership chain
+        const cost = await this.prisma.vehicleCost.findUnique({
+            where: { id: costId },
+            include: { vehicle: { select: { tenantId: true } } },
+        });
+        if (!cost || cost.vehicle.tenantId !== tenantId) {
+            throw new NotFoundException('Biaya tidak ditemukan');
+        }
         return this.prisma.vehicleCost.delete({
             where: { id: costId },
         });

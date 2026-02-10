@@ -44,6 +44,7 @@ model Tenant {
   vehicleBrands VehicleBrand[]
   blacklistEntries BlacklistEntry[]
   invoices     SystemInvoice[]
+  activityLogs ActivityLog[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -91,6 +92,7 @@ model User {
   otpBlockedUntil DateTime?
 
   transactions Transaction[]
+  activityLogs ActivityLog[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -195,6 +197,12 @@ model Vehicle {
   // FLEXIBLE DATA
   specs  String? // JSON for additional specs
   images String? // JSON array of image URLs
+
+  // DOKUMEN KENDARAAN (GAMBAR)
+  ktpOwnerImage String?  // KTP pemilik sesuai BPKB
+  stnkImage     String?  // Foto STNK
+  bpkbImage     String?  // Foto BPKB
+  taxImage      String?  // Foto bukti pajak terakhir
 
   transactions Transaction[]
   costs        VehicleCost[]
@@ -423,4 +431,33 @@ model Notification {
   @@index([userId])
   @@index([read])
   @@map("notifications")
+}
+
+// ==================== TENANT ACTIVITY LOG ====================
+
+model ActivityLog {
+  id       String @id @default(uuid())
+  tenantId String
+  tenant   Tenant @relation(fields: [tenantId], references: [id])
+
+  userId    String
+  user      User   @relation(fields: [userId], references: [id])
+  userEmail String // For display without join
+
+  action     String  // LOGIN, LOGOUT, PASSWORD_CHANGE, CUSTOMER_CREATE, VEHICLE_CREATE, etc.
+  entityType String? // CUSTOMER, VEHICLE, TRANSACTION
+  entityId   String?
+  entityName String?
+
+  details   String? // JSON with additional context
+  ipAddress String?
+  userAgent String?
+
+  createdAt DateTime @default(now())
+
+  @@index([tenantId])
+  @@index([tenantId, userId])
+  @@index([tenantId, action])
+  @@index([createdAt])
+  @@map("activity_logs")
 }

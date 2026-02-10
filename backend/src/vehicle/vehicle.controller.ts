@@ -10,8 +10,12 @@ import {
     Request,
 } from '@nestjs/common';
 import { VehicleService } from './vehicle.service';
+import { CreateVehicleDto } from './dto/create-vehicle.dto';
+import { UpdateVehicleDto } from './dto/update-vehicle.dto';
+import { CreateBrandDto } from './dto/create-brand.dto';
+import { CreateModelDto } from './dto/create-model.dto';
+import { AddCostDto } from './dto/add-cost.dto';
 
-// Protected by global JwtAuthGuard - no need for @UseGuards
 @Controller('vehicles')
 export class VehicleController {
     constructor(private readonly vehicleService: VehicleService) { }
@@ -45,12 +49,12 @@ export class VehicleController {
     }
 
     @Post()
-    create(@Body() data: any, @Request() req) {
+    create(@Body() data: CreateVehicleDto, @Request() req) {
         return this.vehicleService.create(req.user.tenantId, data);
     }
 
     @Put(':id')
-    update(@Param('id') id: string, @Body() data: any, @Request() req) {
+    update(@Param('id') id: string, @Body() data: UpdateVehicleDto, @Request() req) {
         return this.vehicleService.update(id, req.user.tenantId, data);
     }
 
@@ -67,10 +71,7 @@ export class VehicleController {
     }
 
     @Post('brands')
-    createBrand(
-        @Body() body: { name: string; category: string },
-        @Request() req,
-    ) {
+    createBrand(@Body() body: CreateBrandDto, @Request() req) {
         return this.vehicleService.createBrand(
             req.user.tenantId,
             body.name,
@@ -79,10 +80,9 @@ export class VehicleController {
     }
 
     @Post('models')
-    createModel(
-        @Body() body: { brandId: string; name: string; variants?: string },
-    ) {
+    createModel(@Body() body: CreateModelDto, @Request() req) {
         return this.vehicleService.createModel(
+            req.user.tenantId,
             body.brandId,
             body.name,
             body.variants,
@@ -99,19 +99,14 @@ export class VehicleController {
     @Post(':id/costs')
     addCost(
         @Param('id') id: string,
-        @Body() data: {
-            costType: string;
-            amount: number;
-            description?: string;
-            date: Date;
-            receiptImage?: string;
-        },
+        @Body() data: AddCostDto,
+        @Request() req,
     ) {
-        return this.vehicleService.addCost(id, data);
+        return this.vehicleService.addCost(id, req.user.tenantId, data);
     }
 
     @Delete('costs/:costId')
-    deleteCost(@Param('costId') costId: string) {
-        return this.vehicleService.deleteCost(costId);
+    deleteCost(@Param('costId') costId: string, @Request() req) {
+        return this.vehicleService.deleteCost(costId, req.user.tenantId);
     }
 }

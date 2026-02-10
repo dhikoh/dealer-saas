@@ -1,4 +1,4 @@
-import { Controller, Post, Body, HttpCode, HttpStatus, Request } from '@nestjs/common';
+import { Controller, Post, Get, Put, Body, HttpCode, HttpStatus, Request } from '@nestjs/common';
 import { AuthService } from './auth.service';
 import { CreateAuthDto } from './dto/create-auth.dto';
 import { Public } from './public.decorator';
@@ -58,6 +58,7 @@ export class AuthController {
     });
   }
 
+
   // Protected: Requires authentication
   @HttpCode(HttpStatus.OK)
   @Post('change-password')
@@ -66,6 +67,21 @@ export class AuthController {
     @Request() req
   ) {
     return this.authService.changePassword(req.user.sub, body.currentPassword, body.newPassword);
+  }
+
+  // GET /auth/me - Get current user profile
+  @Get('me')
+  async getProfile(@Request() req) {
+    return this.authService.getProfile(req.user.sub || req.user.userId);
+  }
+
+  // PUT /auth/profile - Update current user profile
+  @Put('profile')
+  async updateProfile(
+    @Body() body: { name?: string; phone?: string; address?: string },
+    @Request() req
+  ) {
+    return this.authService.updateProfile(req.user.sub || req.user.userId, body);
   }
 
   // ==================== GOOGLE OAUTH ====================

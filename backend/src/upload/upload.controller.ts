@@ -9,9 +9,11 @@ import {
     Param,
     Request,
     BadRequestException,
+    NotFoundException,
 } from '@nestjs/common';
 import { FileInterceptor, FilesInterceptor } from '@nestjs/platform-express';
 import { UploadService } from './upload.service';
+import { PrismaService } from '../prisma/prisma.service';
 
 /**
  * Upload Controller
@@ -24,14 +26,17 @@ import { UploadService } from './upload.service';
  */
 @Controller('upload')
 export class UploadController {
-    constructor(private readonly uploadService: UploadService) { }
+    constructor(
+        private readonly uploadService: UploadService,
+        private readonly prisma: PrismaService,
+    ) { }
 
     /**
      * Upload single vehicle image
      */
     @Post('vehicle/:vehicleId')
     @UseInterceptors(FileInterceptor('image'))
-    uploadVehicleImage(
+    async uploadVehicleImage(
         @UploadedFile() file: Express.Multer.File,
         @Param('vehicleId') vehicleId: string,
         @Request() req: any,
@@ -39,9 +44,13 @@ export class UploadController {
         if (!file) {
             throw new BadRequestException('No file uploaded');
         }
-
-        req.uploadType = 'vehicles';
-
+        // SECURITY: Verify vehicle belongs to tenant
+        const vehicle = await this.prisma.vehicle.findFirst({
+            where: { id: vehicleId, tenantId: req.user.tenantId },
+        });
+        if (!vehicle) {
+            throw new NotFoundException('Kendaraan tidak ditemukan');
+        }
         return this.uploadService.processUpload(file as any, 'vehicles');
     }
 
@@ -50,7 +59,7 @@ export class UploadController {
      */
     @Post('vehicle/:vehicleId/multiple')
     @UseInterceptors(FilesInterceptor('images', 10))
-    uploadVehicleImages(
+    async uploadVehicleImages(
         @UploadedFiles() files: Express.Multer.File[],
         @Param('vehicleId') vehicleId: string,
         @Request() req: any,
@@ -58,7 +67,13 @@ export class UploadController {
         if (!files || files.length === 0) {
             throw new BadRequestException('No files uploaded');
         }
-
+        // SECURITY: Verify vehicle belongs to tenant
+        const vehicle = await this.prisma.vehicle.findFirst({
+            where: { id: vehicleId, tenantId: req.user.tenantId },
+        });
+        if (!vehicle) {
+            throw new NotFoundException('Kendaraan tidak ditemukan');
+        }
         return {
             success: true,
             files: this.uploadService.processMultipleUploads(files as any[], 'vehicles'),
@@ -70,7 +85,7 @@ export class UploadController {
      */
     @Post('customer/:customerId/:docType')
     @UseInterceptors(FileInterceptor('document'))
-    uploadCustomerDocument(
+    async uploadCustomerDocument(
         @UploadedFile() file: Express.Multer.File,
         @Param('customerId') customerId: string,
         @Param('docType') docType: string,
@@ -81,13 +96,16 @@ export class UploadController {
         if (!validDocTypes.includes(docType)) {
             throw new BadRequestException(`Invalid document type. Valid types: ${validDocTypes.join(', ')}`);
         }
-
         if (!file) {
             throw new BadRequestException('No file uploaded');
         }
-
-        req.uploadType = `customers/${customerId}`;
-
+        // SECURITY: Verify customer belongs to tenant
+        const customer = await this.prisma.customer.findFirst({
+            where: { id: customerId, tenantId: req.user.tenantId },
+        });
+        if (!customer) {
+            throw new NotFoundException('Customer tidak ditemukan');
+        }
         return this.uploadService.processUpload(file as any, `customers/${customerId}`);
     }
 

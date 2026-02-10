@@ -25,6 +25,10 @@ import { AnalyticsModule } from './analytics/analytics.module';
 import { configValidationSchema } from './config/config.validation';
 import { ScheduleModule } from '@nestjs/schedule';
 import { CleanupModule } from './cleanup/cleanup.module';
+import { SearchModule } from './search/search.module';
+import { ActivityLogModule } from './activity-log/activity-log.module';
+import { ExportModule } from './export/export.module';
+import { ReportModule } from './report/report.module';
 
 @Module({
   imports: [
@@ -58,6 +62,10 @@ import { CleanupModule } from './cleanup/cleanup.module';
     HealthModule,
     UploadModule,
     AnalyticsModule,
+    SearchModule,
+    ActivityLogModule,
+    ExportModule,
+    ReportModule,
     ScheduleModule.forRoot(), // Cron job support
     CleanupModule, // Auto-delete inactive tenants
   ],

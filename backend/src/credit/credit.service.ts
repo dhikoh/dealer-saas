@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { Decimal } from '@prisma/client/runtime/library';
 
@@ -78,8 +78,9 @@ export class CreditService {
         });
     }
 
-    async findOne(id: string) {
-        return this.prisma.credit.findUnique({
+    async findOne(id: string, tenantId: string) {
+        // SECURITY: Verify credit belongs to tenant via transaction chain
+        const credit = await this.prisma.credit.findUnique({
             where: { id },
             include: {
                 transaction: {
@@ -93,6 +94,12 @@ export class CreditService {
                 },
             },
         });
+
+        if (!credit || credit.transaction.tenantId !== tenantId) {
+            throw new NotFoundException('Data kredit tidak ditemukan');
+        }
+
+        return credit;
     }
 
     async create(transactionId: string, data: {
@@ -114,7 +121,15 @@ export class CreditService {
         });
     }
 
-    async addPayment(creditId: string, month: number, amount: number, paidAt: Date, status: string = 'PAID') {
+    async addPayment(creditId: string, tenantId: string, month: number, amount: number, paidAt: Date, status: string = 'PAID') {
+        // SECURITY: Verify credit → transaction → tenant chain
+        const credit = await this.prisma.credit.findUnique({
+            where: { id: creditId },
+            include: { transaction: { select: { tenantId: true } } },
+        });
+        if (!credit || credit.transaction.tenantId !== tenantId) {
+            throw new NotFoundException('Data kredit tidak ditemukan');
+        }
         return this.prisma.creditPayment.create({
             data: {
                 creditId,

@@ -8,8 +8,9 @@ import {
     Request,
 } from '@nestjs/common';
 import { CreditService } from './credit.service';
+import { CreateCreditDto } from './dto/create-credit.dto';
+import { AddPaymentDto } from './dto/add-payment.dto';
 
-// Protected by global JwtAuthGuard
 @Controller('credit')
 export class CreditController {
     constructor(private readonly creditService: CreditService) { }
@@ -57,34 +58,24 @@ export class CreditController {
     }
 
     @Get(':id')
-    findOne(@Param('id') id: string) {
-        return this.creditService.findOne(id);
+    findOne(@Param('id') id: string, @Request() req) {
+        return this.creditService.findOne(id, req.user.tenantId);
     }
 
     @Post()
-    create(@Body() data: {
-        transactionId: string;
-        downPayment: number;
-        totalAmount: number;
-        interestRate: number;
-        tenorMonths: number;
-        monthlyPayment: number;
-    }) {
+    create(@Body() data: CreateCreditDto) {
         return this.creditService.create(data.transactionId, data);
     }
 
     @Post(':id/payments')
     addPayment(
         @Param('id') creditId: string,
-        @Body() data: {
-            month: number;
-            amount: number;
-            paidAt: string;
-            status?: string;
-        },
+        @Body() data: AddPaymentDto,
+        @Request() req,
     ) {
         return this.creditService.addPayment(
             creditId,
+            req.user.tenantId,
             data.month,
             data.amount,
             new Date(data.paidAt),
