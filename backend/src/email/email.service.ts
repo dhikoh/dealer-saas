@@ -86,4 +86,46 @@ export class EmailService {
             this.logger.log(`[SIMULATION] Email to ${to}, OTP: ${otp}`);
         }
     }
+
+    async sendResetPasswordEmail(to: string, resetLink: string) {
+        const subject = 'Reset Password OTOHUB';
+        const html = `
+      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; border: 1px solid #e0e0e0; border-radius: 8px; overflow: hidden;">
+        <div style="background-color: #00bfa5; padding: 20px; text-align: center;">
+          <h1 style="color: white; margin: 0;">OTOHUB</h1>
+        </div>
+        <div style="padding: 30px; background-color: #ffffff;">
+          <h2 style="color: #333; margin-top: 0;">Reset Password</h2>
+          <p style="color: #666; line-height: 1.6;">Halo,</p>
+          <p style="color: #666; line-height: 1.6;">Kami menerima permintaan untuk mereset password akun OTOHUB Anda. Klik tombol di bawah untuk membuat password baru:</p>
+          
+          <div style="text-align: center; margin: 25px 0;">
+            <a href="${resetLink}" style="display: inline-block; background-color: #00bfa5; color: white; padding: 14px 32px; text-decoration: none; border-radius: 8px; font-weight: bold; font-size: 16px;">Reset Password</a>
+          </div>
+          
+          <p style="color: #999; font-size: 12px; margin-top: 30px;">Link ini berlaku selama 30 menit. Jika Anda tidak merasa meminta reset password, abaikan email ini.</p>
+          <p style="color: #999; font-size: 12px;">Atau salin link berikut ke browser: <br/><span style="color: #00bfa5;">${resetLink}</span></p>
+        </div>
+        <div style="background-color: #f9f9f9; padding: 15px; text-align: center; font-size: 12px; color: #999;">
+          &copy; ${new Date().getFullYear()} OTOHUB Smart System
+        </div>
+      </div>
+    `;
+
+        if (this.transporter) {
+            try {
+                const info = await this.transporter.sendMail({
+                    from: `"OTOHUB System" <${process.env.SMTP_USER || 'no-reply@otohub.com'}>`,
+                    to,
+                    subject,
+                    html,
+                });
+                this.logger.log(`Reset password email sent: ${info.messageId}`);
+            } catch (error) {
+                this.logger.error('Failed to send reset password email:', error);
+            }
+        } else {
+            this.logger.log(`[SIMULATION] Reset password email to ${to}, link: ${resetLink}`);
+        }
+    }
 }

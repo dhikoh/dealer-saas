@@ -4,6 +4,8 @@ import { PrismaService } from '../prisma/prisma.service';
 import { CreateAuthDto } from './dto/create-auth.dto';
 import * as bcrypt from 'bcrypt';
 import { EmailService } from '../email/email.service';
+import { HttpService } from '@nestjs/axios';
+import { randomBytes } from 'crypto';
 
 @Injectable()
 export class AuthService {
@@ -11,6 +13,7 @@ export class AuthService {
     private prisma: PrismaService,
     private jwtService: JwtService,
     private emailService: EmailService,
+    private httpService: HttpService,
   ) { }
 
   async register(createAuthDto: CreateAuthDto, tenantId?: string) {
@@ -321,6 +324,167 @@ export class AuthService {
         onboardingCompleted: user.onboardingCompleted
       },
     };
+  }
+
+  // ==================== GOOGLE OAUTH ====================
+
+  async googleLogin(credential: string) {
+    // Verify Google ID token
+    let googlePayload: any;
+    try {
+      const response = await this.httpService.axiosRef.get(
+        `https://oauth2.googleapis.com/tokeninfo?id_token=${credential}`
+      );
+      googlePayload = response.data;
+    } catch (error) {
+      throw new UnauthorizedException('Token Google tidak valid');
+    }
+
+    const { email, name, sub: googleId, email_verified } = googlePayload;
+
+    if (!email_verified) {
+      throw new BadRequestException('Email Google belum diverifikasi');
+    }
+
+    const normalizedEmail = email.toLowerCase();
+
+    // Check if user already exists (by googleId or email)
+    let user = await this.prisma.user.findFirst({
+      where: {
+        OR: [
+          { googleId },
+          { email: normalizedEmail },
+        ]
+      },
+      include: { tenant: true },
+    });
+
+    if (user) {
+      // Existing user — update googleId if not set, then login
+      if (!user.googleId) {
+        await this.prisma.user.update({
+          where: { id: user.id },
+          data: { googleId, isOauth: true },
+        });
+      }
+
+      // Check tenant status (same as normal login)
+      if (user.tenant && user.tenant.subscriptionStatus === 'SUSPENDED') {
+        throw new ForbiddenException('Akun dealer Anda telah dinonaktifkan.');
+      }
+      if (user.tenant && user.tenant.subscriptionStatus === 'CANCELLED') {
+        throw new ForbiddenException('Langganan dealer Anda telah dibatalkan.');
+      }
+
+      return this.createToken(user);
+    }
+
+    // New user — create account + tenant (same as register flow)
+    const username = normalizedEmail.split('@')[0] + '-' + Math.floor(Math.random() * 1000);
+    const trialEndsAt = new Date(Date.now() + 14 * 24 * 60 * 60 * 1000); // 14 days
+
+    const newTenant = await this.prisma.tenant.create({
+      data: {
+        name: `${name || username}'s Dealership`,
+        slug: username.replace(/[^a-z0-9-]/g, '-'),
+        planTier: 'DEMO',
+        subscriptionStatus: 'TRIAL',
+        trialEndsAt,
+      },
+    });
+
+    // Generate a random password (user can set one later via Settings)
+    const randomPassword = randomBytes(16).toString('hex');
+    const hashedPassword = await bcrypt.hash(randomPassword, 10);
+
+    const newUser = await this.prisma.user.create({
+      data: {
+        email: normalizedEmail,
+        username,
+        password: hashedPassword,
+        name: name || username,
+        role: 'OWNER',
+        tenantId: newTenant.id,
+        isVerified: true, // Google already verified email
+        onboardingCompleted: false,
+        isOauth: true,
+        googleId,
+      },
+      include: { tenant: true },
+    });
+
+    return this.createToken(newUser);
+  }
+
+  // ==================== FORGOT PASSWORD ====================
+
+  async forgotPassword(email: string) {
+    const normalizedEmail = email.toLowerCase();
+
+    const user = await this.prisma.user.findUnique({
+      where: { email: normalizedEmail },
+    });
+
+    // Always return success to prevent email enumeration
+    if (!user) {
+      return { success: true, message: 'Jika email terdaftar, link reset password telah dikirim.' };
+    }
+
+    // Generate reset token (random + expire 30 minutes)
+    const resetToken = randomBytes(32).toString('hex');
+    const resetExpires = new Date(Date.now() + 30 * 60 * 1000); // 30 minutes
+
+    await this.prisma.user.update({
+      where: { id: user.id },
+      data: {
+        resetPasswordToken: resetToken,
+        resetPasswordExpires: resetExpires,
+      },
+    });
+
+    // Build reset link
+    const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:3000';
+    const resetLink = `${frontendUrl}/auth/reset-password/${resetToken}`;
+
+    await this.emailService.sendResetPasswordEmail(normalizedEmail, resetLink);
+
+    return { success: true, message: 'Jika email terdaftar, link reset password telah dikirim.' };
+  }
+
+  // ==================== RESET PASSWORD ====================
+
+  async resetPassword(token: string, newPassword: string) {
+    if (!token || token.length < 10) {
+      throw new BadRequestException('Token tidak valid');
+    }
+
+    if (!newPassword || newPassword.length < 6) {
+      throw new BadRequestException('Password baru minimal 6 karakter');
+    }
+
+    const user = await this.prisma.user.findFirst({
+      where: {
+        resetPasswordToken: token,
+        resetPasswordExpires: { gt: new Date() }, // Token not expired
+      },
+    });
+
+    if (!user) {
+      throw new BadRequestException('Token tidak valid atau sudah kadaluarsa');
+    }
+
+    const hashedPassword = await bcrypt.hash(newPassword, 10);
+
+    await this.prisma.user.update({
+      where: { id: user.id },
+      data: {
+        password: hashedPassword,
+        resetPasswordToken: null,
+        resetPasswordExpires: null,
+      },
+    });
+
+    return { success: true, message: 'Password berhasil direset. Silakan login dengan password baru.' };
   }
 
   async changePassword(userId: string, currentPassword: string, newPassword: string) {

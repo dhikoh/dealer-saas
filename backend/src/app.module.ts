@@ -23,6 +23,8 @@ import { HealthModule } from './health/health.module';
 import { UploadModule } from './upload/upload.module';
 import { AnalyticsModule } from './analytics/analytics.module';
 import { configValidationSchema } from './config/config.validation';
+import { ScheduleModule } from '@nestjs/schedule';
+import { CleanupModule } from './cleanup/cleanup.module';
 
 @Module({
   imports: [
@@ -56,6 +58,8 @@ import { configValidationSchema } from './config/config.validation';
     HealthModule,
     UploadModule,
     AnalyticsModule,
+    ScheduleModule.forRoot(), // Cron job support
+    CleanupModule, // Auto-delete inactive tenants
   ],
   controllers: [AppController],
   providers: [

@@ -27,6 +27,10 @@ model Tenant {
   monthlyBill        Decimal? @default(0)
   autoRenew          Boolean  @default(true)
   
+  // AUTO-CLEANUP
+  scheduledDeletionAt DateTime?     // When tenant will be auto-deleted
+  deletedAt          DateTime?     // Soft delete timestamp
+  
   // CONTACT
   address            String?
   phone              String?
@@ -60,6 +64,14 @@ model User {
   email    String @unique
   password String
   role     String @default("STAFF") // OWNER, STAFF, SUPERADMIN
+
+  // OAUTH
+  isOauth              Boolean   @default(false)
+  googleId             String?   @unique
+
+  // PASSWORD RESET
+  resetPasswordToken   String?
+  resetPasswordExpires DateTime?
 
   // PROFILE
   phone     String?

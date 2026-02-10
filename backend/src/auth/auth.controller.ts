@@ -67,5 +67,28 @@ export class AuthController {
   ) {
     return this.authService.changePassword(req.user.sub, body.currentPassword, body.newPassword);
   }
+
+  // ==================== GOOGLE OAUTH ====================
+  @Public()
+  @HttpCode(HttpStatus.OK)
+  @Post('google')
+  async googleLogin(@Body() body: { credential: string }) {
+    return this.authService.googleLogin(body.credential);
+  }
+
+  // ==================== FORGOT / RESET PASSWORD ====================
+  @Public()
+  @HttpCode(HttpStatus.OK)
+  @Post('forgot-password')
+  async forgotPassword(@Body() body: { email: string }) {
+    return this.authService.forgotPassword(body.email);
+  }
+
+  @Public()
+  @HttpCode(HttpStatus.OK)
+  @Post('reset-password')
+  async resetPassword(@Body() body: { token: string; newPassword: string }) {
+    return this.authService.resetPassword(body.token, body.newPassword);
+  }
 }
 

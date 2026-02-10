@@ -84,6 +84,7 @@ export class BillingService {
                 subscriptionStatus: 'PENDING_PAYMENT',
                 monthlyBill: newPlan.price,
                 nextBillingDate: subscriptionEndsAt,
+                scheduledDeletionAt: null, // Cancel auto-deletion timer
             }
         });
 
@@ -190,6 +191,7 @@ export class BillingService {
                     subscriptionStartedAt: now,
                     subscriptionEndsAt,
                     nextBillingDate: subscriptionEndsAt,
+                    scheduledDeletionAt: null, // Cancel auto-deletion timer
                 }
             });
 
