@@ -76,6 +76,12 @@ interface Vehicle {
         profitMargin: number;
         profitPercentage: string;
     };
+    tenant?: {
+        id: string;
+        name: string;
+        phone?: string;
+        address?: string;
+    };
 }
 
 interface VehicleCost {
@@ -92,7 +98,9 @@ export default function InventoryPage() {
     const { t, language } = useLanguage();
     const { fmt } = useCurrency();
     const [vehicles, setVehicles] = useState<Vehicle[]>([]);
+    const [groupVehicles, setGroupVehicles] = useState<Vehicle[]>([]); // GROUP STOCK STATE
     const [loading, setLoading] = useState(true);
+    const [groupLoading, setGroupLoading] = useState(false);
 
     const getLabel = (key: string) => {
         const labels: Record<string, Record<string, string>> = {
@@ -101,6 +109,11 @@ export default function InventoryPage() {
             vehiclesCount: { id: 'kendaraan', en: 'vehicles' },
             unit: { id: 'Unit', en: 'Unit' },
             transferStock: { id: 'Transfer Stok', en: 'Transfer Stock' },
+            groupStock: { id: 'Stok Grup', en: 'Group Stock' }, // NEW
+            dealer: { id: 'Dealer', en: 'Dealer' }, // NEW
+            copyUnit: { id: 'Salin Unit', en: 'Copy Unit' }, // NEW
+            copyConfirm: { id: 'Salin kendaraan ini ke inventaris Anda?', en: 'Copy this vehicle to your inventory?' }, // NEW
+            copySuccess: { id: 'Kendaraan berhasil disalin', en: 'Vehicle copied successfully' }, // NEW
             searchPlaceholder: { id: 'Cari merk, model, atau plat...', en: 'Search make, model, or plate...' },
             all: { id: 'Semua', en: 'All' },
             available: { id: 'Tersedia', en: 'Available' },
@@ -190,13 +203,15 @@ export default function InventoryPage() {
     const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
     const [deleteTarget, setDeleteTarget] = useState<Vehicle | null>(null);
     const [editingVehicle, setEditingVehicle] = useState<Vehicle | null>(null);
+    const [showCopyConfirm, setShowCopyConfirm] = useState(false); // New state
+    const [copyTarget, setCopyTarget] = useState<Vehicle | null>(null); // New state
 
     // Transfer Modal State
     const [showTransferModal, setShowTransferModal] = useState(false);
     const [transferVehicle, setTransferVehicle] = useState<Vehicle | null>(null);
 
-    // Page-level tab: INVENTORY or TRANSFERS
-    const [pageTab, setPageTab] = useState<'INVENTORY' | 'TRANSFERS'>('INVENTORY');
+    // Page-level tab: INVENTORY, TRANSFERS, GROUP
+    const [pageTab, setPageTab] = useState<'INVENTORY' | 'TRANSFERS' | 'GROUP'>('INVENTORY');
 
     // Image/Document state for vehicle modal
     const [vehicleImages, setVehicleImages] = useState<string[]>([]);
@@ -293,13 +308,61 @@ export default function InventoryPage() {
         setEditingVehicle(null);
     };
 
+    const fetchGroupVehicles = async () => {
+        const token = getToken();
+        if (!token) return;
+        setGroupLoading(true);
+
+        try {
+            const res = await fetch(`${API_URL}/vehicles/group/stock`, {
+                headers: { Authorization: `Bearer ${token}` },
+            });
+            if (res.ok) {
+                setGroupVehicles(await res.json());
+            } else {
+                setGroupVehicles([]);
+            }
+        } catch (error) {
+            console.error('Failed to fetch group vehicles:', error);
+        } finally {
+            setGroupLoading(false);
+        }
+    };
+
+    const handleCopyVehicle = async () => {
+        const token = getToken();
+        if (!token || !copyTarget) return;
+
+        try {
+            const res = await fetch(`${API_URL}/vehicles/copy/${copyTarget.id}`, {
+                method: 'POST',
+                headers: { Authorization: `Bearer ${token}` },
+            });
+
+            if (res.ok) {
+                toast.success(getLabel('copySuccess'));
+                setShowCopyConfirm(false);
+                setCopyTarget(null);
+                setPageTab('INVENTORY');
+                fetchVehicles();
+            } else {
+                const err = await res.json();
+                toast.error(err.message || 'Gagal menyalin kendaraan');
+            }
+        } catch (error) {
+            toast.error('Gagal menyalin kendaraan');
+        }
+    };
+
     useEffect(() => {
-        fetchVehicles();
-    }, []);;
+        if (pageTab === 'INVENTORY') fetchVehicles();
+        if (pageTab === 'GROUP') fetchGroupVehicles();
+    }, [pageTab]);
 
     const fetchVehicles = async () => {
         const token = getToken();
         if (!token) return;
+        setLoading(true);
 
         try {
             const res = await fetch(`${API_URL}/vehicles`, {
@@ -402,8 +465,8 @@ export default function InventoryPage() {
                     price: parseFloat(vehicleForm.price),
                     purchasePrice: vehicleForm.purchasePrice ? parseFloat(vehicleForm.purchasePrice) : undefined,
                     year: Number(vehicleForm.year),
-                    images: JSON.stringify(vehicleImages), // Send images
-                    ...vehicleDocs, // Send document URLs
+                    images: JSON.stringify(vehicleImages),
+                    ...vehicleDocs,
                 }),
             });
 
@@ -447,10 +510,13 @@ export default function InventoryPage() {
     };
 
     const filteredData = vehicles.filter(item => {
-
         const searchMatch = `${item.make} ${item.model} ${item.licensePlate || ''}`.toLowerCase().includes(searchTerm.toLowerCase());
         const statusMatch = filterStatus === 'all' || item.status.toLowerCase() === filterStatus;
         return searchMatch && statusMatch;
+    });
+
+    const filteredGroupData = groupVehicles.filter(item => {
+        return `${item.make} ${item.model} ${item.licensePlate || ''}`.toLowerCase().includes(searchTerm.toLowerCase());
     });
 
     const getStatusBadge = (status: string) => {
@@ -492,7 +558,7 @@ export default function InventoryPage() {
         return new Date(expiry) < new Date();
     };
 
-    if (loading) {
+    if (loading && pageTab === 'INVENTORY') {
         return (
             <div className="flex items-center justify-center min-h-[400px]">
                 <FontAwesomeIcon icon={faSpinner} className="w-8 h-8 text-[#00bfa5] animate-spin" />
@@ -506,7 +572,9 @@ export default function InventoryPage() {
             <div className="flex items-center justify-between mb-6">
                 <div>
                     <h1 className="text-2xl font-bold text-gray-800">{getLabel('inventoryTitle')}</h1>
-                    <p className="text-sm text-gray-500 mt-1">{vehicles.length} {getLabel('vehiclesCount')}</p>
+                    <p className="text-sm text-gray-500 mt-1">
+                        {pageTab === 'GROUP' ? `${groupVehicles.length} ${getLabel('groupStock')}` : `${vehicles.length} ${getLabel('vehiclesCount')}`}
+                    </p>
                 </div>
                 {pageTab === 'INVENTORY' && (
                     <button
@@ -532,6 +600,16 @@ export default function InventoryPage() {
                     {getLabel('unit')}
                 </button>
                 <button
+                    onClick={() => setPageTab('GROUP')}
+                    className={`px-5 py-2.5 rounded-xl text-sm font-medium transition-all flex items-center gap-2 ${pageTab === 'GROUP'
+                        ? 'bg-[#00bfa5] text-white shadow-lg'
+                        : 'bg-[#ecf0f3] text-gray-600 shadow-[3px_3px_6px_#cbced1,-3px_-3px_6px_#ffffff] hover:text-[#00bfa5]'
+                        }`}
+                >
+                    <FontAwesomeIcon icon={faExchangeAlt} />
+                    {getLabel('groupStock')}
+                </button>
+                <button
                     onClick={() => setPageTab('TRANSFERS')}
                     className={`px-5 py-2.5 rounded-xl text-sm font-medium transition-all flex items-center gap-2 ${pageTab === 'TRANSFERS'
                         ? 'bg-[#00bfa5] text-white shadow-lg'
@@ -545,6 +623,127 @@ export default function InventoryPage() {
 
             {/* TRANSFERS TAB CONTENT */}
             {pageTab === 'TRANSFERS' && <IncomingTransfers />}
+
+            {/* ==================== GROUP STOCK TAB ==================== */}
+            {pageTab === 'GROUP' && (
+                <div>
+                    {/* Search for Group Stock */}
+                    <div className="relative mb-6">
+                        <input
+                            type="text"
+                            value={searchTerm}
+                            onChange={(e) => setSearchTerm(e.target.value)}
+                            placeholder={getLabel('searchPlaceholder')}
+                            className="w-full bg-[#ecf0f3] h-12 pl-12 pr-4 rounded-xl text-sm text-gray-600 outline-none shadow-[inset_2px_2px_5px_#cbced1,inset_-2px_-2px_5px_#ffffff] focus:ring-2 focus:ring-[#00bfa5] transition-all"
+                        />
+                        <FontAwesomeIcon icon={faSearch} className="absolute left-4 top-1/2 transform -translate-y-1/2 text-gray-400" />
+                    </div>
+
+                    {groupLoading ? (
+                        <div className="flex items-center justify-center min-h-[300px]">
+                            <FontAwesomeIcon icon={faSpinner} className="w-8 h-8 text-[#00bfa5] animate-spin" />
+                        </div>
+                    ) : filteredGroupData.length === 0 ? (
+                        <div className="p-12 text-center flex flex-col items-center justify-center min-h-[300px] bg-[#ecf0f3] rounded-2xl shadow-[9px_9px_16px_#cbced1,-9px_-9px_16px_#ffffff]">
+                            <div className="w-24 h-24 bg-gray-200 rounded-full flex items-center justify-center mb-6 shadow-inner">
+                                <FontAwesomeIcon icon={faExchangeAlt} className="text-5xl text-gray-400" />
+                            </div>
+                            <h3 className="text-xl font-bold text-gray-700 mb-2">
+                                {language === 'id' ? 'Tidak Ada Stok Grup' : 'No Group Stock'}
+                            </h3>
+                            <p className="text-gray-500 max-w-sm mx-auto">
+                                {language === 'id'
+                                    ? 'Bergabung ke Dealer Group terlebih dahulu untuk melihat stok dari dealer lain dalam grup Anda.'
+                                    : 'Join a Dealer Group first to see stock from other dealers in your group.'}
+                            </p>
+                        </div>
+                    ) : (
+                        <div className="bg-[#ecf0f3] rounded-2xl shadow-[9px_9px_16px_#cbced1,-9px_-9px_16px_#ffffff] overflow-hidden">
+                            <div className="overflow-x-auto">
+                                <table className="w-full">
+                                    <thead>
+                                        <tr className="bg-[#e0e4e8]">
+                                            <th className="px-6 py-4 text-left text-xs font-bold text-gray-600 uppercase">{getLabel('vehicle')}</th>
+                                            <th className="px-6 py-4 text-left text-xs font-bold text-gray-600 uppercase">{getLabel('dealer')}</th>
+                                            <th className="px-6 py-4 text-left text-xs font-bold text-gray-600 uppercase">{getLabel('sellingPrice')}</th>
+                                            <th className="px-6 py-4 text-left text-xs font-bold text-gray-600 uppercase">{getLabel('year')}</th>
+                                            <th className="px-6 py-4 text-left text-xs font-bold text-gray-600 uppercase">{getLabel('color')}</th>
+                                            <th className="px-6 py-4 text-center text-xs font-bold text-gray-600 uppercase">{getLabel('action')}</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody className="divide-y divide-gray-200">
+                                        {filteredGroupData.map((item) => (
+                                            <tr key={item.id} className="hover:bg-[#e8ecef] transition-colors">
+                                                <td className="px-6 py-4">
+                                                    <div className="flex items-center gap-3">
+                                                        <div className="w-10 h-10 rounded-lg bg-[#ecf0f3] shadow-[inset_2px_2px_5px_#cbced1,inset_-2px_-2px_5px_#ffffff] flex items-center justify-center text-[#00bfa5]">
+                                                            <FontAwesomeIcon icon={item.category === 'CAR' ? faCar : faMotorcycle} />
+                                                        </div>
+                                                        <div>
+                                                            <span className="font-semibold text-gray-700">{item.make} {item.model}</span>
+                                                            <div className="text-xs text-gray-400">{item.variant || ''} {item.licensePlate ? `• ${item.licensePlate}` : ''}</div>
+                                                        </div>
+                                                    </div>
+                                                </td>
+                                                <td className="px-6 py-4">
+                                                    <div className="font-medium text-gray-700">{item.tenant?.name || '-'}</div>
+                                                    <div className="text-xs text-gray-400">{item.tenant?.phone || ''}</div>
+                                                </td>
+                                                <td className="px-6 py-4 text-gray-700 font-semibold">{fmt(Number(item.price))}</td>
+                                                <td className="px-6 py-4 text-gray-600">{item.year}</td>
+                                                <td className="px-6 py-4 text-gray-600">{item.color}</td>
+                                                <td className="px-6 py-4">
+                                                    <div className="flex items-center justify-center">
+                                                        <button
+                                                            onClick={() => {
+                                                                setCopyTarget(item);
+                                                                setShowCopyConfirm(true);
+                                                            }}
+                                                            className="px-4 py-2 rounded-xl bg-[#00bfa5] text-white text-xs font-medium shadow-lg hover:bg-[#00a891] transition-all flex items-center gap-2"
+                                                        >
+                                                            <FontAwesomeIcon icon={faPlus} />
+                                                            {getLabel('copyUnit')}
+                                                        </button>
+                                                    </div>
+                                                </td>
+                                            </tr>
+                                        ))}
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    )}
+                </div>
+            )}
+
+            {/* Copy Confirmation Modal */}
+            {showCopyConfirm && copyTarget && (
+                <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+                    <div className="bg-[#ecf0f3] rounded-2xl shadow-xl max-w-sm w-full p-6">
+                        <div className="text-center">
+                            <div className="w-16 h-16 rounded-full bg-teal-100 flex items-center justify-center mx-auto mb-4">
+                                <FontAwesomeIcon icon={faExchangeAlt} className="text-teal-600 text-2xl" />
+                            </div>
+                            <h3 className="text-lg font-bold text-gray-800 mb-2">{getLabel('copyUnit')}</h3>
+                            <p className="text-gray-500 mb-1">
+                                {getLabel('copyConfirm')}
+                            </p>
+                            <p className="font-semibold text-gray-700 mb-1">{copyTarget.make} {copyTarget.model} ({copyTarget.year})</p>
+                            <p className="text-sm text-gray-400 mb-6">
+                                {language === 'id' ? 'Dari' : 'From'}: {copyTarget.tenant?.name || '-'}
+                            </p>
+                            <div className="flex gap-3">
+                                <button onClick={() => { setShowCopyConfirm(false); setCopyTarget(null); }} className="flex-1 py-3 rounded-xl bg-[#ecf0f3] text-gray-600 font-medium shadow-[3px_3px_6px_#cbced1,-3px_-3px_6px_#ffffff]">
+                                    {getLabel('cancel')}
+                                </button>
+                                <button onClick={handleCopyVehicle} className="flex-1 py-3 rounded-xl bg-[#00bfa5] text-white font-medium shadow-lg hover:bg-[#00a891] transition-all">
+                                    {getLabel('copyUnit')}
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            )}
 
             {/* INVENTORY TAB CONTENT */}
             {pageTab === 'INVENTORY' && (<>

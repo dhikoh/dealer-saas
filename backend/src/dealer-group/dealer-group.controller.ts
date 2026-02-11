@@ -1,4 +1,5 @@
-import { Controller, Post, Body, Get, UseGuards, Request, Delete } from '@nestjs/common';
+
+import { Controller, Post, Body, Get, UseGuards, Request } from '@nestjs/common';
 import { DealerGroupService } from './dealer-group.service';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 
@@ -7,27 +8,23 @@ import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 export class DealerGroupController {
     constructor(private readonly dealerGroupService: DealerGroupService) { }
 
-    @Post('create')
-    create(@Request() req, @Body('name') name: string) {
-        const tenantId = req.user.tenantId;
-        return this.dealerGroupService.createGroup(tenantId, name);
+    @Post()
+    async create(@Request() req, @Body('name') name: string) {
+        return this.dealerGroupService.createGroup(req.user.id, name);
     }
 
     @Post('join')
-    join(@Request() req, @Body('code') code: string) {
-        const tenantId = req.user.tenantId;
-        return this.dealerGroupService.joinGroup(tenantId, code);
+    async join(@Request() req, @Body('code') code: string) {
+        return this.dealerGroupService.joinGroup(req.user.tenantId, code);
     }
 
-    @Get('my')
-    getMyGroup(@Request() req) {
-        const tenantId = req.user.tenantId;
-        return this.dealerGroupService.getMyGroup(tenantId);
+    @Get('my-group')
+    async getMyGroup(@Request() req) {
+        return this.dealerGroupService.getMyGroup(req.user.id);
     }
 
-    @Delete('leave')
-    leave(@Request() req) {
-        const tenantId = req.user.tenantId;
-        return this.dealerGroupService.leaveGroup(tenantId);
+    @Post('kick')
+    async kickMember(@Request() req, @Body('memberTenantId') memberTenantId: string) {
+        return this.dealerGroupService.removeMember(req.user.id, memberTenantId);
     }
 }

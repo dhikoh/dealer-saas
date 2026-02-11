@@ -43,6 +43,25 @@ export class VehicleController {
         return this.vehicleService.getStats(req.user.tenantId);
     }
 
+    // ==================== DEALER GROUP FEATURES ====================
+    // IMPORTANT: These static routes MUST be above @Get(':id') to prevent
+    // NestJS from matching 'group' or 'copy' as a dynamic :id parameter.
+
+    @Get('group/stock')
+    findGroupStock(
+        @Request() req,
+        @Query('category') category?: string,
+    ) {
+        return this.vehicleService.findGroupStock(req.user.tenantId, { category });
+    }
+
+    @Post('copy/:id')
+    copyVehicle(@Param('id') id: string, @Request() req) {
+        return this.vehicleService.copyVehicle(req.user.tenantId, id);
+    }
+
+    // ==================== VEHICLE CRUD (Parameterized) ====================
+
     @Get(':id')
     findOne(@Param('id') id: string, @Request() req) {
         return this.vehicleService.findOne(id, req.user.tenantId);

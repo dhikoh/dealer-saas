@@ -1,10 +1,11 @@
 'use client';
 
 import React, { useEffect, useState } from 'react';
-import { Save, Building2, Phone, Mail, MapPin, AlertCircle, CheckCircle, Lock, Bell, Key, Eye, EyeOff, Globe, DollarSign } from 'lucide-react';
+import { Save, Building2, Phone, Mail, MapPin, AlertCircle, CheckCircle, Lock, Bell, Key, Eye, EyeOff, Globe, DollarSign, Users } from 'lucide-react';
 import { toast } from 'sonner';
 import { useLanguage } from '@/hooks/useLanguage';
 import { useCurrency } from '@/hooks/useCurrency';
+import GroupManagement from '@/components/settings/GroupManagement';
 
 interface TenantProfile {
     id: string;
@@ -27,6 +28,7 @@ export default function SettingsPage() {
         { id: 'profile', name: t.companyProfile, icon: Building2 },
         { id: 'security', name: t.changePassword, icon: Lock },
         { id: 'notifications', name: t.notificationPrefs, icon: Bell },
+        { id: 'dealer-group', name: t.dealerGroup, icon: Users },
     ];
 
     const [activeTab, setActiveTab] = useState('profile');
@@ -422,6 +424,7 @@ export default function SettingsPage() {
                 {/* Notifications Tab */}
                 {activeTab === 'notifications' && (
                     <div className="space-y-5">
+                        {/* ... existing notification content ... */}
                         <div className="flex items-center gap-3 mb-6">
                             <div className="w-12 h-12 rounded-xl bg-[#ecf0f3] shadow-[3px_3px_6px_#cbced1,-3px_-3px_6px_#ffffff] flex items-center justify-center">
                                 <Bell className="w-6 h-6 text-[#00bfa5]" />
@@ -477,6 +480,24 @@ export default function SettingsPage() {
                                 {t.saveSettings}
                             </button>
                         </div>
+                    </div>
+                )}
+
+                {/* Dealer Group Tab */}
+                {activeTab === 'dealer-group' && (
+                    <div className="space-y-5">
+                        <div className="flex items-center gap-3 mb-6">
+                            <div className="w-12 h-12 rounded-xl bg-[#ecf0f3] shadow-[3px_3px_6px_#cbced1,-3px_-3px_6px_#ffffff] flex items-center justify-center">
+                                <Users className="w-6 h-6 text-[#00bfa5]" />
+                            </div>
+                            <div>
+                                <h2 className="text-lg font-semibold text-gray-800">{t.dealerGroup}</h2>
+                                <p className="text-sm text-gray-500">
+                                    Kelola grup dealer Anda atau bergabung dengan grup yang sudah ada.
+                                </p>
+                            </div>
+                        </div>
+                        <GroupManagement />
                     </div>
                 )}
             </div>

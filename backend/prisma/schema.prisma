@@ -14,24 +14,32 @@ datasource db {
 
 // ==================== TENANT & USER ====================
 
+// ... existing code ...
+
+// ==================== TENANT & USER ====================
+
 model Tenant {
   id                 String   @id @default(uuid())
   name               String
   slug               String   @unique
   
-  // SUBSCRIPTION
-  planTier           String   @default("DEMO") // DEMO, BASIC, PRO, UNLIMITED
+  // SUBSCRIPTION (v2.1 Dynamic Plans)
+  planId             String?  // Link to Plan Table
+  plan               Plan?    @relation(fields: [planId], references: [id])
+  
+  // Legacy fields (will be migrated)
+  planTier           String   @default("DEMO") 
   subscriptionStatus String   @default("ACTIVE") // ACTIVE, TRIAL, SUSPENDED, CANCELLED
-  trialEndsAt        DateTime? // When trial period ends
-  subscriptionStartedAt DateTime? // When paid subscription started
-  subscriptionEndsAt DateTime? // When current billing period ends
+  trialEndsAt        DateTime?
+  subscriptionStartedAt DateTime?
+  subscriptionEndsAt DateTime?
   nextBillingDate    DateTime?
   monthlyBill        Decimal? @default(0)
   autoRenew          Boolean  @default(true)
   
   // AUTO-CLEANUP
-  scheduledDeletionAt DateTime?     // When tenant will be auto-deleted
-  deletedAt          DateTime?     // Soft delete timestamp
+  scheduledDeletionAt DateTime?
+  deletedAt          DateTime?
   
   // CONTACT
   address            String?
@@ -40,15 +48,13 @@ model Tenant {
 
   // SETTINGS (v2.0)
   currency           String   @default("IDR")
-  taxPercentage      Decimal  @default(0) // e.g., 11.0 for PPN
+  taxPercentage      Decimal  @default(0)
 
   // DEALER GROUP (v2.1)
-  adminOfGroupId     String?       @unique
-  adminOfGroup       DealerGroup?  @relation("GroupAdmin")
-  
   dealerGroupId      String?
   dealerGroup        DealerGroup?  @relation("GroupMembers", fields: [dealerGroupId], references: [id])
 
+  // Relations
   users        User[]
   vehicles     Vehicle[]
   customers    Customer[]
@@ -70,27 +76,74 @@ model Tenant {
   @@map("tenants")
 }
 
-// ==================== DEALER GROUP (SHARED POOL) ====================
+// ==================== DYNAMIC PLANS (v2.1) ====================
+
+model Plan {
+  id              String   @id @default(uuid())
+  name            String   // Basic, Pro, Enterprise
+  slug            String   @unique // basic, pro, enterprise
+  description     String?
+  
+  // Pricing
+  price           Decimal  @default(0)
+  currency        String   @default("IDR")
+  
+  // Feature Flags & Limits
+  maxVehicles     Int      @default(50)
+  maxUsers        Int      @default(3)
+  maxBranches     Int      @default(1)
+  canCreateGroup  Boolean  @default(false) // KEY for Dealer Group
+  maxGroupMembers Int      @default(0)
+  
+  features        Json?    // UI display features { "api": true, "support": "priority" }
+  
+  // Relations
+  tenants         Tenant[]
+  
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  @@map("plans")
+}
+
+// ==================== DEALER GROUP (v2.1) ====================
 
 model DealerGroup {
-  id             String   @id @default(uuid())
-  name           String
-  code           String   @unique // Unique code for invitation/joining
+  id          String   @id @default(uuid())
+  name        String
+  code        String   @unique // Invite Code (e.g., "WJY-8821")
   
-  adminTenantId  String   @unique
-  adminTenant    Tenant   @relation("GroupAdmin", fields: [adminTenantId], references: [id])
+  // Owner (The Induk)
+  ownerId     String   @unique
+  owner       User     @relation("GroupOwner", fields: [ownerId], references: [id])
   
-  members        Tenant[] @relation("GroupMembers")
-
-  createdAt      DateTime @default(now())
-  updatedAt      DateTime @updatedAt
+  // Members (Independent Tenants)
+  members     Tenant[] @relation("GroupMembers")
+  
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
 
   @@map("dealer_groups")
 }
 
+// ==================== CMS CONTENT (v2.1) ====================
+
+model LandingPageContent {
+  id        String   @id @default("default") // Singleton ID
+  hero      Json     // title, subtitle, ctaText, ctaLink, bgImage
+  features  Json     // array of {icon, title, desc}
+  pricing   Json     // array of plan overrides/highlights
+  faq       Json     // array of {question, answer}
+  footer    Json     // social links, contacts
+  
+  updatedAt DateTime @updatedAt
+  
+  @@map("landing_page_contents")
+}
+
 model User {
   id       String @id @default(uuid())
-  tenantId String? // Optional for SUPERADMIN
+  tenantId String? 
   tenant   Tenant? @relation(fields: [tenantId], references: [id])
   
   branchId String?
@@ -100,7 +153,7 @@ model User {
   username String @unique
   email    String @unique
   password String
-  role     String @default("STAFF") // OWNER, STAFF, SUPERADMIN
+  role     String @default("STAFF") 
 
   // OAUTH
   isOauth              Boolean   @default(false)
@@ -126,6 +179,9 @@ model User {
   otpAttempts     Int      @default(0)
   otpLastSentAt   DateTime?
   otpBlockedUntil DateTime?
+  
+  // DEALER GROUP OWNER
+  ownedGroup      DealerGroup? @relation("GroupOwner")
 
   transactions Transaction[]
   activityLogs ActivityLog[]
@@ -138,6 +194,8 @@ model User {
 
   @@map("users")
 }
+
+// ... rest of the file ...
 
 // ==================== BRANCH (PREMIUM) ====================
 

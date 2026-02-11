@@ -269,4 +269,65 @@ export class VehicleService {
             },
         };
     }
+    // ==================== DEALER GROUP FEATURES ====================
+
+    async findGroupStock(tenantId: string, filters?: any) {
+        const tenant = await this.prisma.tenant.findUnique({
+            where: { id: tenantId },
+            select: { dealerGroupId: true }
+        });
+
+        if (!tenant?.dealerGroupId) {
+            return []; // Not in a group, empty result
+        }
+
+        return this.prisma.vehicle.findMany({
+            where: {
+                tenant: {
+                    dealerGroupId: tenant.dealerGroupId,
+                    id: { not: tenantId } // Exclude own stock
+                },
+                status: 'AVAILABLE', // Only show available units
+                ...(filters?.category && { category: filters.category }),
+            },
+            include: {
+                tenant: {
+                    select: { id: true, name: true, phone: true, address: true }
+                }
+            },
+            orderBy: { createdAt: 'desc' }
+        });
+    }
+
+    async copyVehicle(tenantId: string, sourceVehicleId: string) {
+        // 1. Get Requestor & Source
+        const requestor = await this.prisma.tenant.findUnique({
+            where: { id: tenantId },
+            select: { dealerGroupId: true }
+        });
+
+        const sourceVehicle = await this.prisma.vehicle.findUnique({
+            where: { id: sourceVehicleId },
+            include: { tenant: { select: { dealerGroupId: true, name: true } } }
+        });
+
+        if (!sourceVehicle) throw new NotFoundException('Vehicle not found');
+
+        // 2. Validate Group Membership
+        if (!requestor?.dealerGroupId || !sourceVehicle.tenant.dealerGroupId || requestor.dealerGroupId !== sourceVehicle.tenant.dealerGroupId) {
+            throw new ForbiddenException('Access denied: vehicle is not in your dealer group');
+        }
+
+        // 3. Prepare Data for Cloning
+        // Exclude system fields AND relation objects (tenant, costs, etc.)
+        const { id, tenantId: oldTid, createdAt, updatedAt, tenant: _t, ...dataToCopy } = sourceVehicle as any;
+
+        // 4. Create New Vehicle (using existing create method to handle Plan Limits)
+        return this.create(tenantId, {
+            ...dataToCopy,
+            status: 'AVAILABLE',
+            conditionNote: `Copied from ${sourceVehicle.tenant.name} (${sourceVehicle.make} ${sourceVehicle.model})`,
+            purchaseDate: new Date(), // Set purchase date to now for the new owner
+        });
+    }
 }

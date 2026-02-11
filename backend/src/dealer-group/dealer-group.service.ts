@@ -1,3 +1,4 @@
+
 import { Injectable, BadRequestException, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 
@@ -5,132 +6,136 @@ import { PrismaService } from '../prisma/prisma.service';
 export class DealerGroupService {
     constructor(private prisma: PrismaService) { }
 
-    async createGroup(tenantId: string, name: string) {
-        // Check if tenant is already in a group
-        const tenant = await this.prisma.tenant.findUnique({
-            where: { id: tenantId },
-            include: { dealerGroup: true },
+    async createGroup(userId: string, name: string) {
+        // 1. Check if user is Enterprise Plan
+        const user = await this.prisma.user.findUnique({
+            where: { id: userId },
+            include: { tenant: { include: { plan: true } } },
         });
 
-        if (!tenant) throw new NotFoundException('Tenant not found');
-
-        if (tenant.dealerGroupId) {
-            throw new BadRequestException('You are already in a dealer group');
+        if (!user?.tenant?.plan?.canCreateGroup) {
+            throw new BadRequestException('Upgrade to Enterprise plan to create a Dealer Group');
         }
 
-        // Generate unique 6-digit code
-        let code = '';
-        let isUnique = false;
-        while (!isUnique) {
-            code = Math.random().toString(36).substring(2, 8).toUpperCase(); // e.g., "AB12CD"
-            const existing = await this.prisma.dealerGroup.findUnique({ where: { code } });
-            if (!existing) isUnique = true;
-        }
+        // 2. Generate Invite Code
+        const code = this.generateInviteCode(name);
 
-        // Create Group and assign Admin
-        const group = await this.prisma.dealerGroup.create({
+        // 3. Create Group
+        return this.prisma.dealerGroup.create({
             data: {
                 name,
                 code,
-                adminTenantId: tenantId,
-                members: {
-                    connect: { id: tenantId }, // Admin is also a member
-                },
+                ownerId: userId,
             },
         });
-
-        return group;
     }
 
     async joinGroup(tenantId: string, code: string) {
-        const tenant = await this.prisma.tenant.findUnique({
-            where: { id: tenantId },
-        });
+        const group = await this.prisma.dealerGroup.findUnique({ where: { code } });
+        if (!group) throw new NotFoundException('Invalid invite code');
 
+        // Check if already in a group
+        const tenant = await this.prisma.tenant.findUnique({ where: { id: tenantId } });
         if (!tenant) throw new NotFoundException('Tenant not found');
+        if (tenant.dealerGroupId) throw new BadRequestException('You are already in a dealer group');
 
-        if (tenant.dealerGroupId) {
-            throw new BadRequestException('You are already in a dealer group');
-        }
-
-        const group = await this.prisma.dealerGroup.findUnique({
-            where: { code },
-        });
-
-        if (!group) {
-            throw new NotFoundException('Group not found or invalid code');
-        }
-
-        await this.prisma.tenant.update({
+        return this.prisma.tenant.update({
             where: { id: tenantId },
             data: { dealerGroupId: group.id },
         });
-
-        return { message: 'Successfully joined group', group };
     }
 
-    async getMyGroup(tenantId: string) {
-        const tenant = await this.prisma.tenant.findUnique({
-            where: { id: tenantId },
+    async getMyGroup(userId: string) {
+        // Check if user is owner
+        const groupOwned = await this.prisma.dealerGroup.findUnique({
+            where: { ownerId: userId },
             include: {
-                dealerGroup: {
+                members: {
                     include: {
-                        members: {
-                            select: { id: true, name: true, phone: true, address: true },
-                        },
-                        adminTenant: {
-                            select: { id: true, name: true },
-                        },
-                    },
+                        plan: true,
+                        _count: { select: { vehicles: true, transactions: true } }
+                    }
                 },
+                owner: { include: { tenant: true } }
             },
         });
 
-        if (!tenant) throw new NotFoundException('Tenant not found');
-
-        if (!tenant.dealerGroupId) {
-            return null;
+        if (groupOwned) {
+            return {
+                role: 'OWNER',
+                group: {
+                    id: groupOwned.id,
+                    name: groupOwned.name,
+                    code: groupOwned.code,
+                    adminTenant: groupOwned.owner?.tenant,
+                    members: groupOwned.members.map(m => ({
+                        id: m.id,
+                        name: m.name,
+                        email: m.email,
+                        phone: m.phone,
+                        subscriptionStatus: m.subscriptionStatus,
+                        nextBillingDate: m.nextBillingDate,
+                        planName: m.plan?.name || m.planTier,
+                        stats: {
+                            vehicles: m._count.vehicles,
+                            transactions: m._count.transactions
+                        }
+                    }))
+                }
+            };
         }
 
-        return tenant.dealerGroup;
-    }
-
-    async leaveGroup(tenantId: string) {
-        const tenant = await this.prisma.tenant.findUnique({
-            where: { id: tenantId },
-            include: { dealerGroup: true },
+        // Check if user is member
+        const user = await this.prisma.user.findUnique({
+            where: { id: userId },
+            include: {
+                tenant: {
+                    include: {
+                        dealerGroup: {
+                            include: { owner: { include: { tenant: true } } }
+                        }
+                    }
+                }
+            },
         });
 
-        if (!tenant) throw new NotFoundException('Tenant not found');
-
-        if (!tenant.dealerGroupId) {
-            throw new BadRequestException('You are not in a group');
+        if (user?.tenant?.dealerGroup) {
+            const grp = user.tenant.dealerGroup;
+            return {
+                role: 'MEMBER',
+                group: {
+                    id: grp.id,
+                    name: grp.name,
+                    code: grp.code,
+                    adminTenant: grp.owner?.tenant
+                }
+            };
         }
 
-        const group = tenant.dealerGroup;
-        if (!group) {
-            throw new BadRequestException('Group data not found');
-        }
+        return null;
+    }
 
-        // If Admin leaves, dissolve the group? Or assign new admin?
-        // Current Logic: Admin cannot leave unless they delete the group (or simple leave = group dissolves for MVP)
-        if (group.adminTenantId === tenantId) {
-            // Option: Dissolve Group
-            await this.prisma.tenant.updateMany({
-                where: { dealerGroupId: group.id },
-                data: { dealerGroupId: null },
-            });
-            await this.prisma.dealerGroup.delete({
-                where: { id: group.id },
-            });
-            return { message: 'Group dissolved because Admin left' };
-        } else {
-            // Normal member leave
-            await this.prisma.tenant.update({
-                where: { id: tenantId },
-                data: { dealerGroupId: null },
-            });
-            return { message: 'Left group successfully' };
-        }
+    async removeMember(ownerId: string, memberTenantId: string) {
+        const group = await this.prisma.dealerGroup.findUnique({
+            where: { ownerId },
+            include: { members: true }
+        });
+
+        if (!group) throw new BadRequestException('Group not found or access denied');
+
+        // Verify member belongs to group
+        const isMember = group.members.some(m => m.id === memberTenantId);
+        if (!isMember) throw new NotFoundException('Tenant is not a member of this group');
+
+        return this.prisma.tenant.update({
+            where: { id: memberTenantId },
+            data: { dealerGroupId: null }
+        });
+    }
+
+    private generateInviteCode(name: string): string {
+        const prefix = name.substring(0, 3).toUpperCase().replace(/[^A-Z]/g, 'GRP');
+        const random = Math.floor(1000 + Math.random() * 9000);
+        return `${prefix}-${random}`;
     }
 }
