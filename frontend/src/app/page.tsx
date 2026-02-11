@@ -1,8 +1,9 @@
 
 import Link from "next/link";
 import Image from "next/image";
-import { Check, ArrowRight, Car, Users, BarChart3, Shield, Zap, Globe, MessageCircle } from "lucide-react";
+import { Check, ArrowRight, Car, Users, BarChart3, Shield, Zap, Globe, MessageCircle, LayoutDashboard } from "lucide-react";
 import { getLandingContent, getPublicPlans } from "@/lib/cms";
+import { cookies } from "next/headers";
 
 // Map icon names to components
 const IconMap: Record<string, any> = {
@@ -20,6 +21,10 @@ export default async function Home() {
     getLandingContent(),
     getPublicPlans(),
   ]);
+
+  const cookieStore = await cookies();
+  const token = cookieStore.get('auth_token');
+  const isLoggedIn = !!token;
 
   if (!content) {
     return <div className="min-h-screen flex items-center justify-center text-white bg-slate-900">Loading Content...</div>;
@@ -51,12 +56,21 @@ export default async function Home() {
             <a href="#faq" className="text-slate-300 hover:text-white transition-colors">FAQ</a>
           </nav>
           <div className="flex items-center gap-3">
-            <Link href="/auth" className="text-slate-300 hover:text-white transition-colors px-4 py-2">
-              Login
-            </Link>
-            <Link href={content.hero.ctaLink || "/auth?mode=register"} className="bg-gradient-to-r from-teal-500 to-emerald-500 hover:from-teal-400 hover:to-emerald-400 text-white font-semibold px-5 py-2.5 rounded-xl transition-all shadow-lg shadow-teal-500/25">
-              {content.hero.ctaText || "Daftar Gratis"}
-            </Link>
+            {isLoggedIn ? (
+              <Link href="/app" className="bg-slate-700 hover:bg-slate-600 text-white font-semibold px-5 py-2.5 rounded-xl transition-all border border-slate-600 flex items-center gap-2 shadow-lg">
+                <LayoutDashboard className="w-4 h-4" />
+                Dashboard
+              </Link>
+            ) : (
+              <>
+                <Link href="/auth" className="text-slate-300 hover:text-white transition-colors px-4 py-2">
+                  Login
+                </Link>
+                <Link href={content.hero.ctaLink || "/auth?mode=register"} className="bg-gradient-to-r from-teal-500 to-emerald-500 hover:from-teal-400 hover:to-emerald-400 text-white font-semibold px-5 py-2.5 rounded-xl transition-all shadow-lg shadow-teal-500/25">
+                  {content.hero.ctaText || "Daftar Gratis"}
+                </Link>
+              </>
+            )}
           </div>
         </div>
       </header>

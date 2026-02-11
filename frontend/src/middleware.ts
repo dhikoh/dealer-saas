@@ -43,11 +43,7 @@ export function middleware(request: NextRequest) {
 
     // 2. ROOT PATH / LANDING PAGE HANDLER
     if (pathname === '/') {
-        // If user is logged in, go to Dashboard
-        if (token) {
-            return NextResponse.redirect(new URL('/app', request.url));
-        }
-        // If guest, show Landing Page
+        // Allow everyone to see the Landing Page
         return NextResponse.next();
     }
 
