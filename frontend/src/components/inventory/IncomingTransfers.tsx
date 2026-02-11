@@ -14,6 +14,7 @@ import {
     faArrowRight,
 } from '@fortawesome/free-solid-svg-icons';
 import { toast } from 'sonner';
+import { useCurrency } from '@/hooks/useCurrency';
 import { API_URL } from '@/lib/api';
 
 interface Transfer {
@@ -41,15 +42,8 @@ interface Transfer {
     requestedBy: { id: string; name: string } | null;
 }
 
-const formatCurrency = (value: number) =>
-    new Intl.NumberFormat('id-ID', {
-        style: 'currency',
-        currency: 'IDR',
-        minimumFractionDigits: 0,
-        maximumFractionDigits: 0,
-    }).format(value);
-
 export default function IncomingTransfers() {
+    const { fmt } = useCurrency();
     const [transfers, setTransfers] = useState<Transfer[]>([]);
     const [loading, setLoading] = useState(true);
     const [processingId, setProcessingId] = useState<string | null>(null);
@@ -169,8 +163,8 @@ export default function IncomingTransfers() {
                         key={t.key}
                         onClick={() => setTab(t.key)}
                         className={`px-5 py-2.5 rounded-xl text-sm font-medium transition-all relative ${tab === t.key
-                                ? 'bg-[#00bfa5] text-white shadow-lg'
-                                : 'bg-[#ecf0f3] text-gray-600 shadow-[3px_3px_6px_#cbced1,-3px_-3px_6px_#ffffff] hover:text-[#00bfa5]'
+                            ? 'bg-[#00bfa5] text-white shadow-lg'
+                            : 'bg-[#ecf0f3] text-gray-600 shadow-[3px_3px_6px_#cbced1,-3px_-3px_6px_#ffffff] hover:text-[#00bfa5]'
                             }`}
                     >
                         {t.label}
@@ -223,8 +217,8 @@ export default function IncomingTransfers() {
                                 <div className="text-right">
                                     <span
                                         className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold ${transfer.type === 'SALE'
-                                                ? 'bg-green-100 text-green-700'
-                                                : 'bg-blue-100 text-blue-700'
+                                            ? 'bg-green-100 text-green-700'
+                                            : 'bg-blue-100 text-blue-700'
                                             }`}
                                     >
                                         <FontAwesomeIcon icon={transfer.type === 'SALE' ? faMoneyBillWave : faExchangeAlt} />
@@ -232,16 +226,16 @@ export default function IncomingTransfers() {
                                     </span>
                                     {transfer.type === 'SALE' && transfer.price && (
                                         <div className="text-lg font-bold text-green-600 mt-1">
-                                            {formatCurrency(Number(transfer.price))}
+                                            {fmt(Number(transfer.price))}
                                         </div>
                                     )}
                                     {transfer.status !== 'PENDING' && (
                                         <span
                                             className={`inline-block mt-1 px-3 py-0.5 rounded-full text-xs font-bold ${transfer.status === 'APPROVED'
-                                                    ? 'bg-green-100 text-green-700'
-                                                    : transfer.status === 'REJECTED'
-                                                        ? 'bg-red-100 text-red-700'
-                                                        : 'bg-gray-100 text-gray-500'
+                                                ? 'bg-green-100 text-green-700'
+                                                : transfer.status === 'REJECTED'
+                                                    ? 'bg-red-100 text-red-700'
+                                                    : 'bg-gray-100 text-gray-500'
                                                 }`}
                                         >
                                             {transfer.status === 'APPROVED' ? 'Diterima' : transfer.status === 'REJECTED' ? 'Ditolak' : 'Dibatalkan'}
@@ -313,8 +307,8 @@ export default function IncomingTransfers() {
                     <div className="bg-white rounded-2xl w-full max-w-md shadow-2xl overflow-hidden animate-fade-in-up">
                         <div
                             className={`p-4 ${confirmAction.action === 'approve'
-                                    ? 'bg-gradient-to-r from-green-600 to-green-500'
-                                    : 'bg-gradient-to-r from-red-600 to-red-500'
+                                ? 'bg-gradient-to-r from-green-600 to-green-500'
+                                : 'bg-gradient-to-r from-red-600 to-red-500'
                                 }`}
                         >
                             <h3 className="text-white font-bold text-lg">
@@ -351,8 +345,8 @@ export default function IncomingTransfers() {
                                     onClick={handleAction}
                                     disabled={processingId !== null}
                                     className={`px-5 py-2.5 rounded-xl text-white font-bold shadow-lg transition-all disabled:opacity-50 ${confirmAction.action === 'approve'
-                                            ? 'bg-green-500 hover:bg-green-600 shadow-green-500/30'
-                                            : 'bg-red-500 hover:bg-red-600 shadow-red-500/30'
+                                        ? 'bg-green-500 hover:bg-green-600 shadow-green-500/30'
+                                        : 'bg-red-500 hover:bg-red-600 shadow-red-500/30'
                                         }`}
                                 >
                                     {processingId
