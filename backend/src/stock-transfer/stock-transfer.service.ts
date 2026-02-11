@@ -23,7 +23,7 @@ export class StockTransferService {
         });
 
         if (!vehicle) {
-            throw new BadRequestException('Vehicle not available or not owned by you');
+            throw new BadRequestException('Vehicle not available for transfer (must be AVAILABLE and owned by you)');
         }
 
         // Prevent duplicate pending transfers
@@ -35,19 +35,30 @@ export class StockTransferService {
             throw new BadRequestException('Vehicle already has a pending transfer');
         }
 
-        return this.prisma.stockTransfer.create({
-            data: {
-                tenantId, // Source
-                targetTenantId, // Target (Optional)
-                vehicleId,
-                sourceBranchId, // Optional
-                targetBranchId, // Optional
-                type: type || 'MUTATION',
-                price: price ? parseFloat(price) : null,
-                requestedById: userId,
-                notes,
-                status: 'PENDING',
-            },
+        return this.prisma.$transaction(async (tx) => {
+            // 1. Create Transfer
+            const transfer = await tx.stockTransfer.create({
+                data: {
+                    tenantId, // Source
+                    targetTenantId, // Target (Optional)
+                    vehicleId,
+                    sourceBranchId, // Optional
+                    targetBranchId, // Optional
+                    type: type || 'MUTATION',
+                    price: price ? parseFloat(price) : null,
+                    requestedById: userId,
+                    notes,
+                    status: 'PENDING',
+                },
+            });
+
+            // 2. Lock Vehicle (Set to BOOKED)
+            await tx.vehicle.update({
+                where: { id: vehicleId },
+                data: { status: 'BOOKED' }
+            });
+
+            return transfer;
         });
     }
 
@@ -137,7 +148,7 @@ export class StockTransferService {
             const updateData: any = {
                 branchId: newBranchId,
                 tenantId: newTenantId,
-                status: 'AVAILABLE', // Reset status in new place
+                status: 'AVAILABLE', // Reset status in new place (was BOOKED)
             };
 
             // If SALE, update purchase price for the new owner
@@ -167,9 +178,9 @@ export class StockTransferService {
                         data: {
                             tenantId: transfer.tenantId,
                             name: `Dealer: ${transfer.targetTenant?.name || 'Unknown'}`,
+                            type: 'DEALER_PARTNER',
                             phone: transfer.targetTenant?.phone || '-',
                             address: transfer.targetTenant?.address || '-',
-                            type: 'DEALER_PARTNER'
                         }
                     });
                 }
@@ -212,14 +223,25 @@ export class StockTransferService {
             throw new BadRequestException('Transfer already processed');
         }
 
-        return this.prisma.stockTransfer.update({
-            where: { id },
-            data: {
-                status: 'REJECTED',
-                approvedById: userId,
-                approvedAt: new Date(),
-                notes: notes ? `${transfer.notes || ''}\nReject Note: ${notes}` : transfer.notes,
-            },
+        return this.prisma.$transaction(async (tx) => {
+            // 1. Update Transfer
+            const updatedTransfer = await tx.stockTransfer.update({
+                where: { id },
+                data: {
+                    status: 'REJECTED',
+                    approvedById: userId,
+                    approvedAt: new Date(),
+                    notes: notes ? `${transfer.notes || ''}\nReject Note: ${notes}` : transfer.notes,
+                },
+            });
+
+            // 2. Unlock Vehicle (Revert to AVAILABLE)
+            await tx.vehicle.update({
+                where: { id: transfer.vehicleId },
+                data: { status: 'AVAILABLE' }
+            });
+
+            return updatedTransfer;
         });
     }
 
@@ -235,9 +257,20 @@ export class StockTransferService {
             // allow if admin? 
         }
 
-        return this.prisma.stockTransfer.update({
-            where: { id },
-            data: { status: 'CANCELLED' }
+        return this.prisma.$transaction(async (tx) => {
+            // 1. Cancel Transfer
+            const updatedTransfer = await tx.stockTransfer.update({
+                where: { id },
+                data: { status: 'CANCELLED' }
+            });
+
+            // 2. Unlock Vehicle (Revert to AVAILABLE)
+            await tx.vehicle.update({
+                where: { id: transfer.vehicleId },
+                data: { status: 'AVAILABLE' }
+            });
+
+            return updatedTransfer;
         });
     }
 }

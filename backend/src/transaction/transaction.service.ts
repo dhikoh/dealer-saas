@@ -136,6 +136,11 @@ export class TransactionService {
             throw new BadRequestException('Kendaraan tidak ditemukan');
         }
 
+        // VALIDATION: Vehicle must be AVAILABLE
+        if (vehicle.status !== 'AVAILABLE') {
+            throw new BadRequestException(`Kendaraan tidak tersedia untuk dijual (Status: ${vehicle.status})`);
+        }
+
         // Validate customer belongs to tenant
         const customer = await this.prisma.customer.findFirst({
             where: { id: data.customerId, tenantId },

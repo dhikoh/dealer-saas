@@ -66,12 +66,6 @@ interface Vehicle {
     taxImage?: string;
     bpkbOwnerName?: string;
     isOwnerDifferent?: boolean;
-    bpkbNumber?: string;
-    stnkExpiry?: string;
-    bpkbAvailable: boolean;
-    fakturAvailable: boolean;
-    serviceBook: boolean;
-    spareKey: boolean;
     costs?: VehicleCost[];
     costSummary?: {
         purchasePrice: number;
@@ -158,6 +152,42 @@ export default function InventoryPage() {
         isOwnerDifferent: false,
         bpkbOwnerName: '',
     });
+
+    // Master Data State
+    const [brands, setBrands] = useState<any[]>([]);
+    const [availableModels, setAvailableModels] = useState<any[]>([]);
+
+    // Fetch brands when category changes
+    useEffect(() => {
+        if (showVehicleModal) {
+            fetchBrands();
+        }
+    }, [vehicleForm.category, showVehicleModal]);
+
+    const fetchBrands = async () => {
+        const token = getToken();
+        if (!token) return;
+        try {
+            const res = await fetch(`${API_URL}/vehicles/brands/list?category=${vehicleForm.category}`, {
+                headers: { Authorization: `Bearer ${token}` }
+            });
+            if (res.ok) {
+                setBrands(await res.json());
+            }
+        } catch (error) {
+            console.error('Failed to fetch brands');
+        }
+    };
+
+    // Update available models when Make changes
+    useEffect(() => {
+        const selectedBrand = brands.find(b => b.name === vehicleForm.make);
+        if (selectedBrand) {
+            setAvailableModels(selectedBrand.models || []);
+        } else {
+            setAvailableModels([]);
+        }
+    }, [vehicleForm.make, brands]);
     const [costForm, setCostForm] = useState({
         costType: 'MAINTENANCE',
         amount: '',
@@ -908,15 +938,53 @@ export default function InventoryPage() {
                                     </select>
                                 </div>
 
-                                {/* Make + Model */}
+                                {/* Make + Model (Master Data) */}
                                 <div className="grid grid-cols-2 gap-3">
                                     <div>
                                         <label className="block text-sm font-medium text-gray-600 mb-1">Merk *</label>
-                                        <input type="text" value={vehicleForm.make} onChange={(e) => setVehicleForm({ ...vehicleForm, make: e.target.value })} placeholder="Toyota" className="w-full px-4 py-3 rounded-xl bg-[#ecf0f3] shadow-[inset_3px_3px_6px_#cbced1,inset_-3px_-3px_6px_#ffffff] focus:outline-none focus:ring-2 focus:ring-[#00bfa5]" />
+                                        <div className="relative">
+                                            <select
+                                                value={vehicleForm.make}
+                                                onChange={(e) => {
+                                                    setVehicleForm({ ...vehicleForm, make: e.target.value, model: '' });
+                                                }}
+                                                className="w-full px-4 py-3 rounded-xl bg-[#ecf0f3] shadow-[inset_3px_3px_6px_#cbced1,inset_-3px_-3px_6px_#ffffff] focus:outline-none focus:ring-2 focus:ring-[#00bfa5] appearance-none"
+                                            >
+                                                <option value="">Pilih Merk...</option>
+                                                {brands.map((brand) => (
+                                                    <option key={brand.id} value={brand.name}>
+                                                        {brand.name}
+                                                    </option>
+                                                ))}
+                                            </select>
+                                            <div className="absolute right-4 top-1/2 transform -translate-y-1/2 pointer-events-none text-gray-500">
+                                                <svg className="w-4 h-4 fill-current" viewBox="0 0 20 20"><path d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" /></svg>
+                                            </div>
+                                        </div>
+                                        {brands.length === 0 && (
+                                            <p className="text-xs text-red-500 mt-1">Master Data kosong. Tambahkan di menu Master.</p>
+                                        )}
                                     </div>
                                     <div>
                                         <label className="block text-sm font-medium text-gray-600 mb-1">Model *</label>
-                                        <input type="text" value={vehicleForm.model} onChange={(e) => setVehicleForm({ ...vehicleForm, model: e.target.value })} placeholder="Avanza" className="w-full px-4 py-3 rounded-xl bg-[#ecf0f3] shadow-[inset_3px_3px_6px_#cbced1,inset_-3px_-3px_6px_#ffffff] focus:outline-none focus:ring-2 focus:ring-[#00bfa5]" />
+                                        <div className="relative">
+                                            <select
+                                                value={vehicleForm.model}
+                                                onChange={(e) => setVehicleForm({ ...vehicleForm, model: e.target.value })}
+                                                disabled={!vehicleForm.make}
+                                                className="w-full px-4 py-3 rounded-xl bg-[#ecf0f3] shadow-[inset_3px_3px_6px_#cbced1,inset_-3px_-3px_6px_#ffffff] focus:outline-none focus:ring-2 focus:ring-[#00bfa5] appearance-none disabled:opacity-50"
+                                            >
+                                                <option value="">Pilih Model...</option>
+                                                {availableModels.map((model) => (
+                                                    <option key={model.id} value={model.name}>
+                                                        {model.name}
+                                                    </option>
+                                                ))}
+                                            </select>
+                                            <div className="absolute right-4 top-1/2 transform -translate-y-1/2 pointer-events-none text-gray-500">
+                                                <svg className="w-4 h-4 fill-current" viewBox="0 0 20 20"><path d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" /></svg>
+                                            </div>
+                                        </div>
                                     </div>
                                 </div>
 
