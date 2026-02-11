@@ -186,6 +186,27 @@ export default async function Home() {
         </div>
       </section>
 
+      {/* FAQ SECTION */}
+      <section id="faq" className="py-20 px-6 bg-slate-800/30">
+        <div className="max-w-4xl mx-auto">
+          <div className="text-center mb-12">
+            <h2 className="text-3xl md:text-4xl font-bold mb-4">Pertanyaan Umum</h2>
+            <p className="text-slate-400">Jawaban untuk pertanyaan yang sering diajukan</p>
+          </div>
+          <div className="space-y-4">
+            {content.faq && content.faq.map((item, idx) => (
+              <div key={idx} className="bg-slate-800/50 border border-slate-700 rounded-xl p-6 hover:border-teal-500/30 transition-all">
+                <h3 className="text-lg font-bold text-white mb-2">{item.question}</h3>
+                <p className="text-slate-400">{item.answer}</p>
+              </div>
+            ))}
+            {(!content.faq || content.faq.length === 0) && (
+              <div className="text-center text-slate-500 italic">Belum ada FAQ yang ditambahkan.</div>
+            )}
+          </div>
+        </div>
+      </section>
+
       {/* CTA SECTION */}
       <section className="py-20 px-6 bg-gradient-to-r from-teal-900/50 to-emerald-900/50">
         <div className="max-w-4xl mx-auto text-center">
