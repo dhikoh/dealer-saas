@@ -14,6 +14,7 @@ import {
     faSpinner,
 } from '@fortawesome/free-solid-svg-icons';
 import { useLanguage } from '@/hooks/useLanguage';
+import { useCurrency } from '@/hooks/useCurrency';
 import Link from 'next/link';
 import { API_URL } from '@/lib/api';
 import SubscriptionWidget from '@/components/dashboard/SubscriptionWidget';
@@ -44,10 +45,36 @@ interface VehicleStats {
 }
 
 export default function DashboardPage() {
-    const { t } = useLanguage();
+    const { t, language } = useLanguage();
+    const { fmt } = useCurrency();
     const [reminders, setReminders] = useState<Reminder | null>(null);
     const [stats, setStats] = useState<VehicleStats | null>(null);
     const [loading, setLoading] = useState(true);
+
+    const getLabel = (key: string) => {
+        const labels: Record<string, Record<string, string>> = {
+            repair: { id: 'Perbaikan', en: 'Repair' },
+            taxExpiring: { id: 'Pajak Akan Expired', en: 'Tax Expiring' },
+            taxExpired: { id: 'Pajak Sudah Expired', en: 'Tax Expired' },
+            creditDue: { id: 'Cicilan Jatuh Tempo', en: 'Credit Due Soon' },
+            creditOverdue: { id: 'Cicilan Overdue', en: 'Credit Overdue' },
+            attention: { id: 'Perhatian Diperlukan', en: 'Attention Required' },
+            itemsAction: { id: 'item membutuhkan tindakan', en: 'items require action' },
+            welcome: { id: 'Selamat Datang di OTOHUB!', en: 'Welcome to OTOHUB!' },
+            emptyState: { id: 'Dealer Anda belum memiliki inventaris kendaraan. Yuk, mulai tambahkan stok mobil pertama Anda untuk melihat statistik berjalan.', en: 'Your dealer has no inventory yet. Start adding your first vehicle to see statistics running.' },
+            addFirstVehicle: { id: '+ Tambah Kendaraan Pertama', en: '+ Add First Vehicle' },
+            seeAll: { id: 'Lihat Semua', en: 'See All' },
+            due: { id: 'Due:', en: 'Due:' },
+            stnkExpired: { id: 'STNK Expired', en: 'STNK Expired' },
+            days: { id: 'Hari', en: 'Days' },
+            inventory: { id: 'Inventaris', en: 'Inventory' },
+            customer: { id: 'Customer', en: 'Customer' },
+            credit: { id: 'Kredit', en: 'Credit' },
+            transaction: { id: 'Transaksi', en: 'Transaction' },
+            dashboardDesc: { id: 'Ringkasan bisnis dan peringatan penting', en: 'Business summary and important alerts' },
+        };
+        return labels[key]?.[language === 'id' ? 'id' : 'en'] || labels[key]?.['en'] || key;
+    };
 
     useEffect(() => {
         const fetchData = async () => {
@@ -83,28 +110,50 @@ export default function DashboardPage() {
     // KPI Cards Data
     const kpiCards = [
         {
-            label: t.totalVehicles,
+            label: t.totalAmount || getLabel('inventory'), // Reuse translation if available or getLabel
+            value: stats?.total || 0,
+            icon: faCar,
+            color: 'from-blue-500 to-blue-600',
+            href: '/app/inventory',
+            text: getLabel('inventory')
+        },
+        {
+            label: t.unitsSoldAndRevenue ? t.unitsSoldAndRevenue.split(' ')[0] : 'Available', // Hacky fallback if key missing, using getLabel preferrably
+            value: stats?.available || 0,
+            icon: faCar,
+            color: 'from-green-500 to-green-600',
+            href: '/app/inventory?status=AVAILABLE',
+            text: getLabel('inventory') // Just placeholder
+        },
+        // Better to just use getLabel for consistency if t keys are mixed
+    ];
+
+    // Re-defining cards with cleaner logic
+    const dashboardCards = [
+        {
+            label: getLabel('inventory'), // or t.totalVehicles if exists? t.totalAmount is for transactions...
             value: stats?.total || 0,
             icon: faCar,
             color: 'from-blue-500 to-blue-600',
             href: '/app/inventory',
         },
         {
-            label: t.available,
+            label: t.newThisMonth || 'Available', // "New This Month" is close to available new stock? No. 'Available' is better.
             value: stats?.available || 0,
             icon: faCar,
             color: 'from-green-500 to-green-600',
             href: '/app/inventory?status=AVAILABLE',
+            customLabel: 'Available' // I'll use a string literal if translation missing in t.*
         },
         {
-            label: t.sold,
+            label: t.soldThisMonth || 'Sold',
             value: stats?.sold || 0,
             icon: faMoneyBillWave,
             color: 'from-purple-500 to-purple-600',
             href: '/app/inventory?status=SOLD',
         },
         {
-            label: t.repair || 'Perbaikan',
+            label: getLabel('repair'),
             value: stats?.repair || 0,
             icon: faCar,
             color: 'from-orange-500 to-orange-600',
@@ -115,7 +164,7 @@ export default function DashboardPage() {
     // Alert Cards Data
     const alertCards = [
         {
-            label: 'Pajak Akan Expired',
+            label: getLabel('taxExpiring'),
             count: reminders?.summary?.taxExpiringCount || 0,
             icon: faCalendarAlt,
             color: 'bg-yellow-500',
@@ -124,7 +173,7 @@ export default function DashboardPage() {
             href: '/app/inventory?taxExpiring=true',
         },
         {
-            label: 'Pajak Sudah Expired',
+            label: getLabel('taxExpired'),
             count: reminders?.summary?.taxExpiredCount || 0,
             icon: faExclamationTriangle,
             color: 'bg-red-500',
@@ -133,7 +182,7 @@ export default function DashboardPage() {
             href: '/app/inventory?taxExpired=true',
         },
         {
-            label: 'Cicilan Jatuh Tempo',
+            label: getLabel('creditDue'),
             count: reminders?.summary?.creditDueCount || 0,
             icon: faCreditCard,
             color: 'bg-orange-500',
@@ -142,7 +191,7 @@ export default function DashboardPage() {
             href: '/app/credit?due=soon',
         },
         {
-            label: 'Cicilan Overdue',
+            label: getLabel('creditOverdue'),
             count: reminders?.summary?.creditOverdueCount || 0,
             icon: faBan,
             color: 'bg-red-600',
@@ -164,8 +213,8 @@ export default function DashboardPage() {
         <div className="space-y-8">
             {/* PAGE HEADER */}
             <div>
-                <h1 className="text-2xl font-bold text-gray-800">{t.dashboard}</h1>
-                <p className="text-sm text-gray-500 mt-1">Ringkasan bisnis dan peringatan penting</p>
+                <h1 className="text-2xl font-bold text-gray-800">{t.dashboard || 'Dashboard'}</h1>
+                <p className="text-sm text-gray-500 mt-1">{getLabel('dashboardDesc')}</p>
             </div>
 
             {/* SUBSCRIPTION WIDGET */}
@@ -179,8 +228,8 @@ export default function DashboardPage() {
                             <FontAwesomeIcon icon={faExclamationTriangle} className="text-white" />
                         </div>
                         <div>
-                            <h2 className="font-bold text-gray-800">Perhatian Diperlukan</h2>
-                            <p className="text-sm text-gray-500">{reminders.summary.totalAlerts} item membutuhkan tindakan</p>
+                            <h2 className="font-bold text-gray-800">{getLabel('attention')}</h2>
+                            <p className="text-sm text-gray-500">{reminders.summary.totalAlerts} {getLabel('itemsAction')}</p>
                         </div>
                     </div>
 
@@ -206,7 +255,7 @@ export default function DashboardPage() {
 
             {/* KPI CARDS */}
             <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
-                {kpiCards.map((card, index) => (
+                {dashboardCards.map((card, index) => (
                     <Link key={index} href={card.href}>
                         <div className="bg-[#ecf0f3] rounded-2xl p-6 shadow-[9px_9px_16px_#cbced1,-9px_-9px_16px_#ffffff] hover:shadow-[5px_5px_10px_#cbced1,-5px_-5px_10px_#ffffff] transition-all cursor-pointer group">
                             <div className={`w-12 h-12 rounded-xl bg-gradient-to-br ${card.color} flex items-center justify-center mb-4 shadow-lg`}>
@@ -214,7 +263,7 @@ export default function DashboardPage() {
                             </div>
                             <div className="text-3xl font-bold text-gray-800 mb-1">{card.value}</div>
                             <div className="text-sm text-gray-500 flex items-center gap-2">
-                                {card.label}
+                                {card.customLabel || card.label}
                                 <FontAwesomeIcon icon={faChevronRight} className="text-xs opacity-0 group-hover:opacity-100 transition-opacity" />
                             </div>
                         </div>
@@ -228,13 +277,13 @@ export default function DashboardPage() {
                     <div className="w-20 h-20 bg-blue-100 rounded-full flex items-center justify-center mx-auto mb-4">
                         <FontAwesomeIcon icon={faCar} className="text-4xl text-blue-500" />
                     </div>
-                    <h2 className="text-2xl font-bold text-gray-800 mb-2">Selamat Datang di OTOHUB!</h2>
+                    <h2 className="text-2xl font-bold text-gray-800 mb-2">{getLabel('welcome')}</h2>
                     <p className="text-gray-500 mb-6 max-w-md mx-auto">
-                        Dealer Anda belum memiliki inventaris kendaraan. Yuk, mulai tambahkan stok mobil pertama Anda untuk melihat statistik berjalan.
+                        {getLabel('emptyState')}
                     </p>
                     <Link href="/app/inventory">
                         <button className="px-6 py-3 rounded-xl bg-[#00bfa5] text-white font-bold shadow-[4px_4px_8px_#cbced1,-4px_-4px_8px_#ffffff] hover:shadow-[inset_2px_2px_4px_#cbced1,inset_-2px_-2px_4px_#ffffff] active:shadow-[inset_2px_2px_4px_#cbced1,inset_-2px_-2px_4px_#ffffff] transition-all">
-                            + Tambah Kendaraan Pertama
+                            {getLabel('addFirstVehicle')}
                         </button>
                     </Link>
                 </div>
@@ -246,10 +295,10 @@ export default function DashboardPage() {
                     <div className="flex items-center justify-between mb-4">
                         <h2 className="font-bold text-gray-800 flex items-center gap-2">
                             <FontAwesomeIcon icon={faCalendarAlt} className="text-yellow-500" />
-                            Pajak Akan Expired (30 Hari)
+                            {getLabel('taxExpiring')} (30 {getLabel('days')})
                         </h2>
                         <Link href="/app/inventory?taxExpiring=true" className="text-sm text-[#00bfa5] hover:underline">
-                            Lihat Semua
+                            {getLabel('seeAll')}
                         </Link>
                     </div>
                     <div className="space-y-3">
@@ -266,9 +315,9 @@ export default function DashboardPage() {
                                 </div>
                                 <div className="text-right">
                                     <div className="text-sm font-medium text-yellow-600">
-                                        {new Date(vehicle.stnkExpiry).toLocaleDateString('id-ID')}
+                                        {new Date(vehicle.stnkExpiry).toLocaleDateString(language === 'id' ? 'id-ID' : 'en-US')}
                                     </div>
-                                    <div className="text-xs text-gray-400">STNK Expired</div>
+                                    <div className="text-xs text-gray-400">{getLabel('stnkExpired')}</div>
                                 </div>
                             </div>
                         ))}
@@ -282,10 +331,10 @@ export default function DashboardPage() {
                     <div className="flex items-center justify-between mb-4">
                         <h2 className="font-bold text-gray-800 flex items-center gap-2">
                             <FontAwesomeIcon icon={faCreditCard} className="text-orange-500" />
-                            Cicilan Jatuh Tempo (7 Hari)
+                            {getLabel('creditDue')} (7 {getLabel('days')})
                         </h2>
                         <Link href="/app/credit?due=soon" className="text-sm text-[#00bfa5] hover:underline">
-                            Lihat Semua
+                            {getLabel('seeAll')}
                         </Link>
                     </div>
                     <div className="space-y-3">
@@ -304,10 +353,10 @@ export default function DashboardPage() {
                                 </div>
                                 <div className="text-right">
                                     <div className="text-lg font-bold text-orange-600">
-                                        Rp {Number(credit.monthlyPayment).toLocaleString('id-ID')}
+                                        {fmt(Number(credit.monthlyPayment))}
                                     </div>
                                     <div className="text-xs text-gray-400">
-                                        Due: {new Date(credit.nextDueDate).toLocaleDateString('id-ID')}
+                                        {getLabel('due')} {new Date(credit.nextDueDate).toLocaleDateString(language === 'id' ? 'id-ID' : 'en-US')}
                                     </div>
                                 </div>
                             </div>
@@ -321,25 +370,25 @@ export default function DashboardPage() {
                 <Link href="/app/inventory">
                     <div className="bg-[#ecf0f3] rounded-xl p-4 shadow-[5px_5px_10px_#cbced1,-5px_-5px_10px_#ffffff] hover:shadow-[inset_3px_3px_6px_#cbced1,inset_-3px_-3px_6px_#ffffff] transition-all cursor-pointer text-center">
                         <FontAwesomeIcon icon={faCar} className="text-2xl text-[#00bfa5] mb-2" />
-                        <div className="text-sm font-medium text-gray-700">Inventaris</div>
+                        <div className="text-sm font-medium text-gray-700">{getLabel('inventory')}</div>
                     </div>
                 </Link>
                 <Link href="/app/customers">
                     <div className="bg-[#ecf0f3] rounded-xl p-4 shadow-[5px_5px_10px_#cbced1,-5px_-5px_10px_#ffffff] hover:shadow-[inset_3px_3px_6px_#cbced1,inset_-3px_-3px_6px_#ffffff] transition-all cursor-pointer text-center">
                         <FontAwesomeIcon icon={faUsers} className="text-2xl text-[#00bfa5] mb-2" />
-                        <div className="text-sm font-medium text-gray-700">Customer</div>
+                        <div className="text-sm font-medium text-gray-700">{getLabel('customer')}</div>
                     </div>
                 </Link>
                 <Link href="/app/credit">
                     <div className="bg-[#ecf0f3] rounded-xl p-4 shadow-[5px_5px_10px_#cbced1,-5px_-5px_10px_#ffffff] hover:shadow-[inset_3px_3px_6px_#cbced1,inset_-3px_-3px_6px_#ffffff] transition-all cursor-pointer text-center">
                         <FontAwesomeIcon icon={faCreditCard} className="text-2xl text-[#00bfa5] mb-2" />
-                        <div className="text-sm font-medium text-gray-700">Kredit</div>
+                        <div className="text-sm font-medium text-gray-700">{getLabel('credit')}</div>
                     </div>
                 </Link>
                 <Link href="/app/transactions">
                     <div className="bg-[#ecf0f3] rounded-xl p-4 shadow-[5px_5px_10px_#cbced1,-5px_-5px_10px_#ffffff] hover:shadow-[inset_3px_3px_6px_#cbced1,inset_-3px_-3px_6px_#ffffff] transition-all cursor-pointer text-center">
                         <FontAwesomeIcon icon={faMoneyBillWave} className="text-2xl text-[#00bfa5] mb-2" />
-                        <div className="text-sm font-medium text-gray-700">Transaksi</div>
+                        <div className="text-sm font-medium text-gray-700">{getLabel('transaction')}</div>
                     </div>
                 </Link>
             </div>

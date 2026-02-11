@@ -3,6 +3,8 @@
 import React, { useEffect, useState } from 'react';
 import { Plus, Search, Filter, DollarSign, ShoppingCart, TrendingUp, TrendingDown, Eye, FileText, X, Check, ChevronLeft, ChevronRight } from 'lucide-react';
 import { toast } from 'sonner';
+import { useLanguage } from '@/hooks/useLanguage';
+import { useCurrency } from '@/hooks/useCurrency';
 
 interface Transaction {
     id: string;
@@ -38,6 +40,9 @@ interface CustomerOption {
 import { API_URL } from '@/lib/api';
 
 export default function TransactionsPage() {
+    const { t, language } = useLanguage();
+    const { fmt } = useCurrency();
+
     const [transactions, setTransactions] = useState<Transaction[]>([]);
     const [loading, setLoading] = useState(true);
     const [filter, setFilter] = useState<'ALL' | 'SALE' | 'PURCHASE'>('ALL');
@@ -88,7 +93,7 @@ export default function TransactionsPage() {
             }
         } catch (err) {
             console.error('Error:', err);
-            toast.error('Gagal memuat data transaksi');
+            toast.error(t.error);
         } finally {
             setLoading(false);
         }
@@ -111,7 +116,7 @@ export default function TransactionsPage() {
     const handleCreateTransaction = async () => {
         const token = getToken();
         if (!token || !txForm.vehicleId || !txForm.finalPrice || !txForm.customerId) {
-            toast.error('Mohon lengkapi data kendaraan, customer, dan harga');
+            toast.error(t.requiredFields);
             return;
         }
 
@@ -134,23 +139,20 @@ export default function TransactionsPage() {
             });
 
             if (res.ok) {
-                toast.success('Transaksi berhasil dibuat');
+                toast.success(t.success);
                 setShowModal(false);
                 setTxForm({ type: 'SALE', vehicleId: '', customerId: '', paymentType: 'CASH', finalPrice: '', date: new Date().toISOString().split('T')[0], notes: '' });
                 fetchTransactions();
             } else {
                 const err = await res.json();
-                toast.error(err.message || 'Gagal membuat transaksi');
+                toast.error(err.message || t.error);
             }
         } catch (err) {
-            toast.error('Gagal membuat transaksi');
+            toast.error(t.error);
         } finally {
             setSubmitting(false);
         }
     };
-
-    const formatCurrency = (val: number) =>
-        new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', minimumFractionDigits: 0 }).format(val);
 
     const filteredTx = transactions.filter(tx => {
         const matchFilter = filter === 'ALL' || tx.type === filter;
@@ -179,23 +181,23 @@ export default function TransactionsPage() {
             {/* Header */}
             <div className="flex justify-between items-center">
                 <div>
-                    <h1 className="text-2xl font-bold text-gray-800">Transaksi</h1>
-                    <p className="text-gray-500 mt-1">Kelola penjualan dan pembelian kendaraan</p>
+                    <h1 className="text-2xl font-bold text-gray-800">{t.transactionTitle}</h1>
+                    <p className="text-gray-500 mt-1">{t.transactionDesc}</p>
                 </div>
                 <button
                     onClick={() => { fetchFormData(); setShowModal(true); }}
                     className="flex items-center gap-2 bg-[#00bfa5] text-white px-4 py-2.5 rounded-xl font-medium hover:bg-[#00a896] transition-colors shadow-lg"
                 >
-                    <Plus className="w-5 h-5" /> Tambah Transaksi
+                    <Plus className="w-5 h-5" /> {t.newTransaction}
                 </button>
             </div>
 
             {/* Stats */}
             <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-                <StatCard icon={<TrendingUp />} label="Total Penjualan" value={formatCurrency(stats.totalSales)} color="emerald" />
-                <StatCard icon={<ShoppingCart />} label="Total Pembelian" value={formatCurrency(stats.totalPurchases)} color="blue" />
-                <StatCard icon={<DollarSign />} label="Total Profit" value={formatCurrency(stats.totalProfit)} color="amber" />
-                <StatCard icon={<FileText />} label="Pending" value={stats.pending.toString()} color="rose" />
+                <StatCard icon={<TrendingUp />} label={t.totalSoldPeriod} value={fmt(stats.totalSales)} color="emerald" />
+                <StatCard icon={<ShoppingCart />} label="Total Pembelian" value={fmt(stats.totalPurchases)} color="blue" />
+                <StatCard icon={<DollarSign />} label="Total Profit" value={fmt(stats.totalProfit)} color="amber" />
+                <StatCard icon={<FileText />} label={t.pending} value={stats.pending.toString()} color="rose" />
             </div>
 
             {/* Filters */}
@@ -206,7 +208,7 @@ export default function TransactionsPage() {
                         type="text"
                         value={search}
                         onChange={(e) => setSearch(e.target.value)}
-                        placeholder="Cari kendaraan atau customer..."
+                        placeholder={t.searchNameEmail}
                         className="w-full pl-12 pr-4 py-3 rounded-xl bg-[#ecf0f3] border-none shadow-[inset_3px_3px_6px_#cbced1,inset_-3px_-3px_6px_#ffffff] focus:outline-none focus:ring-2 focus:ring-[#00bfa5] text-gray-700"
                     />
                 </div>
@@ -220,7 +222,7 @@ export default function TransactionsPage() {
                                 : 'bg-[#ecf0f3] text-gray-600 shadow-[3px_3px_6px_#cbced1,-3px_-3px_6px_#ffffff]'
                                 }`}
                         >
-                            {f === 'ALL' ? 'Semua' : f === 'SALE' ? 'Penjualan' : 'Pembelian'}
+                            {f === 'ALL' ? t.all : f === 'SALE' ? t.saleType : t.purchaseType}
                         </button>
                     ))}
                 </div>
@@ -231,12 +233,12 @@ export default function TransactionsPage() {
                 <table className="w-full">
                     <thead className="bg-gray-50/50">
                         <tr className="text-left text-sm text-gray-500">
-                            <th className="px-6 py-4">Tipe</th>
-                            <th className="px-6 py-4">Kendaraan</th>
-                            <th className="px-6 py-4">Customer</th>
-                            <th className="px-6 py-4">Jumlah</th>
+                            <th className="px-6 py-4">{t.saleType} / {t.purchaseType}</th>
+                            <th className="px-6 py-4">{t.selectVehicle}</th>
+                            <th className="px-6 py-4">{t.selectCustomer}</th>
+                            <th className="px-6 py-4">{t.totalAmount}</th>
                             <th className="px-6 py-4">Status</th>
-                            <th className="px-6 py-4">Tanggal</th>
+                            <th className="px-6 py-4">{t.transactionDate}</th>
                             <th className="px-6 py-4 text-right">Aksi</th>
                         </tr>
                     </thead>
@@ -247,21 +249,26 @@ export default function TransactionsPage() {
                                     <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium ${tx.type === 'SALE' ? 'bg-emerald-100 text-emerald-700' : 'bg-blue-100 text-blue-700'
                                         }`}>
                                         {tx.type === 'SALE' ? <TrendingUp className="w-3 h-3" /> : <ShoppingCart className="w-3 h-3" />}
-                                        {tx.type === 'SALE' ? 'Jual' : 'Beli'}
+                                        {tx.type === 'SALE' ? t.saleType : t.purchaseType}
                                     </span>
                                 </td>
                                 <td className="px-6 py-4 font-medium text-gray-800">{tx.vehicleName}</td>
                                 <td className="px-6 py-4 text-gray-600">{tx.customerName || '-'}</td>
-                                <td className="px-6 py-4 font-semibold text-gray-800">{formatCurrency(tx.finalPrice)}</td>
+                                <td className="px-6 py-4 font-semibold text-gray-800">{fmt(tx.finalPrice)}</td>
                                 <td className="px-6 py-4">
                                     <span className={`px-2.5 py-1 rounded-full text-xs font-medium ${tx.status === 'COMPLETED' ? 'bg-green-100 text-green-700' :
                                         tx.status === 'PENDING' ? 'bg-amber-100 text-amber-700' :
                                             'bg-gray-100 text-gray-600'
                                         }`}>
-                                        {tx.status}
+                                        {tx.status === 'COMPLETED' ? t.completed :
+                                            tx.status === 'PENDING' ? t.pending :
+                                                tx.status === 'PAID' ? t.paid :
+                                                    tx.status === 'CANCELLED' ? t.cancelled : tx.status}
                                     </span>
                                 </td>
-                                <td className="px-6 py-4 text-sm text-gray-500">{new Date(tx.date).toLocaleDateString('id-ID')}</td>
+                                <td className="px-6 py-4 text-sm text-gray-500">
+                                    {new Date(tx.date).toLocaleDateString(language === 'en' ? 'en-US' : language === 'id' ? 'id-ID' : 'en-US')}
+                                </td>
                                 <td className="px-6 py-4 text-right">
                                     <button
                                         onClick={() => setSelectedTx(tx)}
@@ -281,19 +288,17 @@ export default function TransactionsPage() {
                             <ShoppingCart className="w-12 h-12 text-gray-400" />
                         </div>
                         <h3 className="text-xl font-bold text-gray-700 mb-2">
-                            {search ? 'Tidak ada hasil pencarian' : 'Belum ada transaksi'}
+                            {search ? t.noSalesData : t.noSalesData}
                         </h3>
                         <p className="text-gray-500 max-w-sm mx-auto mb-8">
-                            {search
-                                ? `Tidak ditemukan transaksi dengan kata kunci "${search}".`
-                                : 'Catat penjualan dan pembelian kendaraan Anda di sini untuk memantau arus kas.'}
+                            {t.transactionDesc}
                         </p>
                         {!search && (
                             <button
                                 onClick={() => { fetchFormData(); setShowModal(true); }}
                                 className="px-8 py-3 rounded-xl bg-[#00bfa5] text-white font-bold shadow-[4px_4px_8px_#cbced1,-4px_-4px_8px_#ffffff] hover:shadow-[inset_2px_2px_4px_#cbced1,inset_-2px_-2px_4px_#ffffff] transition-all flex items-center gap-2"
                             >
-                                <Plus className="w-5 h-5" /> Catat Transaksi Baru
+                                <Plus className="w-5 h-5" /> {t.newTransaction}
                             </button>
                         )}
                     </div>
@@ -311,7 +316,7 @@ export default function TransactionsPage() {
                         <ChevronLeft className="w-5 h-5" />
                     </button>
                     <span className="text-sm text-gray-600 px-3">
-                        Halaman {currentPage} dari {Math.ceil(filteredTx.length / ITEMS_PER_PAGE)}
+                        {t.previous} / {t.next} {currentPage}
                     </span>
                     <button
                         onClick={() => setCurrentPage(p => Math.min(Math.ceil(filteredTx.length / ITEMS_PER_PAGE), p + 1))}
@@ -328,21 +333,21 @@ export default function TransactionsPage() {
                 <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
                     <div className="bg-[#ecf0f3] rounded-2xl shadow-xl max-w-md w-full">
                         <div className="flex justify-between items-center p-5 border-b border-gray-200">
-                            <h3 className="text-lg font-semibold text-gray-800">Detail Transaksi</h3>
+                            <h3 className="text-lg font-semibold text-gray-800">{t.transactionTitle}</h3>
                             <button onClick={() => setSelectedTx(null)} className="p-1 hover:bg-gray-200 rounded">
                                 <X className="w-5 h-5 text-gray-500" />
                             </button>
                         </div>
                         <div className="p-5 space-y-4">
-                            <DetailRow label="Tipe" value={selectedTx.type === 'SALE' ? 'Penjualan' : 'Pembelian'} />
-                            <DetailRow label="Kendaraan" value={selectedTx.vehicleName} />
-                            {selectedTx.customerName && <DetailRow label="Customer" value={selectedTx.customerName} />}
-                            <DetailRow label="Jumlah" value={formatCurrency(selectedTx.finalPrice)} />
-                            <DetailRow label="Pembayaran" value={selectedTx.paymentType === 'CREDIT' ? 'Kredit' : 'Tunai'} />
-                            {selectedTx.profit && <DetailRow label="Profit" value={formatCurrency(selectedTx.profit)} highlight />}
-                            <DetailRow label="Tanggal" value={new Date(selectedTx.date).toLocaleDateString('id-ID')} />
+                            <DetailRow label={t.saleType} value={selectedTx.type === 'SALE' ? t.saleType : t.purchaseType} />
+                            <DetailRow label={t.selectVehicle} value={selectedTx.vehicleName} />
+                            {selectedTx.customerName && <DetailRow label={t.selectCustomer} value={selectedTx.customerName} />}
+                            <DetailRow label={t.totalAmount} value={fmt(selectedTx.finalPrice)} />
+                            <DetailRow label={t.paymentMethod} value={selectedTx.paymentType === 'CREDIT' ? t.credit : t.cash} />
+                            {selectedTx.profit && <DetailRow label="Profit" value={fmt(selectedTx.profit)} highlight />}
+                            <DetailRow label={t.transactionDate} value={new Date(selectedTx.date).toLocaleDateString(language === 'en' ? 'en-US' : language === 'id' ? 'id-ID' : 'en-US')} />
                             <DetailRow label="Status" value={selectedTx.status} />
-                            {selectedTx.notes && <DetailRow label="Catatan" value={selectedTx.notes} />}
+                            {selectedTx.notes && <DetailRow label={t.notes} value={selectedTx.notes} />}
                         </div>
                     </div>
                 </div>
@@ -353,7 +358,7 @@ export default function TransactionsPage() {
                 <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
                     <div className="bg-[#ecf0f3] rounded-2xl shadow-xl max-w-lg w-full max-h-[90vh] overflow-y-auto">
                         <div className="flex justify-between items-center p-5 border-b border-gray-200 sticky top-0 bg-[#ecf0f3] z-10">
-                            <h3 className="text-lg font-semibold text-gray-800">Tambah Transaksi</h3>
+                            <h3 className="text-lg font-semibold text-gray-800">{t.newTransaction}</h3>
                             <button onClick={() => setShowModal(false)} className="p-1 hover:bg-gray-200 rounded">
                                 <X className="w-5 h-5 text-gray-500" />
                             </button>
@@ -361,18 +366,18 @@ export default function TransactionsPage() {
                         <div className="p-5 space-y-4">
                             {/* Type */}
                             <div>
-                                <label className="block text-sm font-medium text-gray-600 mb-2">Tipe Transaksi</label>
+                                <label className="block text-sm font-medium text-gray-600 mb-2">{t.saleType} / {t.purchaseType}</label>
                                 <div className="flex gap-2">
-                                    {(['SALE', 'PURCHASE'] as const).map((t) => (
+                                    {(['SALE', 'PURCHASE'] as const).map((tType) => (
                                         <button
-                                            key={t}
-                                            onClick={() => setTxForm({ ...txForm, type: t })}
-                                            className={`flex-1 py-3 rounded-xl font-medium transition-all ${txForm.type === t
+                                            key={tType}
+                                            onClick={() => setTxForm({ ...txForm, type: tType })}
+                                            className={`flex-1 py-3 rounded-xl font-medium transition-all ${txForm.type === tType
                                                 ? 'bg-[#00bfa5] text-white shadow-lg'
                                                 : 'bg-[#ecf0f3] text-gray-600 shadow-[3px_3px_6px_#cbced1,-3px_-3px_6px_#ffffff]'
                                                 }`}
                                         >
-                                            {t === 'SALE' ? 'Penjualan' : 'Pembelian'}
+                                            {tType === 'SALE' ? t.saleType : t.purchaseType}
                                         </button>
                                     ))}
                                 </div>
@@ -380,13 +385,13 @@ export default function TransactionsPage() {
 
                             {/* Vehicle */}
                             <div>
-                                <label className="block text-sm font-medium text-gray-600 mb-1">Kendaraan *</label>
+                                <label className="block text-sm font-medium text-gray-600 mb-1">{t.selectVehicle} *</label>
                                 <select
                                     value={txForm.vehicleId}
                                     onChange={(e) => setTxForm({ ...txForm, vehicleId: e.target.value })}
                                     className="w-full px-4 py-3 rounded-xl bg-[#ecf0f3] shadow-[inset_3px_3px_6px_#cbced1,inset_-3px_-3px_6px_#ffffff] focus:outline-none focus:ring-2 focus:ring-[#00bfa5] text-gray-700"
                                 >
-                                    <option value="">Pilih Kendaraan</option>
+                                    <option value="">{t.selectVehicle}</option>
                                     {vehicles.map((v: any) => (
                                         <option key={v.id} value={v.id}>{v.make} {v.model} ({v.year}) - {v.licensePlate || 'No Plat'}</option>
                                     ))}
@@ -395,13 +400,13 @@ export default function TransactionsPage() {
 
                             {/* Customer */}
                             <div>
-                                <label className="block text-sm font-medium text-gray-600 mb-1">Customer *</label>
+                                <label className="block text-sm font-medium text-gray-600 mb-1">{t.selectCustomer} *</label>
                                 <select
                                     value={txForm.customerId}
                                     onChange={(e) => setTxForm({ ...txForm, customerId: e.target.value })}
                                     className="w-full px-4 py-3 rounded-xl bg-[#ecf0f3] shadow-[inset_3px_3px_6px_#cbced1,inset_-3px_-3px_6px_#ffffff] focus:outline-none focus:ring-2 focus:ring-[#00bfa5] text-gray-700"
                                 >
-                                    <option value="">Pilih Customer</option>
+                                    <option value="">{t.selectCustomer}</option>
                                     {customers.map((c: any) => (
                                         <option key={c.id} value={c.id}>{c.name} - {c.phone}</option>
                                     ))}
@@ -410,7 +415,7 @@ export default function TransactionsPage() {
 
                             {/* Payment Type */}
                             <div>
-                                <label className="block text-sm font-medium text-gray-600 mb-2">Tipe Pembayaran *</label>
+                                <label className="block text-sm font-medium text-gray-600 mb-2">{t.paymentMethod} *</label>
                                 <div className="flex gap-2">
                                     {(['CASH', 'CREDIT'] as const).map((pt) => (
                                         <button
@@ -421,7 +426,7 @@ export default function TransactionsPage() {
                                                 : 'bg-[#ecf0f3] text-gray-600 shadow-[3px_3px_6px_#cbced1,-3px_-3px_6px_#ffffff]'
                                                 }`}
                                         >
-                                            {pt === 'CASH' ? 'Tunai' : 'Kredit'}
+                                            {pt === 'CASH' ? t.cash : t.credit}
                                         </button>
                                     ))}
                                 </div>
@@ -429,19 +434,19 @@ export default function TransactionsPage() {
 
                             {/* Price */}
                             <div>
-                                <label className="block text-sm font-medium text-gray-600 mb-1">Harga *</label>
+                                <label className="block text-sm font-medium text-gray-600 mb-1">{t.totalAmount} *</label>
                                 <input
                                     type="number"
                                     value={txForm.finalPrice}
                                     onChange={(e) => setTxForm({ ...txForm, finalPrice: e.target.value })}
-                                    placeholder="Contoh: 195000000"
+                                    placeholder="0"
                                     className="w-full px-4 py-3 rounded-xl bg-[#ecf0f3] shadow-[inset_3px_3px_6px_#cbced1,inset_-3px_-3px_6px_#ffffff] focus:outline-none focus:ring-2 focus:ring-[#00bfa5] text-gray-700"
                                 />
                             </div>
 
                             {/* Date */}
                             <div>
-                                <label className="block text-sm font-medium text-gray-600 mb-1">Tanggal</label>
+                                <label className="block text-sm font-medium text-gray-600 mb-1">{t.transactionDate}</label>
                                 <input
                                     type="date"
                                     value={txForm.date}
@@ -452,11 +457,11 @@ export default function TransactionsPage() {
 
                             {/* Notes */}
                             <div>
-                                <label className="block text-sm font-medium text-gray-600 mb-1">Catatan</label>
+                                <label className="block text-sm font-medium text-gray-600 mb-1">{t.notes}</label>
                                 <textarea
                                     value={txForm.notes}
                                     onChange={(e) => setTxForm({ ...txForm, notes: e.target.value })}
-                                    placeholder="Catatan tambahan..."
+                                    placeholder={t.notes}
                                     rows={2}
                                     className="w-full px-4 py-3 rounded-xl bg-[#ecf0f3] shadow-[inset_3px_3px_6px_#cbced1,inset_-3px_-3px_6px_#ffffff] focus:outline-none focus:ring-2 focus:ring-[#00bfa5] resize-none text-gray-700"
                                 />
@@ -468,14 +473,14 @@ export default function TransactionsPage() {
                                     onClick={() => setShowModal(false)}
                                     className="flex-1 py-3 rounded-xl bg-[#ecf0f3] text-gray-600 font-medium shadow-[3px_3px_6px_#cbced1,-3px_-3px_6px_#ffffff]"
                                 >
-                                    Batal
+                                    {t.back}
                                 </button>
                                 <button
                                     onClick={handleCreateTransaction}
                                     disabled={submitting}
                                     className="flex-1 py-3 rounded-xl bg-[#00bfa5] text-white font-medium shadow-lg hover:bg-[#00a891] disabled:opacity-50 transition-all"
                                 >
-                                    {submitting ? 'Menyimpan...' : 'Simpan Transaksi'}
+                                    {submitting ? '...' : t.saveChanges}
                                 </button>
                             </div>
                         </div>

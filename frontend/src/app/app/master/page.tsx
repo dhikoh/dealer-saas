@@ -4,6 +4,7 @@ import React, { useEffect, useState } from 'react';
 import { Plus, Edit2, Trash2, Car, Bike, Truck, Bus, Wrench, Package, CircleDot, X, Search, Settings } from 'lucide-react';
 import { getCategories, addCategory, ICON_OPTIONS, COLOR_OPTIONS, VehicleCategory, VEHICLE_ICONS } from '@/lib/categories';
 import { API_URL } from '@/lib/api';
+import { useLanguage } from '@/hooks/useLanguage';
 
 interface Brand {
     id: string;
@@ -19,6 +20,7 @@ interface Model {
 }
 
 export default function MasterDataPage() {
+    const { t, language } = useLanguage();
     const [brands, setBrands] = useState<Brand[]>([]);
     const [categories, setCategories] = useState<VehicleCategory[]>([]);
     const [loading, setLoading] = useState(true);
@@ -36,6 +38,30 @@ export default function MasterDataPage() {
     const [brandForm, setBrandForm] = useState({ name: '', category: 'CAR' });
     const [modelForm, setModelForm] = useState({ name: '', variants: '' });
     const [categoryForm, setCategoryForm] = useState({ name: '', nameId: '', icon: 'circle', color: 'gray' });
+
+    // Helper for local translations
+    const getLabel = (key: string) => {
+        const labels: Record<string, Record<string, string>> = {
+            addCategory: { id: 'Tambah Kategori', en: 'Add Category' },
+            categoryNameEn: { id: 'Nama (English)', en: 'Name (English)' },
+            categoryNameId: { id: 'Nama (Indonesia)', en: 'Name (Indonesia)' },
+            icon: { id: 'Ikon', en: 'Icon' },
+            color: { id: 'Warna', en: 'Color' },
+            searchBrand: { id: 'Cari merek...', en: 'Search brand...' },
+            noBrandsInCategory: { id: 'Belum ada merek untuk kategori ini', en: 'No brands for this category' },
+            noModels: { id: 'Belum ada model', en: 'No models' },
+            save: { id: 'Simpan', en: 'Save' },
+            others: { id: 'lainnya', en: 'others' },
+            manageCategories: { id: 'Kategori', en: 'Categories' },
+            exampleBrand: { id: 'Contoh: Toyota, Honda', en: 'Example: Toyota, Honda' },
+            exampleModel: { id: 'Contoh: Avanza, Jazz', en: 'Example: Civic, Accord' },
+            exampleVariants: { id: 'Contoh: G, E, S', en: 'Example: LX, EX, Sport' },
+            variantsPlaceholder: { id: 'Varian (pisahkan dengan koma)', en: 'Variants (comma separated)' },
+            exampleCatEn: { id: 'e.g. Bicycle', en: 'e.g. Bicycle' },
+            exampleCatId: { id: 'e.g. Sepeda', en: 'e.g. Sepeda' },
+        };
+        return labels[key]?.[language === 'id' ? 'id' : 'en'] || labels[key]?.['en'] || key;
+    };
 
     useEffect(() => {
         setCategories(getCategories());
@@ -152,8 +178,8 @@ export default function MasterDataPage() {
             {/* Header */}
             <div className="flex justify-between items-center">
                 <div>
-                    <h1 className={`text-2xl font-bold ${theme === 'dark' ? 'text-white' : 'text-gray-800'}`}>Master Data</h1>
-                    <p className="text-gray-500 mt-1">Kelola kategori, merek dan model kendaraan</p>
+                    <h1 className={`text-2xl font-bold ${theme === 'dark' ? 'text-white' : 'text-gray-800'}`}>{t.masterTitle}</h1>
+                    <p className="text-gray-500 mt-1">{t.masterDesc}</p>
                 </div>
                 <div className="flex gap-2">
                     <button
@@ -163,7 +189,7 @@ export default function MasterDataPage() {
                             : 'bg-[#ecf0f3] text-gray-600 shadow-[3px_3px_6px_#cbced1,-3px_-3px_6px_#ffffff] hover:text-[#00bfa5]'
                             }`}
                     >
-                        <Settings className="w-5 h-5" /> Kategori
+                        <Settings className="w-5 h-5" /> {getLabel('manageCategories')}
                     </button>
                     <button
                         onClick={() => {
@@ -172,7 +198,7 @@ export default function MasterDataPage() {
                         }}
                         className="flex items-center gap-2 bg-[#00bfa5] text-white px-4 py-2.5 rounded-xl font-medium hover:bg-[#00a896] transition-colors shadow-lg"
                     >
-                        <Plus className="w-5 h-5" /> Tambah Merek
+                        <Plus className="w-5 h-5" /> {t.addBrand}
                     </button>
                 </div>
             </div>
@@ -191,7 +217,7 @@ export default function MasterDataPage() {
                             }`}
                     >
                         {getCategoryIcon(cat.icon)}
-                        {cat.nameId}
+                        {language === 'id' ? cat.nameId : cat.name}
                     </button>
                 ))}
             </div>
@@ -203,7 +229,7 @@ export default function MasterDataPage() {
                     type="text"
                     value={search}
                     onChange={(e) => setSearch(e.target.value)}
-                    placeholder="Cari merek..."
+                    placeholder={getLabel('searchBrand')}
                     className={`w-full pl-12 pr-4 py-3 rounded-xl border-none focus:outline-none focus:ring-2 focus:ring-[#00bfa5] ${theme === 'dark'
                         ? 'bg-gray-800 text-white placeholder-gray-400'
                         : 'bg-[#ecf0f3] text-gray-700 shadow-[inset_3px_3px_6px_#cbced1,inset_-3px_-3px_6px_#ffffff]'
@@ -225,7 +251,7 @@ export default function MasterDataPage() {
                                 </div>
                                 <div>
                                     <h3 className={`font-semibold ${theme === 'dark' ? 'text-white' : 'text-gray-800'}`}>{brand.name}</h3>
-                                    <p className="text-xs text-gray-500">{brand.models?.length || 0} model</p>
+                                    <p className="text-xs text-gray-500">{brand.models?.length || 0} {t.modelName?.toLowerCase() || 'model'}</p>
                                 </div>
                             </div>
                             <button
@@ -235,7 +261,7 @@ export default function MasterDataPage() {
                                     setShowModelModal(true);
                                 }}
                                 className="text-[#00bfa5] hover:bg-[#00bfa5]/10 p-2 rounded-lg transition-colors"
-                                title="Tambah Model"
+                                title={t.addModel}
                             >
                                 <Plus className="w-4 h-4" />
                             </button>
@@ -257,10 +283,10 @@ export default function MasterDataPage() {
                                 </div>
                             ))}
                             {(!brand.models || brand.models.length === 0) && (
-                                <p className="text-sm text-gray-400 italic">Belum ada model</p>
+                                <p className="text-sm text-gray-400 italic">{getLabel('noModels')}</p>
                             )}
                             {brand.models && brand.models.length > 5 && (
-                                <p className="text-xs text-[#00bfa5] text-center">+{brand.models.length - 5} lainnya</p>
+                                <p className="text-xs text-[#00bfa5] text-center">+{brand.models.length - 5} {getLabel('others')}</p>
                             )}
                         </div>
                     </div>
@@ -268,22 +294,22 @@ export default function MasterDataPage() {
 
                 {filteredBrands.length === 0 && (
                     <div className="col-span-full text-center py-12 text-gray-500">
-                        Belum ada merek untuk kategori ini
+                        {getLabel('noBrandsInCategory')}
                     </div>
                 )}
             </div>
 
             {/* Add Brand Modal */}
             {showBrandModal && (
-                <Modal title="Tambah Merek Baru" onClose={() => setShowBrandModal(false)} theme={theme}>
+                <Modal title={t.addBrand} onClose={() => setShowBrandModal(false)} theme={theme}>
                     <div className="space-y-4">
                         <div>
-                            <label className="block text-sm font-medium text-gray-600 dark:text-gray-300 mb-2">Nama Merek</label>
+                            <label className="block text-sm font-medium text-gray-600 dark:text-gray-300 mb-2">{t.brandName}</label>
                             <input
                                 type="text"
                                 value={brandForm.name}
                                 onChange={(e) => setBrandForm({ ...brandForm, name: e.target.value })}
-                                placeholder="Contoh: Toyota, Honda"
+                                placeholder={getLabel('exampleBrand')}
                                 className={`w-full px-4 py-3 rounded-xl border-none focus:outline-none focus:ring-2 focus:ring-[#00bfa5] ${theme === 'dark'
                                     ? 'bg-gray-700 text-white placeholder-gray-400'
                                     : 'bg-[#ecf0f3] text-gray-700 shadow-[inset_3px_3px_6px_#cbced1,inset_-3px_-3px_6px_#ffffff]'
@@ -291,7 +317,7 @@ export default function MasterDataPage() {
                             />
                         </div>
                         <div>
-                            <label className="block text-sm font-medium text-gray-600 dark:text-gray-300 mb-2">Kategori</label>
+                            <label className="block text-sm font-medium text-gray-600 dark:text-gray-300 mb-2">{t.manageCategories}</label>
                             <select
                                 value={brandForm.category}
                                 onChange={(e) => setBrandForm({ ...brandForm, category: e.target.value })}
@@ -301,7 +327,7 @@ export default function MasterDataPage() {
                                     }`}
                             >
                                 {categories.map((cat) => (
-                                    <option key={cat.id} value={cat.id}>{cat.nameId}</option>
+                                    <option key={cat.id} value={cat.id}>{language === 'id' ? cat.nameId : cat.name}</option>
                                 ))}
                             </select>
                         </div>
@@ -309,7 +335,7 @@ export default function MasterDataPage() {
                             onClick={handleAddBrand}
                             className="w-full bg-[#00bfa5] text-white py-3 rounded-xl font-medium hover:bg-[#00a896] transition-colors"
                         >
-                            Simpan
+                            {getLabel('save')}
                         </button>
                     </div>
                 </Modal>
@@ -317,15 +343,15 @@ export default function MasterDataPage() {
 
             {/* Add Model Modal */}
             {showModelModal && (
-                <Modal title="Tambah Model Baru" onClose={() => setShowModelModal(false)} theme={theme}>
+                <Modal title={t.addModel} onClose={() => setShowModelModal(false)} theme={theme}>
                     <div className="space-y-4">
                         <div>
-                            <label className="block text-sm font-medium text-gray-600 dark:text-gray-300 mb-2">Nama Model</label>
+                            <label className="block text-sm font-medium text-gray-600 dark:text-gray-300 mb-2">{t.modelName}</label>
                             <input
                                 type="text"
                                 value={modelForm.name}
                                 onChange={(e) => setModelForm({ ...modelForm, name: e.target.value })}
-                                placeholder="Contoh: Avanza, Jazz"
+                                placeholder={getLabel('exampleModel')}
                                 className={`w-full px-4 py-3 rounded-xl border-none focus:outline-none focus:ring-2 focus:ring-[#00bfa5] ${theme === 'dark'
                                     ? 'bg-gray-700 text-white placeholder-gray-400'
                                     : 'bg-[#ecf0f3] text-gray-700 shadow-[inset_3px_3px_6px_#cbced1,inset_-3px_-3px_6px_#ffffff]'
@@ -333,12 +359,12 @@ export default function MasterDataPage() {
                             />
                         </div>
                         <div>
-                            <label className="block text-sm font-medium text-gray-600 dark:text-gray-300 mb-2">Varian (pisahkan dengan koma)</label>
+                            <label className="block text-sm font-medium text-gray-600 dark:text-gray-300 mb-2">{getLabel('variantsPlaceholder')}</label>
                             <input
                                 type="text"
                                 value={modelForm.variants}
                                 onChange={(e) => setModelForm({ ...modelForm, variants: e.target.value })}
-                                placeholder="Contoh: G, E, S"
+                                placeholder={getLabel('exampleVariants')}
                                 className={`w-full px-4 py-3 rounded-xl border-none focus:outline-none focus:ring-2 focus:ring-[#00bfa5] ${theme === 'dark'
                                     ? 'bg-gray-700 text-white placeholder-gray-400'
                                     : 'bg-[#ecf0f3] text-gray-700 shadow-[inset_3px_3px_6px_#cbced1,inset_-3px_-3px_6px_#ffffff]'
@@ -349,7 +375,7 @@ export default function MasterDataPage() {
                             onClick={handleAddModel}
                             className="w-full bg-[#00bfa5] text-white py-3 rounded-xl font-medium hover:bg-[#00a896] transition-colors"
                         >
-                            Simpan
+                            {getLabel('save')}
                         </button>
                     </div>
                 </Modal>
@@ -357,15 +383,15 @@ export default function MasterDataPage() {
 
             {/* Add Category Modal */}
             {showCategoryModal && (
-                <Modal title="Tambah Kategori Baru" onClose={() => setShowCategoryModal(false)} theme={theme}>
+                <Modal title={getLabel('addCategory')} onClose={() => setShowCategoryModal(false)} theme={theme}>
                     <div className="space-y-4">
                         <div>
-                            <label className="block text-sm font-medium text-gray-600 dark:text-gray-300 mb-2">Nama (English)</label>
+                            <label className="block text-sm font-medium text-gray-600 dark:text-gray-300 mb-2">{getLabel('categoryNameEn')}</label>
                             <input
                                 type="text"
                                 value={categoryForm.name}
                                 onChange={(e) => setCategoryForm({ ...categoryForm, name: e.target.value })}
-                                placeholder="e.g. Bicycle"
+                                placeholder={getLabel('exampleCatEn')}
                                 className={`w-full px-4 py-3 rounded-xl border-none focus:outline-none focus:ring-2 focus:ring-[#00bfa5] ${theme === 'dark'
                                     ? 'bg-gray-700 text-white placeholder-gray-400'
                                     : 'bg-[#ecf0f3] text-gray-700 shadow-[inset_3px_3px_6px_#cbced1,inset_-3px_-3px_6px_#ffffff]'
@@ -373,12 +399,12 @@ export default function MasterDataPage() {
                             />
                         </div>
                         <div>
-                            <label className="block text-sm font-medium text-gray-600 dark:text-gray-300 mb-2">Nama (Indonesia)</label>
+                            <label className="block text-sm font-medium text-gray-600 dark:text-gray-300 mb-2">{getLabel('categoryNameId')}</label>
                             <input
                                 type="text"
                                 value={categoryForm.nameId}
                                 onChange={(e) => setCategoryForm({ ...categoryForm, nameId: e.target.value })}
-                                placeholder="e.g. Sepeda"
+                                placeholder={getLabel('exampleCatId')}
                                 className={`w-full px-4 py-3 rounded-xl border-none focus:outline-none focus:ring-2 focus:ring-[#00bfa5] ${theme === 'dark'
                                     ? 'bg-gray-700 text-white placeholder-gray-400'
                                     : 'bg-[#ecf0f3] text-gray-700 shadow-[inset_3px_3px_6px_#cbced1,inset_-3px_-3px_6px_#ffffff]'
@@ -386,7 +412,7 @@ export default function MasterDataPage() {
                             />
                         </div>
                         <div>
-                            <label className="block text-sm font-medium text-gray-600 dark:text-gray-300 mb-2">Icon</label>
+                            <label className="block text-sm font-medium text-gray-600 dark:text-gray-300 mb-2">{getLabel('icon')}</label>
                             <div className="grid grid-cols-4 gap-2">
                                 {ICON_OPTIONS.map((opt) => (
                                     <button
@@ -399,13 +425,14 @@ export default function MasterDataPage() {
                                             }`}
                                     >
                                         {getCategoryIcon(opt.key)}
+                                        {/* Icons don't change names usually but we could map them if really needed. Keeping fixed for now or removing label to just show icon */}
                                         <span className="text-xs text-gray-500">{opt.label}</span>
                                     </button>
                                 ))}
                             </div>
                         </div>
                         <div>
-                            <label className="block text-sm font-medium text-gray-600 dark:text-gray-300 mb-2">Warna</label>
+                            <label className="block text-sm font-medium text-gray-600 dark:text-gray-300 mb-2">{getLabel('color')}</label>
                             <div className="flex flex-wrap gap-2">
                                 {COLOR_OPTIONS.map((opt) => (
                                     <button
@@ -423,7 +450,7 @@ export default function MasterDataPage() {
                             onClick={handleAddCategory}
                             className="w-full bg-[#00bfa5] text-white py-3 rounded-xl font-medium hover:bg-[#00a896] transition-colors"
                         >
-                            Tambah Kategori
+                            {getLabel('addCategory')}
                         </button>
                     </div>
                 </Modal>

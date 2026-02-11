@@ -16,6 +16,7 @@ import {
     faCalculator,
 } from '@fortawesome/free-solid-svg-icons';
 import { useLanguage } from '@/hooks/useLanguage';
+import { useCurrency } from '@/hooks/useCurrency';
 import { toast } from 'sonner';
 import { API_URL } from '@/lib/api';
 
@@ -38,7 +39,8 @@ interface Credit {
 }
 
 export default function CreditPage() {
-    const { t } = useLanguage();
+    const { t, language } = useLanguage();
+    const { fmt } = useCurrency();
     const [credits, setCredits] = useState<Credit[]>([]);
     const [loading, setLoading] = useState(true);
     const [filter, setFilter] = useState<'all' | 'overdue' | 'active'>('all');
@@ -47,6 +49,39 @@ export default function CreditPage() {
     const [paymentAmount, setPaymentAmount] = useState('');
 
     const getToken = () => localStorage.getItem('access_token');
+
+    const getLabel = (key: string) => {
+        const labels: Record<string, Record<string, string>> = {
+            creditDesc: { id: 'Kelola kredit dan cicilan customer', en: 'Manage customer credits and installments' },
+            pay: { id: 'Bayar', en: 'Pay' },
+            totalCredit: { id: 'Total Kredit', en: 'Total Credit' },
+            monthlyInstallment: { id: 'Cicilan/bulan', en: 'Monthly Installment' },
+            tenor: { id: 'Tenor', en: 'Tenor' },
+            months: { id: 'bulan', en: 'months' },
+            paid: { id: 'Sudah Bayar', en: 'Paid' },
+            dueDate: { id: 'Jatuh Tempo', en: 'Due Date' },
+            paymentProgress: { id: 'Progress Pembayaran', en: 'Payment Progress' },
+            noCredits: { id: 'Tidak ada data kredit', en: 'No credit data found' },
+            recordPayment: { id: 'Catat Pembayaran', en: 'Record Payment' },
+            installmentNo: { id: 'Cicilan ke-', en: 'Installment #' },
+            of: { id: 'dari', en: 'of' },
+            paymentAmount: { id: 'Jumlah Pembayaran', en: 'Payment Amount' },
+            savePayment: { id: 'Simpan Pembayaran', en: 'Save Payment' },
+            cancel: { id: 'Batal', en: 'Cancel' },
+            active: { id: 'Aktif', en: 'Active' },
+            overdue: { id: 'Overdue', en: 'Overdue' },
+            completed: { id: 'Lunas', en: 'Paid Off' },
+            leasing: { id: 'Leasing', en: 'Leasing' },
+            dealerCredit: { id: 'Kredit Dealer', en: 'Dealer Credit' },
+            dealerToLeasing: { id: 'Dialihkan ke Leasing', en: 'Switched to Leasing' },
+            all: { id: 'Semua', en: 'All' },
+            invalidAmount: { id: 'Masukkan jumlah pembayaran yang valid', en: 'Enter a valid payment amount' },
+            paymentSuccess: { id: 'Pembayaran berhasil dicatat', en: 'Payment recorded successfully' },
+            paymentFailed: { id: 'Gagal mencatat pembayaran', en: 'Failed to record payment' },
+            loadFailed: { id: 'Gagal memuat data kredit', en: 'Failed to load credit data' },
+        };
+        return labels[key]?.[language === 'id' ? 'id' : 'en'] || labels[key]?.['en'] || key;
+    };
 
     useEffect(() => {
         fetchCredits();
@@ -67,11 +102,11 @@ export default function CreditPage() {
                 localStorage.removeItem('user_info');
                 window.location.href = '/auth';
             } else {
-                toast.error('Gagal memuat data kredit');
+                toast.error(getLabel('loadFailed'));
             }
         } catch (error) {
             console.error('Failed to fetch credits:', error);
-            toast.error('Gagal memuat data kredit');
+            toast.error(getLabel('loadFailed'));
         } finally {
             setLoading(false);
         }
@@ -82,7 +117,7 @@ export default function CreditPage() {
         if (!token || !selectedCredit) return;
 
         if (!paymentAmount || parseFloat(paymentAmount) <= 0) {
-            toast.error('Masukkan jumlah pembayaran yang valid');
+            toast.error(getLabel('invalidAmount'));
             return;
         }
 
@@ -100,17 +135,17 @@ export default function CreditPage() {
             });
 
             if (res.ok) {
-                toast.success('Pembayaran berhasil dicatat');
+                toast.success(getLabel('paymentSuccess'));
                 setShowPaymentModal(false);
                 setPaymentAmount('');
                 fetchCredits();
             } else {
                 const err = await res.json();
-                toast.error(err.message || 'Gagal mencatat pembayaran');
+                toast.error(err.message || getLabel('paymentFailed'));
             }
         } catch (error) {
             console.error('Failed to add payment:', error);
-            toast.error('Gagal mencatat pembayaran');
+            toast.error(getLabel('paymentFailed'));
         }
     };
 
@@ -120,22 +155,22 @@ export default function CreditPage() {
         const isOverdue = dueDate && dueDate < now && credit.status === 'ACTIVE';
 
         if (credit.status === 'COMPLETED') {
-            return <span className="px-2 py-1 rounded-full bg-green-100 text-green-600 text-xs font-medium">Lunas</span>;
+            return <span className="px-2 py-1 rounded-full bg-green-100 text-green-600 text-xs font-medium">{getLabel('completed')}</span>;
         }
         if (isOverdue) {
-            return <span className="px-2 py-1 rounded-full bg-red-100 text-red-600 text-xs font-medium">Overdue</span>;
+            return <span className="px-2 py-1 rounded-full bg-red-100 text-red-600 text-xs font-medium">{getLabel('overdue')}</span>;
         }
         if (credit.status === 'ACTIVE') {
-            return <span className="px-2 py-1 rounded-full bg-blue-100 text-blue-600 text-xs font-medium">Aktif</span>;
+            return <span className="px-2 py-1 rounded-full bg-blue-100 text-blue-600 text-xs font-medium">{getLabel('active')}</span>;
         }
         return <span className="px-2 py-1 rounded-full bg-gray-100 text-gray-600 text-xs font-medium">{credit.status}</span>;
     };
 
     const getCreditTypeBadge = (type: string) => {
         const types: { [key: string]: { label: string; color: string } } = {
-            LEASING: { label: 'Leasing', color: 'bg-purple-100 text-purple-600' },
-            DEALER_CREDIT: { label: 'Kredit Dealer', color: 'bg-blue-100 text-blue-600' },
-            DEALER_TO_LEASING: { label: 'Dialihkan ke Leasing', color: 'bg-orange-100 text-orange-600' },
+            LEASING: { label: getLabel('leasing'), color: 'bg-purple-100 text-purple-600' },
+            DEALER_CREDIT: { label: getLabel('dealerCredit'), color: 'bg-blue-100 text-blue-600' },
+            DEALER_TO_LEASING: { label: getLabel('dealerToLeasing'), color: 'bg-orange-100 text-orange-600' },
         };
         const config = types[type] || { label: type, color: 'bg-gray-100 text-gray-600' };
         return <span className={`px-2 py-1 rounded-full ${config.color} text-xs font-medium`}>{config.label}</span>;
@@ -164,8 +199,8 @@ export default function CreditPage() {
             {/* HEADER */}
             <div className="flex items-center justify-between">
                 <div>
-                    <h1 className="text-2xl font-bold text-gray-800">{t.credit}</h1>
-                    <p className="text-sm text-gray-500">Kelola kredit dan cicilan customer</p>
+                    <h1 className="text-2xl font-bold text-gray-800">{t.credit || 'Credit'}</h1>
+                    <p className="text-sm text-gray-500">{getLabel('creditDesc')}</p>
                 </div>
             </div>
 
@@ -180,7 +215,7 @@ export default function CreditPage() {
                             : 'bg-[#ecf0f3] text-gray-600 shadow-[3px_3px_6px_#cbced1,-3px_-3px_6px_#ffffff]'
                             }`}
                     >
-                        {f === 'all' ? 'Semua' : f === 'active' ? 'Aktif' : 'Overdue'}
+                        {f === 'all' ? getLabel('all') : f === 'active' ? getLabel('active') : getLabel('overdue')}
                         {f === 'overdue' && (
                             <span className="ml-2 px-2 py-0.5 rounded-full bg-red-500 text-white text-xs">
                                 {credits.filter(c => {
@@ -235,7 +270,7 @@ export default function CreditPage() {
                                     className="px-4 py-2 rounded-xl bg-[#00bfa5] text-white font-medium shadow-lg hover:bg-[#00a891] transition-all flex items-center gap-2"
                                 >
                                     <FontAwesomeIcon icon={faPlus} />
-                                    Bayar
+                                    {getLabel('pay')}
                                 </button>
                             )}
                         </div>
@@ -243,29 +278,29 @@ export default function CreditPage() {
                         {/* CREDIT INFO GRID */}
                         <div className="grid grid-cols-2 md:grid-cols-5 gap-4 p-4 bg-white/50 rounded-xl">
                             <div>
-                                <div className="text-xs text-gray-400">Total Kredit</div>
+                                <div className="text-xs text-gray-400">{getLabel('totalCredit')}</div>
                                 <div className="font-bold text-gray-800">
-                                    Rp {Number(credit.totalAmount).toLocaleString('id-ID')}
+                                    {fmt(Number(credit.totalAmount))}
                                 </div>
                             </div>
                             <div>
-                                <div className="text-xs text-gray-400">Cicilan/bulan</div>
+                                <div className="text-xs text-gray-400">{getLabel('monthlyInstallment')}</div>
                                 <div className="font-bold text-[#00bfa5]">
-                                    Rp {Number(credit.monthlyPayment).toLocaleString('id-ID')}
+                                    {fmt(Number(credit.monthlyPayment))}
                                 </div>
                             </div>
                             <div>
-                                <div className="text-xs text-gray-400">Tenor</div>
-                                <div className="font-bold text-gray-800">{credit.tenorMonths} bulan</div>
+                                <div className="text-xs text-gray-400">{getLabel('tenor')}</div>
+                                <div className="font-bold text-gray-800">{credit.tenorMonths} {getLabel('months')}</div>
                             </div>
                             <div>
-                                <div className="text-xs text-gray-400">Sudah Bayar</div>
+                                <div className="text-xs text-gray-400">{getLabel('paid')}</div>
                                 <div className="font-bold text-gray-800">{credit.payments?.length || 0}x</div>
                             </div>
                             <div>
-                                <div className="text-xs text-gray-400">Jatuh Tempo</div>
+                                <div className="text-xs text-gray-400">{getLabel('dueDate')}</div>
                                 <div className={`font-bold ${credit.nextDueDate && new Date(credit.nextDueDate) < new Date() ? 'text-red-500' : 'text-gray-800'}`}>
-                                    {credit.nextDueDate ? new Date(credit.nextDueDate).toLocaleDateString('id-ID') : '-'}
+                                    {credit.nextDueDate ? new Date(credit.nextDueDate).toLocaleDateString(language === 'id' ? 'id-ID' : 'en-US') : '-'}
                                 </div>
                             </div>
                         </div>
@@ -273,7 +308,7 @@ export default function CreditPage() {
                         {/* PROGRESS BAR */}
                         <div className="mt-4">
                             <div className="flex justify-between text-xs text-gray-500 mb-1">
-                                <span>Progress Pembayaran</span>
+                                <span>{getLabel('paymentProgress')}</span>
                                 <span>{credit.payments?.length || 0} / {credit.tenorMonths}</span>
                             </div>
                             <div className="h-2 bg-gray-200 rounded-full overflow-hidden">
@@ -289,7 +324,7 @@ export default function CreditPage() {
                 {filteredCredits.length === 0 && (
                     <div className="text-center py-12 text-gray-400">
                         <FontAwesomeIcon icon={faCreditCard} className="text-4xl mb-4" />
-                        <p>Tidak ada data kredit</p>
+                        <p>{getLabel('noCredits')}</p>
                     </div>
                 )}
             </div>
@@ -299,7 +334,7 @@ export default function CreditPage() {
                 <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
                     <div className="bg-[#ecf0f3] rounded-2xl p-6 w-full max-w-md shadow-2xl">
                         <div className="flex items-center justify-between mb-6">
-                            <h2 className="text-xl font-bold text-gray-800">Catat Pembayaran</h2>
+                            <h2 className="text-xl font-bold text-gray-800">{getLabel('recordPayment')}</h2>
                             <button onClick={() => setShowPaymentModal(false)}>
                                 <FontAwesomeIcon icon={faTimes} className="text-gray-400 hover:text-gray-600" />
                             </button>
@@ -308,13 +343,13 @@ export default function CreditPage() {
                         <div className="bg-gray-100 p-4 rounded-xl mb-4">
                             <div className="font-bold text-gray-800">{selectedCredit.transaction?.customer?.name}</div>
                             <div className="text-sm text-gray-500">
-                                Cicilan ke-{(selectedCredit.payments?.length || 0) + 1} dari {selectedCredit.tenorMonths}
+                                {getLabel('installmentNo')}{(selectedCredit.payments?.length || 0) + 1} {getLabel('of')} {selectedCredit.tenorMonths}
                             </div>
                         </div>
 
                         <div className="space-y-4">
                             <div>
-                                <label className="block text-sm font-medium text-gray-600 mb-1">Jumlah Pembayaran</label>
+                                <label className="block text-sm font-medium text-gray-600 mb-1">{getLabel('paymentAmount')}</label>
                                 <input
                                     type="number"
                                     value={paymentAmount}
@@ -328,13 +363,13 @@ export default function CreditPage() {
                                     onClick={() => setShowPaymentModal(false)}
                                     className="flex-1 py-3 rounded-xl bg-[#ecf0f3] text-gray-600 font-medium shadow-[3px_3px_6px_#cbced1,-3px_-3px_6px_#ffffff]"
                                 >
-                                    Batal
+                                    {getLabel('cancel')}
                                 </button>
                                 <button
                                     onClick={handleAddPayment}
                                     className="flex-1 py-3 rounded-xl bg-[#00bfa5] text-white font-medium shadow-lg hover:bg-[#00a891]"
                                 >
-                                    Simpan Pembayaran
+                                    {getLabel('savePayment')}
                                 </button>
                             </div>
                         </div>

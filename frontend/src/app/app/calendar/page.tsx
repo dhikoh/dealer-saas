@@ -1,9 +1,11 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { ChevronLeft, ChevronRight, Plus, Clock, Car, DollarSign, Users, AlertTriangle, X } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Plus, X } from 'lucide-react';
 import { toast } from 'sonner';
 import { API_URL } from '@/lib/api';
+import { useLanguage } from '@/hooks/useLanguage';
+import { useCurrency } from '@/hooks/useCurrency';
 
 interface CalendarEvent {
     id: string;
@@ -21,16 +23,6 @@ const EVENT_COLORS: Record<string, string> = {
     INSPECTION: 'bg-emerald-500',
 };
 
-const EVENT_LABELS: Record<string, string> = {
-    REMINDER: 'Pengingat',
-    FOLLOW_UP: 'Follow-up',
-    PAYMENT: 'Pembayaran',
-    INSPECTION: 'Inspeksi',
-};
-
-const DAYS = ['Min', 'Sen', 'Sel', 'Rab', 'Kam', 'Jum', 'Sab'];
-const MONTHS = ['Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni', 'Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember'];
-
 // Load manual events from localStorage
 function loadManualEvents(): CalendarEvent[] {
     if (typeof window === 'undefined') return [];
@@ -45,6 +37,9 @@ function saveManualEvents(events: CalendarEvent[]) {
 }
 
 export default function CalendarPage() {
+    const { t, language } = useLanguage();
+    const { fmt } = useCurrency();
+
     const [currentDate, setCurrentDate] = useState(new Date());
     const [events, setEvents] = useState<CalendarEvent[]>([]);
     const [selectedDate, setSelectedDate] = useState<string | null>(null);
@@ -55,6 +50,34 @@ export default function CalendarPage() {
         type: 'REMINDER' as CalendarEvent['type'],
         description: '',
     });
+
+    // Helper for labels that are not in translations.ts (to avoid editing it again)
+    const getLabel = (key: string) => {
+        const labels: Record<string, Record<string, string>> = {
+            addEvent: { id: 'Tambah Event', en: 'Add Event' },
+            saveEvent: { id: 'Simpan Event', en: 'Save Event' },
+            deleteEvent: { id: 'Hapus Event', en: 'Delete Event' },
+            eventTitle: { id: 'Judul', en: 'Title' },
+            eventDate: { id: 'Tanggal', en: 'Date' },
+            eventType: { id: 'Tipe Event', en: 'Event Type' },
+            eventDesc: { id: 'Deskripsi', en: 'Description' },
+            reminder: { id: 'Pengingat', en: 'Reminder' },
+            followUp: { id: 'Follow-up', en: 'Follow-up' },
+            inspection: { id: 'Inspeksi', en: 'Inspection' },
+            payment: { id: 'Pembayaran', en: 'Payment' },
+            noEvents: { id: 'Tidak ada event', en: 'No events' },
+            legend: { id: 'Legenda', en: 'Legend' },
+            upcomingEvents: { id: 'Event Mendatang', en: 'Upcoming Events' },
+        };
+        return labels[key]?.[language === 'id' ? 'id' : 'en'] || labels[key]?.['en'] || key;
+    };
+
+    const EVENT_LABELS: Record<string, string> = {
+        REMINDER: getLabel('reminder'),
+        FOLLOW_UP: getLabel('followUp'),
+        PAYMENT: getLabel('payment'),
+        INSPECTION: getLabel('inspection'),
+    };
 
     useEffect(() => {
         const fetchReminders = async () => {
@@ -84,10 +107,10 @@ export default function CalendarPage() {
                     (data.creditReminders || []).forEach((r: any) => {
                         apiEvents.push({
                             id: `credit-${r.id}`,
-                            title: `Pembayaran ${r.customerName || 'Kredit'}`,
+                            title: `${getLabel('payment')} ${r.customerName || 'Kredit'}`,
                             date: r.nextDueDate?.split('T')[0] || formatDate(new Date()),
                             type: 'PAYMENT',
-                            description: `Cicilan Rp ${new Intl.NumberFormat('id-ID').format(r.monthlyPayment || 0)}`,
+                            description: `${t.installment} ${fmt(r.monthlyPayment || 0)}`,
                         });
                     });
                 } else if (res.status === 401) {
@@ -108,7 +131,7 @@ export default function CalendarPage() {
         };
 
         fetchReminders();
-    }, []);
+    }, [language]); // Re-fetch when language changes to update dynamic titles if any
 
     function formatDate(date: Date): string {
         return date.toISOString().split('T')[0];
@@ -142,11 +165,11 @@ export default function CalendarPage() {
 
     const handleAddEvent = () => {
         if (!eventForm.title.trim()) {
-            toast.error('Judul event wajib diisi');
+            toast.error(t.requiredFields);
             return;
         }
         if (!eventForm.date) {
-            toast.error('Tanggal wajib dipilih');
+            toast.error(t.requiredFields);
             return;
         }
 
@@ -165,29 +188,36 @@ export default function CalendarPage() {
 
         setEvents(prev => [...prev, newEvent]);
         setShowAddModal(false);
-        toast.success('Event berhasil ditambahkan');
+        toast.success(t.success);
     };
 
     const handleDeleteEvent = (eventId: string) => {
         const manualEvents = loadManualEvents().filter(e => e.id !== eventId);
         saveManualEvents(manualEvents);
         setEvents(prev => prev.filter(e => e.id !== eventId));
-        toast.success('Event dihapus');
+        toast.success(t.success);
     };
+
+    // Date formatting for headers
+    const monthName = new Date(year, month).toLocaleString(language === 'id' ? 'id-ID' : 'en-US', { month: 'long' });
+    const daysOfWeek = Array.from({ length: 7 }, (_, i) => {
+        const d = new Date(2024, 0, 7 + i); // Jan 7 2024 is Sunday
+        return d.toLocaleDateString(language === 'id' ? 'id-ID' : 'en-US', { weekday: 'short' });
+    });
 
     return (
         <div className="space-y-6">
             {/* Header */}
             <div className="flex justify-between items-center">
                 <div>
-                    <h1 className="text-2xl font-bold text-gray-800 dark:text-white">Kalender</h1>
-                    <p className="text-gray-500 mt-1">Kelola jadwal dan pengingat</p>
+                    <h1 className="text-2xl font-bold text-gray-800 dark:text-white">{t.calendarTitle}</h1>
+                    <p className="text-gray-500 mt-1">{t.activityLog}</p>
                 </div>
                 <button
                     onClick={() => openAddModal()}
                     className="flex items-center gap-2 bg-[#00bfa5] text-white px-4 py-2.5 rounded-xl font-medium hover:bg-[#00a896] transition-colors shadow-lg"
                 >
-                    <Plus className="w-5 h-5" /> Tambah Event
+                    <Plus className="w-5 h-5" /> {getLabel('addEvent')}
                 </button>
             </div>
 
@@ -199,8 +229,8 @@ export default function CalendarPage() {
                         <button onClick={prevMonth} className="p-2 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-700">
                             <ChevronLeft className="w-5 h-5 text-gray-600 dark:text-gray-300" />
                         </button>
-                        <h2 className="text-lg font-semibold text-gray-800 dark:text-white">
-                            {MONTHS[month]} {year}
+                        <h2 className="text-lg font-semibold text-gray-800 dark:text-white capitalize">
+                            {monthName} {year}
                         </h2>
                         <button onClick={nextMonth} className="p-2 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-700">
                             <ChevronRight className="w-5 h-5 text-gray-600 dark:text-gray-300" />
@@ -209,7 +239,7 @@ export default function CalendarPage() {
 
                     {/* Day Headers */}
                     <div className="grid grid-cols-7 gap-2 mb-2">
-                        {DAYS.map(day => (
+                        {daysOfWeek.map(day => (
                             <div key={day} className="text-center text-sm font-medium text-gray-500 dark:text-gray-400 py-2">
                                 {day}
                             </div>
@@ -265,13 +295,13 @@ export default function CalendarPage() {
                 <div className="bg-[#ecf0f3] dark:bg-gray-800 rounded-2xl p-5 shadow-[5px_5px_10px_#cbced1,-5px_-5px_10px_#ffffff] dark:shadow-none">
                     <div className="flex items-center justify-between mb-4">
                         <h3 className="text-lg font-semibold text-gray-800 dark:text-white">
-                            {selectedDate ? new Date(selectedDate + 'T00:00:00').toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' }) : 'Event Mendatang'}
+                            {selectedDate ? new Date(selectedDate + 'T00:00:00').toLocaleDateString(language === 'id' ? 'id-ID' : 'en-US', { day: 'numeric', month: 'long', year: 'numeric' }) : getLabel('upcomingEvents')}
                         </h3>
                         {selectedDate && (
                             <button
                                 onClick={() => openAddModal(selectedDate)}
                                 className="p-1.5 rounded-lg text-[#00bfa5] hover:bg-[#00bfa5]/10 transition-colors"
-                                title="Tambah event di tanggal ini"
+                                title={getLabel('addEvent')}
                             >
                                 <Plus className="w-4 h-4" />
                             </button>
@@ -290,7 +320,7 @@ export default function CalendarPage() {
                                                 <button
                                                     onClick={() => handleDeleteEvent(event.id)}
                                                     className="p-1 text-gray-400 hover:text-red-500 transition-colors"
-                                                    title="Hapus event"
+                                                    title={getLabel('deleteEvent')}
                                                 >
                                                     <X className="w-3.5 h-3.5" />
                                                 </button>
@@ -301,7 +331,7 @@ export default function CalendarPage() {
                                             <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">{event.description}</p>
                                         )}
                                         <p className="text-xs text-gray-400 mt-1">
-                                            {new Date(event.date + 'T00:00:00').toLocaleDateString('id-ID')}
+                                            {new Date(event.date + 'T00:00:00').toLocaleDateString(language === 'id' ? 'id-ID' : 'en-US')}
                                         </p>
                                     </div>
                                 </div>
@@ -309,18 +339,18 @@ export default function CalendarPage() {
                         ))}
 
                         {((selectedDate && selectedEvents.length === 0) || (!selectedDate && events.length === 0)) && (
-                            <p className="text-center text-gray-500 py-8">Tidak ada event</p>
+                            <p className="text-center text-gray-500 py-8">{getLabel('noEvents')}</p>
                         )}
                     </div>
 
                     {/* Legend */}
                     <div className="mt-6 pt-4 border-t border-gray-200 dark:border-gray-700">
-                        <p className="text-xs text-gray-500 mb-2">Legenda:</p>
+                        <p className="text-xs text-gray-500 mb-2">{getLabel('legend')}:</p>
                         <div className="grid grid-cols-2 gap-2 text-xs">
-                            <div className="flex items-center gap-2"><div className="w-3 h-3 rounded-full bg-blue-500" /> Pengingat</div>
-                            <div className="flex items-center gap-2"><div className="w-3 h-3 rounded-full bg-purple-500" /> Follow-up</div>
-                            <div className="flex items-center gap-2"><div className="w-3 h-3 rounded-full bg-amber-500" /> Pembayaran</div>
-                            <div className="flex items-center gap-2"><div className="w-3 h-3 rounded-full bg-emerald-500" /> Inspeksi</div>
+                            <div className="flex items-center gap-2"><div className="w-3 h-3 rounded-full bg-blue-500" /> {getLabel('reminder')}</div>
+                            <div className="flex items-center gap-2"><div className="w-3 h-3 rounded-full bg-purple-500" /> {getLabel('followUp')}</div>
+                            <div className="flex items-center gap-2"><div className="w-3 h-3 rounded-full bg-amber-500" /> {getLabel('payment')}</div>
+                            <div className="flex items-center gap-2"><div className="w-3 h-3 rounded-full bg-emerald-500" /> {getLabel('inspection')}</div>
                         </div>
                     </div>
                 </div>
@@ -331,7 +361,7 @@ export default function CalendarPage() {
                 <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
                     <div className="bg-[#ecf0f3] dark:bg-gray-800 rounded-2xl shadow-xl max-w-md w-full">
                         <div className="flex justify-between items-center p-5 border-b border-gray-200 dark:border-gray-700">
-                            <h3 className="text-lg font-semibold text-gray-800 dark:text-white">Tambah Event</h3>
+                            <h3 className="text-lg font-semibold text-gray-800 dark:text-white">{getLabel('addEvent')}</h3>
                             <button onClick={() => setShowAddModal(false)} className="p-1 hover:bg-gray-200 dark:hover:bg-gray-700 rounded">
                                 <X className="w-5 h-5 text-gray-500" />
                             </button>
@@ -339,19 +369,19 @@ export default function CalendarPage() {
                         <div className="p-5 space-y-4">
                             {/* Title */}
                             <div>
-                                <label className="block text-sm font-medium text-gray-600 dark:text-gray-300 mb-1">Judul *</label>
+                                <label className="block text-sm font-medium text-gray-600 dark:text-gray-300 mb-1">{getLabel('eventTitle')} *</label>
                                 <input
                                     type="text"
                                     value={eventForm.title}
                                     onChange={(e) => setEventForm({ ...eventForm, title: e.target.value })}
-                                    placeholder="Contoh: Follow-up customer Budi"
+                                    placeholder={t.requiredFields}
                                     className="w-full px-4 py-3 rounded-xl bg-[#ecf0f3] dark:bg-gray-700 shadow-[inset_3px_3px_6px_#cbced1,inset_-3px_-3px_6px_#ffffff] dark:shadow-none focus:outline-none focus:ring-2 focus:ring-[#00bfa5] text-gray-700 dark:text-white"
                                 />
                             </div>
 
                             {/* Date */}
                             <div>
-                                <label className="block text-sm font-medium text-gray-600 dark:text-gray-300 mb-1">Tanggal *</label>
+                                <label className="block text-sm font-medium text-gray-600 dark:text-gray-300 mb-1">{getLabel('eventDate')} *</label>
                                 <input
                                     type="date"
                                     value={eventForm.date}
@@ -362,7 +392,7 @@ export default function CalendarPage() {
 
                             {/* Type */}
                             <div>
-                                <label className="block text-sm font-medium text-gray-600 dark:text-gray-300 mb-2">Tipe Event</label>
+                                <label className="block text-sm font-medium text-gray-600 dark:text-gray-300 mb-2">{getLabel('eventType')}</label>
                                 <div className="grid grid-cols-2 gap-2">
                                     {(['REMINDER', 'FOLLOW_UP', 'PAYMENT', 'INSPECTION'] as const).map((t) => (
                                         <button
@@ -382,11 +412,11 @@ export default function CalendarPage() {
 
                             {/* Description */}
                             <div>
-                                <label className="block text-sm font-medium text-gray-600 dark:text-gray-300 mb-1">Deskripsi</label>
+                                <label className="block text-sm font-medium text-gray-600 dark:text-gray-300 mb-1">{getLabel('eventDesc')}</label>
                                 <textarea
                                     value={eventForm.description}
                                     onChange={(e) => setEventForm({ ...eventForm, description: e.target.value })}
-                                    placeholder="Detail tambahan..."
+                                    placeholder="..."
                                     rows={2}
                                     className="w-full px-4 py-3 rounded-xl bg-[#ecf0f3] dark:bg-gray-700 shadow-[inset_3px_3px_6px_#cbced1,inset_-3px_-3px_6px_#ffffff] dark:shadow-none focus:outline-none focus:ring-2 focus:ring-[#00bfa5] resize-none text-gray-700 dark:text-white"
                                 />
@@ -398,13 +428,13 @@ export default function CalendarPage() {
                                     onClick={() => setShowAddModal(false)}
                                     className="flex-1 py-3 rounded-xl bg-[#ecf0f3] dark:bg-gray-700 text-gray-600 dark:text-gray-300 font-medium shadow-[3px_3px_6px_#cbced1,-3px_-3px_6px_#ffffff] dark:shadow-none"
                                 >
-                                    Batal
+                                    {t.back || 'Batal'}
                                 </button>
                                 <button
                                     onClick={handleAddEvent}
                                     className="flex-1 py-3 rounded-xl bg-[#00bfa5] text-white font-medium shadow-lg hover:bg-[#00a891] transition-all"
                                 >
-                                    Simpan Event
+                                    {getLabel('saveEvent')}
                                 </button>
                             </div>
                         </div>

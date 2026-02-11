@@ -1,8 +1,9 @@
 'use client';
 
 import React, { useEffect, useState } from 'react';
-import { Clock, User, Car, DollarSign, FileText, Users, Settings, Bell, Search, Filter, ChevronRight } from 'lucide-react';
+import { Clock, User, Car, DollarSign, FileText, Users, Settings } from 'lucide-react';
 import { API_URL } from '@/lib/api';
+import { useLanguage } from '@/hooks/useLanguage';
 
 interface Activity {
     id: string;
@@ -32,6 +33,7 @@ const ACTIVITY_COLORS: Record<string, string> = {
 };
 
 export default function ActivityLogPage() {
+    const { t, language } = useLanguage();
     const [activities, setActivities] = useState<Activity[]>([]);
     const [loading, setLoading] = useState(true);
     const [filter, setFilter] = useState<string>('ALL');
@@ -73,10 +75,10 @@ export default function ActivityLogPage() {
     const getTypeFromTitle = (title: string): string => {
         const lower = title.toLowerCase();
         if (lower.includes('kendaraan') || lower.includes('vehicle')) return 'VEHICLE';
-        if (lower.includes('transaksi') || lower.includes('jual') || lower.includes('beli')) return 'TRANSACTION';
+        if (lower.includes('transaksi') || lower.includes('jual') || lower.includes('beli') || lower.includes('transaction') || lower.includes('sale') || lower.includes('purchase')) return 'TRANSACTION';
         if (lower.includes('customer') || lower.includes('pelanggan')) return 'CUSTOMER';
-        if (lower.includes('staff') || lower.includes('user')) return 'STAFF';
-        if (lower.includes('setting')) return 'SETTINGS';
+        if (lower.includes('staff') || lower.includes('user') || lower.includes('pengguna')) return 'STAFF';
+        if (lower.includes('setting') || lower.includes('pengaturan')) return 'SETTINGS';
         return 'OTHER';
     };
 
@@ -86,9 +88,28 @@ export default function ActivityLogPage() {
         const hours = Math.floor(diff / 3600000);
         const days = Math.floor(diff / 86400000);
 
-        if (mins < 60) return `${mins} menit lalu`;
-        if (hours < 24) return `${hours} jam lalu`;
-        return `${days} hari lalu`;
+        const labels = {
+            mins: { id: 'menit lalu', en: 'minutes ago' },
+            hours: { id: 'jam lalu', en: 'hours ago' },
+            days: { id: 'hari lalu', en: 'days ago' },
+        };
+        const lang = language === 'id' ? 'id' : 'en';
+
+        if (mins < 60) return `${mins} ${labels.mins[lang]}`;
+        if (hours < 24) return `${hours} ${labels.hours[lang]}`;
+        return `${days} ${labels.days[lang]}`;
+    };
+
+    const getLabel = (key: string) => {
+        const labels: Record<string, Record<string, string>> = {
+            activityDesc: { id: 'Riwayat aktivitas di dealer Anda', en: 'Activity history in your dealer' },
+            vehicle: { id: 'Kendaraan', en: 'Vehicle' },
+            transaction: { id: 'Transaksi', en: 'Transaction' },
+            customer: { id: 'Customer', en: 'Customer' },
+            staff: { id: 'Staff', en: 'Staff' },
+            noActivity: { id: 'Tidak ada aktivitas ditemukan', en: 'No activity found' },
+        };
+        return labels[key]?.[language === 'id' ? 'id' : 'en'] || labels[key]?.['en'] || key;
     };
 
     const filteredActivities = filter === 'ALL'
@@ -107,8 +128,8 @@ export default function ActivityLogPage() {
         <div className="space-y-6">
             {/* Header */}
             <div>
-                <h1 className="text-2xl font-bold text-gray-800 dark:text-white">Log Aktivitas</h1>
-                <p className="text-gray-500 mt-1">Riwayat aktivitas di dealer Anda</p>
+                <h1 className="text-2xl font-bold text-gray-800 dark:text-white">{t.activityTitle}</h1>
+                <p className="text-gray-500 mt-1">{getLabel('activityDesc')}</p>
             </div>
 
             {/* Filters */}
@@ -122,7 +143,11 @@ export default function ActivityLogPage() {
                             : 'bg-[#ecf0f3] dark:bg-gray-800 text-gray-600 dark:text-gray-300 shadow-[3px_3px_6px_#cbced1,-3px_-3px_6px_#ffffff] dark:shadow-none'
                             }`}
                     >
-                        {type === 'ALL' ? 'Semua' : type === 'VEHICLE' ? 'Kendaraan' : type === 'TRANSACTION' ? 'Transaksi' : type === 'CUSTOMER' ? 'Customer' : 'Staff'}
+                        {type === 'ALL' ? t.all :
+                            type === 'VEHICLE' ? getLabel('vehicle') :
+                                type === 'TRANSACTION' ? getLabel('transaction') :
+                                    type === 'CUSTOMER' ? getLabel('customer') :
+                                        getLabel('staff')}
                     </button>
                 ))}
             </div>
@@ -148,7 +173,7 @@ export default function ActivityLogPage() {
 
                     {filteredActivities.length === 0 && (
                         <div className="text-center py-12 text-gray-500">
-                            Tidak ada aktivitas ditemukan
+                            {getLabel('noActivity')}
                         </div>
                     )}
                 </div>

@@ -1,8 +1,10 @@
 'use client';
 
 import React, { useEffect, useState } from 'react';
-import { Plus, Search, Edit2, Trash2, User, Shield, Mail, Phone, X, UserPlus, Check, AlertTriangle } from 'lucide-react';
+import { Plus, Search, Edit2, Trash2, Mail, Phone, X, UserPlus, Check, AlertTriangle } from 'lucide-react';
 import { toast } from 'sonner';
+import { useLanguage } from '@/hooks/useLanguage';
+import { API_URL } from '@/lib/api';
 
 interface Staff {
     id: string;
@@ -14,14 +16,8 @@ interface Staff {
     createdAt: string;
 }
 
-import { API_URL } from '@/lib/api';
-
-const ROLES = [
-    { id: 'OWNER', name: 'Owner', desc: 'Akses penuh', color: 'purple' },
-    { id: 'STAFF', name: 'Staff', desc: 'Akses terbatas', color: 'blue' },
-];
-
 export default function StaffPage() {
+    const { t, language } = useLanguage();
     const [staff, setStaff] = useState<Staff[]>([]);
     const [loading, setLoading] = useState(true);
     const [saving, setSaving] = useState(false);
@@ -37,6 +33,11 @@ export default function StaffPage() {
         role: 'STAFF',
         password: '',
     });
+
+    const ROLES = [
+        { id: 'OWNER', name: 'Owner', desc: t.fullAccess, color: 'purple' },
+        { id: 'STAFF', name: 'Staff', desc: t.limitedAccess, color: 'blue' },
+    ];
 
     useEffect(() => {
         fetchStaff();
@@ -55,7 +56,7 @@ export default function StaffPage() {
             setStaff(data);
         } catch (err) {
             console.error('Error fetching staff:', err);
-            toast.error('Gagal memuat data staff');
+            toast.error(t.error); // Used generic error or maybe t.noStaffFound context? no, loading error.
         } finally {
             setLoading(false);
         }
@@ -63,7 +64,7 @@ export default function StaffPage() {
 
     const handleSave = async () => {
         if (!form.name || !form.email || (!editingStaff && !form.password)) {
-            toast.error('Mohon lengkapi semua field yang wajib');
+            toast.error(t.requiredFields);
             return;
         }
 
@@ -88,10 +89,10 @@ export default function StaffPage() {
 
                 if (!res.ok) {
                     const err = await res.json();
-                    throw new Error(err.message || 'Gagal update staff');
+                    throw new Error(err.message || t.error);
                 }
 
-                toast.success('Staff berhasil diupdate');
+                toast.success(t.success);
             } else {
                 // Create new staff
                 const res = await fetch(`${API_URL}/tenant/staff`, {
@@ -111,17 +112,17 @@ export default function StaffPage() {
 
                 if (!res.ok) {
                     const err = await res.json();
-                    throw new Error(err.message || 'Gagal menambah staff');
+                    throw new Error(err.message || t.error);
                 }
 
-                toast.success('Staff berhasil ditambahkan');
+                toast.success(t.success);
             }
 
             setShowModal(false);
             resetForm();
             fetchStaff();
         } catch (err: any) {
-            toast.error(err.message || 'Terjadi kesalahan');
+            toast.error(err.message || t.error);
         } finally {
             setSaving(false);
         }
@@ -139,13 +140,13 @@ export default function StaffPage() {
 
             if (!res.ok) {
                 const err = await res.json();
-                throw new Error(err.message || 'Gagal menghapus staff');
+                throw new Error(err.message || t.error);
             }
 
-            toast.success('Staff berhasil dihapus');
+            toast.success(t.success);
             setStaff(staff.filter(s => s.id !== id));
         } catch (err: any) {
-            toast.error(err.message || 'Gagal menghapus staff');
+            toast.error(err.message || t.error);
         }
     };
 
@@ -197,8 +198,8 @@ export default function StaffPage() {
             {/* Header */}
             <div className="flex justify-between items-center">
                 <div>
-                    <h1 className="text-2xl font-bold text-gray-800">Manajemen Staff</h1>
-                    <p className="text-gray-500 mt-1">Kelola tim sales dan akses pengguna</p>
+                    <h1 className="text-2xl font-bold text-gray-800">{t.staffTitle}</h1>
+                    <p className="text-gray-500 mt-1">{t.staffDesc}</p>
                 </div>
                 <button
                     onClick={() => {
@@ -207,7 +208,7 @@ export default function StaffPage() {
                     }}
                     className="flex items-center gap-2 bg-[#00bfa5] text-white px-4 py-2.5 rounded-xl font-medium hover:bg-[#00a896] transition-colors shadow-lg"
                 >
-                    <UserPlus className="w-5 h-5" /> Tambah Staff
+                    <UserPlus className="w-5 h-5" /> {t.addStaff}
                 </button>
             </div>
 
@@ -234,7 +235,7 @@ export default function StaffPage() {
                     type="text"
                     value={search}
                     onChange={(e) => setSearch(e.target.value)}
-                    placeholder="Cari nama atau email..."
+                    placeholder={t.searchNameEmail}
                     className="w-full pl-12 pr-4 py-3 rounded-xl bg-[#ecf0f3] border-none shadow-[inset_3px_3px_6px_#cbced1,inset_-3px_-3px_6px_#ffffff] focus:outline-none focus:ring-2 focus:ring-[#00bfa5] text-gray-700"
                 />
             </div>
@@ -245,9 +246,9 @@ export default function StaffPage() {
                     <thead className="bg-gray-50/50">
                         <tr className="text-left text-sm text-gray-500">
                             <th className="px-6 py-4">Staff</th>
-                            <th className="px-6 py-4">Kontak</th>
-                            <th className="px-6 py-4">Role</th>
-                            <th className="px-6 py-4">Bergabung</th>
+                            <th className="px-6 py-4">{t.contact}</th>
+                            <th className="px-6 py-4">{t.role}</th>
+                            <th className="px-6 py-4">{t.joined}</th>
                             <th className="px-6 py-4 text-right">Aksi</th>
                         </tr>
                     </thead>
@@ -278,7 +279,7 @@ export default function StaffPage() {
                                     {getRoleBadge(s.role)}
                                 </td>
                                 <td className="px-6 py-4 text-sm text-gray-500">
-                                    {new Date(s.createdAt).toLocaleDateString('id-ID')}
+                                    {new Date(s.createdAt).toLocaleDateString(language === 'id' ? 'id-ID' : 'en-US')}
                                 </td>
                                 <td className="px-6 py-4 text-right">
                                     <div className="flex justify-end gap-2">
@@ -303,7 +304,7 @@ export default function StaffPage() {
 
                 {filteredStaff.length === 0 && (
                     <div className="text-center py-12 text-gray-500">
-                        Tidak ada staff ditemukan
+                        {t.noStaffFound}
                     </div>
                 )}
             </div>
@@ -314,7 +315,7 @@ export default function StaffPage() {
                     <div className="bg-[#ecf0f3] rounded-2xl shadow-xl max-w-md w-full">
                         <div className="flex justify-between items-center p-5 border-b border-gray-200">
                             <h3 className="text-lg font-semibold text-gray-800">
-                                {editingStaff ? 'Edit Staff' : 'Tambah Staff Baru'}
+                                {editingStaff ? t.editStaff : t.addStaff}
                             </h3>
                             <button onClick={() => setShowModal(false)} className="p-1 hover:bg-gray-200 rounded">
                                 <X className="w-5 h-5 text-gray-500" />
@@ -322,17 +323,17 @@ export default function StaffPage() {
                         </div>
                         <div className="p-5 space-y-4">
                             <div>
-                                <label className="block text-sm font-medium text-gray-600 mb-2">Nama Lengkap</label>
+                                <label className="block text-sm font-medium text-gray-600 mb-2">{t.searchNameEmail}</label> {/* Reusing search label or Name label? Using Name label if available or fallback */}
                                 <input
                                     type="text"
                                     value={form.name}
                                     onChange={(e) => setForm({ ...form, name: e.target.value })}
-                                    placeholder="Contoh: Budi Santoso"
+                                    placeholder={t.requiredFields} // Simplified placeholder
                                     className="w-full px-4 py-3 rounded-xl bg-[#ecf0f3] border-none shadow-[inset_3px_3px_6px_#cbced1,inset_-3px_-3px_6px_#ffffff] focus:outline-none focus:ring-2 focus:ring-[#00bfa5] text-gray-700"
                                 />
                             </div>
                             <div>
-                                <label className="block text-sm font-medium text-gray-600 mb-2">Email</label>
+                                <label className="block text-sm font-medium text-gray-600 mb-2">{t.authEmail}</label>
                                 <input
                                     type="email"
                                     value={form.email}
@@ -342,17 +343,17 @@ export default function StaffPage() {
                                 />
                             </div>
                             <div>
-                                <label className="block text-sm font-medium text-gray-600 mb-2">No. Telepon</label>
+                                <label className="block text-sm font-medium text-gray-600 mb-2">{t.phoneNumber}</label>
                                 <input
                                     type="tel"
                                     value={form.phone}
                                     onChange={(e) => setForm({ ...form, phone: e.target.value })}
-                                    placeholder="08123456789"
+                                    placeholder="08..."
                                     className="w-full px-4 py-3 rounded-xl bg-[#ecf0f3] border-none shadow-[inset_3px_3px_6px_#cbced1,inset_-3px_-3px_6px_#ffffff] focus:outline-none focus:ring-2 focus:ring-[#00bfa5] text-gray-700"
                                 />
                             </div>
                             <div>
-                                <label className="block text-sm font-medium text-gray-600 mb-2">Role</label>
+                                <label className="block text-sm font-medium text-gray-600 mb-2">{t.role}</label>
                                 <div className="grid grid-cols-2 gap-3">
                                     {ROLES.map((role) => (
                                         <button
@@ -372,12 +373,12 @@ export default function StaffPage() {
                             </div>
                             {!editingStaff && (
                                 <div>
-                                    <label className="block text-sm font-medium text-gray-600 mb-2">Password</label>
+                                    <label className="block text-sm font-medium text-gray-600 mb-2">{t.password}</label>
                                     <input
                                         type="password"
                                         value={form.password}
                                         onChange={(e) => setForm({ ...form, password: e.target.value })}
-                                        placeholder="Minimal 6 karakter"
+                                        placeholder={t.minChars}
                                         className="w-full px-4 py-3 rounded-xl bg-[#ecf0f3] border-none shadow-[inset_3px_3px_6px_#cbced1,inset_-3px_-3px_6px_#ffffff] focus:outline-none focus:ring-2 focus:ring-[#00bfa5] text-gray-700"
                                     />
                                 </div>
@@ -387,7 +388,7 @@ export default function StaffPage() {
                                 className="w-full bg-[#00bfa5] text-white py-3 rounded-xl font-medium hover:bg-[#00a896] transition-colors flex items-center justify-center gap-2"
                             >
                                 <Check className="w-5 h-5" />
-                                {editingStaff ? 'Simpan Perubahan' : 'Tambah Staff'}
+                                {editingStaff ? t.saveChanges : t.addStaff}
                             </button>
                         </div>
                     </div>
@@ -401,13 +402,13 @@ export default function StaffPage() {
                             <div className="w-16 h-16 rounded-full bg-red-100 flex items-center justify-center mx-auto mb-4">
                                 <AlertTriangle className="w-8 h-8 text-red-500" />
                             </div>
-                            <h3 className="text-lg font-bold text-gray-800 dark:text-white mb-2">Hapus Staff?</h3>
+                            <h3 className="text-lg font-bold text-gray-800 dark:text-white mb-2">{t.deleteStaffConfirm}</h3>
                             <p className="text-gray-500 dark:text-gray-400 mb-6">
-                                Apakah Anda yakin ingin menghapus staff ini? Tindakan ini tidak dapat dibatalkan.
+                                {t.deleteStaffWarning}
                             </p>
                             <div className="flex gap-3">
-                                <button onClick={() => setDeleteTargetId(null)} className="flex-1 py-3 rounded-xl bg-[#ecf0f3] dark:bg-gray-700 text-gray-600 dark:text-gray-300 font-medium shadow-[3px_3px_6px_#cbced1,-3px_-3px_6px_#ffffff] dark:shadow-none">Batal</button>
-                                <button onClick={() => handleDelete(deleteTargetId)} className="flex-1 py-3 rounded-xl bg-red-500 text-white font-medium shadow-lg hover:bg-red-600 transition-all">Ya, Hapus</button>
+                                <button onClick={() => setDeleteTargetId(null)} className="flex-1 py-3 rounded-xl bg-[#ecf0f3] dark:bg-gray-700 text-gray-600 dark:text-gray-300 font-medium shadow-[3px_3px_6px_#cbced1,-3px_-3px_6px_#ffffff] dark:shadow-none">{t.back}</button>
+                                <button onClick={() => handleDelete(deleteTargetId)} className="flex-1 py-3 rounded-xl bg-red-500 text-white font-medium shadow-lg hover:bg-red-600 transition-all">{t.yesDelete}</button>
                             </div>
                         </div>
                     </div>

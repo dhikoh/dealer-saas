@@ -24,6 +24,7 @@ import {
     faInbox,
 } from '@fortawesome/free-solid-svg-icons';
 import { useLanguage } from '@/hooks/useLanguage';
+import { useCurrency } from '@/hooks/useCurrency';
 import { toast } from 'sonner';
 import { API_URL } from '@/lib/api';
 import CrossTenantTransferModal from '@/components/inventory/CrossTenantTransferModal';
@@ -85,19 +86,100 @@ interface VehicleCost {
     date: string;
 }
 
-const formatCurrency = (value: number) => {
-    return new Intl.NumberFormat('id-ID', {
-        style: 'currency',
-        currency: 'IDR',
-        minimumFractionDigits: 0,
-        maximumFractionDigits: 0,
-    }).format(value);
-};
+
 
 export default function InventoryPage() {
-    const { t } = useLanguage();
+    const { t, language } = useLanguage();
+    const { fmt } = useCurrency();
     const [vehicles, setVehicles] = useState<Vehicle[]>([]);
     const [loading, setLoading] = useState(true);
+
+    const getLabel = (key: string) => {
+        const labels: Record<string, Record<string, string>> = {
+            inventoryTitle: { id: 'Inventaris', en: 'Inventory' },
+            addVehicle: { id: 'Tambah Kendaraan', en: 'Add Vehicle' },
+            vehiclesCount: { id: 'kendaraan', en: 'vehicles' },
+            unit: { id: 'Unit', en: 'Unit' },
+            transferStock: { id: 'Transfer Stok', en: 'Transfer Stock' },
+            searchPlaceholder: { id: 'Cari merk, model, atau plat...', en: 'Search make, model, or plate...' },
+            all: { id: 'Semua', en: 'All' },
+            available: { id: 'Tersedia', en: 'Available' },
+            sold: { id: 'Terjual', en: 'Sold' },
+            booked: { id: 'Terpesan', en: 'Booked' },
+            vehicle: { id: 'Kendaraan', en: 'Vehicle' },
+            plate: { id: 'Plat', en: 'Plate' },
+            sellingPrice: { id: 'Harga Jual', en: 'Selling Price' },
+            status: { id: 'Status', en: 'Status' },
+            tax: { id: 'Pajak', en: 'Tax' },
+            action: { id: 'Aksi', en: 'Action' },
+            noResults: { id: 'Tidak ada hasil pencarian', en: 'No search results' },
+            noVehicles: { id: 'Belum ada kendaraan', en: 'No vehicles yet' },
+            noResultsDesc: { id: 'Tidak ditemukan kendaraan dengan kata kunci', en: 'No vehicles found with keyword' },
+            startAdding: { id: 'Mulai tambahkan inventaris kendaraan Anda untuk mengelola stok dengan lebih mudah.', en: 'Start adding your inventory to manage stock easily.' },
+            page: { id: 'Halaman', en: 'Page' },
+            of: { id: 'dari', en: 'of' },
+            vehicleDetail: { id: 'Detail Kendaraan', en: 'Vehicle Detail' },
+            year: { id: 'Tahun', en: 'Year' },
+            color: { id: 'Warna', en: 'Color' },
+            chassisNo: { id: 'No. Rangka', en: 'Chassis No.' },
+            engineNo: { id: 'No. Mesin', en: 'Engine No.' },
+            costSummary: { id: 'Ringkasan Biaya', en: 'Cost Summary' },
+            capital: { id: 'Modal', en: 'Capital' },
+            additionalCost: { id: 'Biaya Tambahan', en: 'Additional Cost' },
+            totalCost: { id: 'Total Cost', en: 'Total Cost' },
+            profit: { id: 'Profit', en: 'Profit' },
+            costDetails: { id: 'Rincian Biaya', en: 'Cost Details' },
+            addCost: { id: 'Tambah Biaya', en: 'Add Cost' },
+            noCostDetails: { id: 'Belum ada rincian biaya', en: 'No cost details yet' },
+            exportPdfInternal: { id: 'Export PDF (Internal)', en: 'Export PDF (Internal)' },
+            exportPdfCustomer: { id: 'Export PDF (Customer)', en: 'Export PDF (Customer)' },
+            transferSuccess: { id: 'Transfer stok berhasil diajukan', en: 'Stock transfer requested successfully' },
+            addCostTitle: { id: 'Tambah Biaya', en: 'Add Cost' },
+            costType: { id: 'Jenis Biaya', en: 'Cost Type' },
+            amount: { id: 'Jumlah', en: 'Amount' },
+            description: { id: 'Keterangan', en: 'Description' },
+            date: { id: 'Tanggal', en: 'Date' },
+            cancel: { id: 'Batal', en: 'Cancel' },
+            save: { id: 'Simpan', en: 'Save' },
+            editVehicle: { id: 'Edit Kendaraan', en: 'Edit Vehicle' },
+            category: { id: 'Kategori', en: 'Category' },
+            make: { id: 'Merk', en: 'Make' },
+            model: { id: 'Model', en: 'Model' },
+            variant: { id: 'Varian', en: 'Variant' },
+            condition: { id: 'Kondisi', en: 'Condition' },
+            ready: { id: 'Siap Jual', en: 'Ready' },
+            repair: { id: 'Perlu Perbaikan', en: 'Needs Repair' },
+            purchasePrice: { id: 'Harga Beli', en: 'Purchase Price' },
+            bpkbOwner: { id: 'Identitas Pemilik BPKB', en: 'BPKB Owner Identity' },
+            sameAsKtp: { id: 'Sama dengan KTP?', en: 'Same as KTP?' },
+            different: { id: 'BERBEDA', en: 'DIFFERENT' },
+            same: { id: 'SAMA', en: 'SAME' },
+            bpkbName: { id: 'Nama Pemilik di BPKB', en: 'BPKB Owner Name' },
+            requiredDiff: { id: 'Wajib diisi karena berbeda dengan identitas pemilik.', en: 'Required because it differs from owner identity.' },
+            deleteVehicle: { id: 'Hapus Kendaraan?', en: 'Delete Vehicle?' },
+            deleteConfirm: { id: 'Apakah Anda yakin ingin menghapus', en: 'Are you sure you want to delete' },
+            deleteUndo: { id: 'Tindakan ini tidak dapat dibatalkan.', en: 'This action cannot be undone.' },
+            yesDelete: { id: 'Ya, Hapus', en: 'Yes, Delete' },
+            car: { id: 'Mobil', en: 'Car' },
+            motorcycle: { id: 'Motor', en: 'Motorcycle' },
+            truck: { id: 'Truk', en: 'Truck' },
+            selectMake: { id: 'Pilih Merk...', en: 'Select Make...' },
+            selectModel: { id: 'Pilih Model...', en: 'Select Model...' },
+            emptyMasterData: { id: 'Master Data kosong. Tambahkan di menu Master.', en: 'Master Data empty. Add in Master menu.' },
+            exampleVariant: { id: 'Contoh: 1.5 G AT', en: 'Example: 1.5 G AT' },
+            saving: { id: 'Menyimpan...', en: 'Saving...' },
+            saveChanges: { id: 'Simpan Perubahan', en: 'Save Changes' },
+            costPurchase: { id: 'Modal (Beli)', en: 'Capital (Purchase)' },
+            costMaintenance: { id: 'Perawatan/Service', en: 'Maintenance/Service' },
+            costTax: { id: 'Pajak', en: 'Tax' },
+            costInsurance: { id: 'Asuransi', en: 'Insurance' },
+            costOther: { id: 'Lainnya', en: 'Other' },
+            exampleDesc: { id: 'Contoh: Service rutin', en: 'Example: Routine service' },
+            choose: { id: 'Pilih', en: 'Choose' },
+            reserved: { id: 'Terpesan', en: 'Reserved' },
+        };
+        return labels[key]?.[language === 'id' ? 'id' : 'en'] || labels[key]?.['en'] || key;
+    };
     const [searchTerm, setSearchTerm] = useState('');
     const [filterStatus, setFilterStatus] = useState<string>('all');
     const [showDetailModal, setShowDetailModal] = useState(false);
@@ -379,7 +461,7 @@ export default function InventoryPage() {
         };
         return (
             <span className={`px-3 py-1 rounded-full text-xs font-semibold ${styles[status] || 'bg-gray-100 text-gray-700'}`}>
-                {status === 'AVAILABLE' ? t.available : status === 'SOLD' ? t.sold : status === 'BOOKED' ? t.reserved : status}
+                {status === 'AVAILABLE' ? getLabel('available') : status === 'SOLD' ? getLabel('sold') : status === 'BOOKED' ? getLabel('booked') : status}
             </span>
         );
     };
@@ -392,7 +474,7 @@ export default function InventoryPage() {
         };
         return (
             <span className={`px-2 py-0.5 rounded text-xs font-medium ${styles[condition] || 'bg-gray-100 text-gray-700'}`}>
-                {condition}
+                {condition === 'READY' ? getLabel('ready') : condition === 'REPAIR' ? getLabel('repair') : condition === 'RESERVED' ? getLabel('reserved') : condition}
             </span>
         );
     };
@@ -423,8 +505,8 @@ export default function InventoryPage() {
             {/* PAGE HEADER */}
             <div className="flex items-center justify-between mb-6">
                 <div>
-                    <h1 className="text-2xl font-bold text-gray-800">{t.inventoryTitle}</h1>
-                    <p className="text-sm text-gray-500 mt-1">{vehicles.length} kendaraan</p>
+                    <h1 className="text-2xl font-bold text-gray-800">{getLabel('inventoryTitle')}</h1>
+                    <p className="text-sm text-gray-500 mt-1">{vehicles.length} {getLabel('vehiclesCount')}</p>
                 </div>
                 {pageTab === 'INVENTORY' && (
                     <button
@@ -432,7 +514,7 @@ export default function InventoryPage() {
                         className="px-6 py-3 rounded-xl bg-[#00bfa5] text-white font-medium shadow-lg hover:bg-[#00a891] transition-all flex items-center gap-2"
                     >
                         <FontAwesomeIcon icon={faPlus} />
-                        {t.addVehicle}
+                        {getLabel('addVehicle')}
                     </button>
                 )}
             </div>
@@ -447,7 +529,7 @@ export default function InventoryPage() {
                         }`}
                 >
                     <FontAwesomeIcon icon={faCar} />
-                    Unit
+                    {getLabel('unit')}
                 </button>
                 <button
                     onClick={() => setPageTab('TRANSFERS')}
@@ -457,7 +539,7 @@ export default function InventoryPage() {
                         }`}
                 >
                     <FontAwesomeIcon icon={faInbox} />
-                    Transfer Stok
+                    {getLabel('transferStock')}
                 </button>
             </div>
 
@@ -474,7 +556,7 @@ export default function InventoryPage() {
                             type="text"
                             value={searchTerm}
                             onChange={(e) => setSearchTerm(e.target.value)}
-                            placeholder="Cari merk, model, atau plat..."
+                            placeholder={getLabel('searchPlaceholder')}
                             className="w-full bg-[#ecf0f3] h-12 pl-12 pr-4 rounded-xl text-sm text-gray-600 outline-none shadow-[inset_2px_2px_5px_#cbced1,inset_-2px_-2px_5px_#ffffff] focus:ring-2 focus:ring-[#00bfa5] transition-all"
                         />
                         <FontAwesomeIcon icon={faSearch} className="absolute left-4 top-1/2 transform -translate-y-1/2 text-gray-400" />
@@ -490,7 +572,7 @@ export default function InventoryPage() {
                                     : 'bg-[#ecf0f3] text-gray-600 shadow-[3px_3px_6px_#cbced1,-3px_-3px_6px_#ffffff] hover:text-[#00bfa5]'
                                     }`}
                             >
-                                {status === 'all' ? 'Semua' : status === 'available' ? t.available : status === 'sold' ? t.sold : t.reserved}
+                                {status === 'all' ? getLabel('all') : status === 'available' ? getLabel('available') : status === 'sold' ? getLabel('sold') : getLabel('booked')}
                             </button>
                         ))}
                     </div>
@@ -502,12 +584,12 @@ export default function InventoryPage() {
                         <table className="w-full">
                             <thead>
                                 <tr className="bg-[#e0e4e8]">
-                                    <th className="px-6 py-4 text-left text-xs font-bold text-gray-600 uppercase">Kendaraan</th>
-                                    <th className="px-6 py-4 text-left text-xs font-bold text-gray-600 uppercase">Plat</th>
-                                    <th className="px-6 py-4 text-left text-xs font-bold text-gray-600 uppercase">Harga Jual</th>
-                                    <th className="px-6 py-4 text-left text-xs font-bold text-gray-600 uppercase">Status</th>
-                                    <th className="px-6 py-4 text-left text-xs font-bold text-gray-600 uppercase">Pajak</th>
-                                    <th className="px-6 py-4 text-center text-xs font-bold text-gray-600 uppercase">Aksi</th>
+                                    <th className="px-6 py-4 text-left text-xs font-bold text-gray-600 uppercase">{getLabel('vehicle')}</th>
+                                    <th className="px-6 py-4 text-left text-xs font-bold text-gray-600 uppercase">{getLabel('plate')}</th>
+                                    <th className="px-6 py-4 text-left text-xs font-bold text-gray-600 uppercase">{getLabel('sellingPrice')}</th>
+                                    <th className="px-6 py-4 text-left text-xs font-bold text-gray-600 uppercase">{getLabel('status')}</th>
+                                    <th className="px-6 py-4 text-left text-xs font-bold text-gray-600 uppercase">{getLabel('tax')}</th>
+                                    <th className="px-6 py-4 text-center text-xs font-bold text-gray-600 uppercase">{getLabel('action')}</th>
                                 </tr>
                             </thead>
                             <tbody className="divide-y divide-gray-200">
@@ -525,7 +607,7 @@ export default function InventoryPage() {
                                             </div>
                                         </td>
                                         <td className="px-6 py-4 text-gray-600 font-mono">{item.licensePlate || '-'}</td>
-                                        <td className="px-6 py-4 text-gray-700 font-semibold">{formatCurrency(Number(item.price))}</td>
+                                        <td className="px-6 py-4 text-gray-700 font-semibold">{fmt(Number(item.price))}</td>
                                         <td className="px-6 py-4">
                                             <div className="flex flex-col gap-1">
                                                 {getStatusBadge(item.status)}
@@ -629,12 +711,12 @@ export default function InventoryPage() {
                                 <FontAwesomeIcon icon={faCar} className="text-5xl text-gray-400" />
                             </div>
                             <h3 className="text-xl font-bold text-gray-700 mb-2">
-                                {searchTerm ? 'Tidak ada hasil pencarian' : 'Belum ada kendaraan'}
+                                {searchTerm ? getLabel('noResults') : getLabel('noVehicles')}
                             </h3>
                             <p className="text-gray-500 max-w-sm mx-auto mb-8">
                                 {searchTerm
-                                    ? `Tidak ditemukan kendaraan dengan kata kunci "${searchTerm}". Coba kata kunci lain.`
-                                    : 'Mulai tambahkan inventaris kendaraan Anda untuk mengelola stok dengan lebih mudah.'}
+                                    ? `${getLabel('noResultsDesc')} "${searchTerm}".`
+                                    : getLabel('startAdding')}
                             </p>
                             {!searchTerm && (
                                 <button
@@ -642,7 +724,7 @@ export default function InventoryPage() {
                                     className="px-8 py-3 rounded-xl bg-[#00bfa5] text-white font-bold shadow-[4px_4px_8px_#cbced1,-4px_-4px_8px_#ffffff] hover:shadow-[inset_2px_2px_4px_#cbced1,inset_-2px_-2px_4px_#ffffff] transition-all"
                                 >
                                     <FontAwesomeIcon icon={faPlus} className="mr-2" />
-                                    Tambah Kendaraan
+                                    {getLabel('addVehicle')}
                                 </button>
                             )}
                         </div>
@@ -677,7 +759,7 @@ export default function InventoryPage() {
                     <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
                         <div className="bg-[#ecf0f3] rounded-2xl w-full max-w-3xl max-h-[90vh] overflow-y-auto shadow-2xl">
                             <div className="p-6 border-b border-gray-200 flex items-center justify-between sticky top-0 bg-[#ecf0f3] z-10">
-                                <h2 className="text-xl font-bold text-gray-800">Detail Kendaraan</h2>
+                                <h2 className="text-xl font-bold text-gray-800">{getLabel('vehicleDetail')}</h2>
                                 <button onClick={() => setShowDetailModal(false)}>
                                     <FontAwesomeIcon icon={faTimes} className="text-gray-400 hover:text-gray-600" />
                                 </button>
@@ -692,27 +774,27 @@ export default function InventoryPage() {
                                     {/* VEHICLE INFO */}
                                     <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
                                         <div className="bg-white/50 p-4 rounded-xl">
-                                            <div className="text-xs text-gray-400">Kendaraan</div>
+                                            <div className="text-xs text-gray-400">{getLabel('vehicle')}</div>
                                             <div className="font-bold text-gray-800">{selectedVehicle.make} {selectedVehicle.model}</div>
                                         </div>
                                         <div className="bg-white/50 p-4 rounded-xl">
-                                            <div className="text-xs text-gray-400">Tahun</div>
+                                            <div className="text-xs text-gray-400">{getLabel('year')}</div>
                                             <div className="font-bold text-gray-800">{selectedVehicle.year}</div>
                                         </div>
                                         <div className="bg-white/50 p-4 rounded-xl">
-                                            <div className="text-xs text-gray-400">Warna</div>
+                                            <div className="text-xs text-gray-400">{getLabel('color')}</div>
                                             <div className="font-bold text-gray-800">{selectedVehicle.color}</div>
                                         </div>
                                         <div className="bg-white/50 p-4 rounded-xl">
-                                            <div className="text-xs text-gray-400">No. Plat</div>
+                                            <div className="text-xs text-gray-400">{getLabel('plate')}</div>
                                             <div className="font-bold text-gray-800 font-mono">{selectedVehicle.licensePlate || '-'}</div>
                                         </div>
                                         <div className="bg-white/50 p-4 rounded-xl">
-                                            <div className="text-xs text-gray-400">No. Rangka</div>
+                                            <div className="text-xs text-gray-400">{getLabel('chassisNo')}</div>
                                             <div className="font-bold text-gray-800 font-mono text-sm">{selectedVehicle.chassisNumber || '-'}</div>
                                         </div>
                                         <div className="bg-white/50 p-4 rounded-xl">
-                                            <div className="text-xs text-gray-400">No. Mesin</div>
+                                            <div className="text-xs text-gray-400">{getLabel('engineNo')}</div>
                                             <div className="font-bold text-gray-800 font-mono text-sm">{selectedVehicle.engineNumber || '-'}</div>
                                         </div>
                                     </div>
@@ -722,25 +804,25 @@ export default function InventoryPage() {
                                         <div className="bg-gradient-to-r from-green-50 to-blue-50 p-6 rounded-xl">
                                             <h3 className="font-bold text-gray-800 mb-4 flex items-center gap-2">
                                                 <FontAwesomeIcon icon={faMoneyBillWave} className="text-green-500" />
-                                                Ringkasan Biaya
+                                                {getLabel('costSummary')}
                                             </h3>
                                             <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                                                 <div>
-                                                    <div className="text-xs text-gray-400">Modal</div>
-                                                    <div className="font-bold text-gray-800">{formatCurrency(selectedVehicle.costSummary.purchasePrice)}</div>
+                                                    <div className="text-xs text-gray-400">{getLabel('capital')}</div>
+                                                    <div className="font-bold text-gray-800">{fmt(selectedVehicle.costSummary.purchasePrice)}</div>
                                                 </div>
                                                 <div>
-                                                    <div className="text-xs text-gray-400">Biaya Tambahan</div>
-                                                    <div className="font-bold text-orange-600">{formatCurrency(selectedVehicle.costSummary.additionalCosts)}</div>
+                                                    <div className="text-xs text-gray-400">{getLabel('additionalCost')}</div>
+                                                    <div className="font-bold text-orange-600">{fmt(selectedVehicle.costSummary.additionalCosts)}</div>
                                                 </div>
                                                 <div>
-                                                    <div className="text-xs text-gray-400">Total Cost</div>
-                                                    <div className="font-bold text-red-600">{formatCurrency(selectedVehicle.costSummary.totalCost)}</div>
+                                                    <div className="text-xs text-gray-400">{getLabel('totalCost')}</div>
+                                                    <div className="font-bold text-red-600">{fmt(selectedVehicle.costSummary.totalCost)}</div>
                                                 </div>
                                                 <div>
-                                                    <div className="text-xs text-gray-400">Profit</div>
+                                                    <div className="text-xs text-gray-400">{getLabel('profit')}</div>
                                                     <div className={`font-bold ${selectedVehicle.costSummary.profitMargin >= 0 ? 'text-green-600' : 'text-red-600'}`}>
-                                                        {formatCurrency(selectedVehicle.costSummary.profitMargin)} ({selectedVehicle.costSummary.profitPercentage}%)
+                                                        {fmt(selectedVehicle.costSummary.profitMargin)} ({selectedVehicle.costSummary.profitPercentage}%)
                                                     </div>
                                                 </div>
                                             </div>
@@ -752,14 +834,14 @@ export default function InventoryPage() {
                                         <div className="flex items-center justify-between mb-4">
                                             <h3 className="font-bold text-gray-800 flex items-center gap-2">
                                                 <FontAwesomeIcon icon={faReceipt} className="text-blue-500" />
-                                                Rincian Biaya
+                                                {getLabel('costDetails')}
                                             </h3>
                                             <button
                                                 onClick={() => setShowAddCostModal(true)}
                                                 className="px-4 py-2 rounded-lg bg-[#00bfa5] text-white text-sm font-medium hover:bg-[#00a891]"
                                             >
                                                 <FontAwesomeIcon icon={faPlus} className="mr-2" />
-                                                Tambah Biaya
+                                                {getLabel('addCost')}
                                             </button>
                                         </div>
 
@@ -778,14 +860,14 @@ export default function InventoryPage() {
                                                             <span className="ml-2 text-gray-600">{cost.description}</span>
                                                         </div>
                                                         <div className="text-right">
-                                                            <div className="font-bold text-gray-800">{formatCurrency(cost.amount)}</div>
+                                                            <div className="font-bold text-gray-800">{fmt(cost.amount)}</div>
                                                             <div className="text-xs text-gray-400">{new Date(cost.date).toLocaleDateString('id-ID')}</div>
                                                         </div>
                                                     </div>
                                                 ))}
                                             </div>
                                         ) : (
-                                            <div className="text-center py-8 text-gray-400">Belum ada rincian biaya</div>
+                                            <div className="text-center py-8 text-gray-400">{getLabel('noCostDetails')}</div>
                                         )}
                                     </div>
 
@@ -799,7 +881,7 @@ export default function InventoryPage() {
                                             className="flex-1 py-3 rounded-xl bg-blue-500 text-white font-medium hover:bg-blue-600 flex items-center justify-center gap-2"
                                         >
                                             <FontAwesomeIcon icon={faFileExport} />
-                                            Export PDF (Internal)
+                                            {getLabel('exportPdfInternal')}
                                         </button>
                                         <button
                                             onClick={() => {
@@ -809,7 +891,7 @@ export default function InventoryPage() {
                                             className="flex-1 py-3 rounded-xl bg-green-500 text-white font-medium hover:bg-green-600 flex items-center justify-center gap-2"
                                         >
                                             <FontAwesomeIcon icon={faFileExport} />
-                                            Export PDF (Customer)
+                                            {getLabel('exportPdfCustomer')}
                                         </button>
                                     </div>
                                 </div>
@@ -839,7 +921,7 @@ export default function InventoryPage() {
                     <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-[60]">
                         <div className="bg-[#ecf0f3] rounded-2xl p-6 w-full max-w-md shadow-2xl">
                             <div className="flex items-center justify-between mb-6">
-                                <h2 className="text-xl font-bold text-gray-800">Tambah Biaya</h2>
+                                <h2 className="text-xl font-bold text-gray-800">{getLabel('addCostTitle')}</h2>
                                 <button onClick={() => setShowAddCostModal(false)}>
                                     <FontAwesomeIcon icon={faTimes} className="text-gray-400 hover:text-gray-600" />
                                 </button>
@@ -847,21 +929,21 @@ export default function InventoryPage() {
 
                             <div className="space-y-4">
                                 <div>
-                                    <label className="block text-sm font-medium text-gray-600 mb-1">Jenis Biaya</label>
+                                    <label className="block text-sm font-medium text-gray-600 mb-1">{getLabel('costType')}</label>
                                     <select
                                         value={costForm.costType}
                                         onChange={(e) => setCostForm({ ...costForm, costType: e.target.value })}
                                         className="w-full px-4 py-3 rounded-xl bg-[#ecf0f3] shadow-[inset_3px_3px_6px_#cbced1,inset_-3px_-3px_6px_#ffffff] focus:outline-none focus:ring-2 focus:ring-[#00bfa5]"
                                     >
-                                        <option value="PURCHASE">Modal (Beli)</option>
-                                        <option value="MAINTENANCE">Perawatan/Service</option>
-                                        <option value="TAX">Pajak</option>
-                                        <option value="INSURANCE">Asuransi</option>
-                                        <option value="OTHER">Lainnya</option>
+                                        <option value="PURCHASE">{getLabel('costPurchase')}</option>
+                                        <option value="MAINTENANCE">{getLabel('costMaintenance')}</option>
+                                        <option value="TAX">{getLabel('costTax')}</option>
+                                        <option value="INSURANCE">{getLabel('costInsurance')}</option>
+                                        <option value="OTHER">{getLabel('costOther')}</option>
                                     </select>
                                 </div>
                                 <div>
-                                    <label className="block text-sm font-medium text-gray-600 mb-1">Jumlah</label>
+                                    <label className="block text-sm font-medium text-gray-600 mb-1">{getLabel('amount')}</label>
                                     <input
                                         type="number"
                                         value={costForm.amount}
@@ -871,17 +953,17 @@ export default function InventoryPage() {
                                     />
                                 </div>
                                 <div>
-                                    <label className="block text-sm font-medium text-gray-600 mb-1">Keterangan</label>
+                                    <label className="block text-sm font-medium text-gray-600 mb-1">{getLabel('description')}</label>
                                     <input
                                         type="text"
                                         value={costForm.description}
                                         onChange={(e) => setCostForm({ ...costForm, description: e.target.value })}
                                         className="w-full px-4 py-3 rounded-xl bg-[#ecf0f3] shadow-[inset_3px_3px_6px_#cbced1,inset_-3px_-3px_6px_#ffffff] focus:outline-none focus:ring-2 focus:ring-[#00bfa5]"
-                                        placeholder="Contoh: Service rutin"
+                                        placeholder={getLabel('exampleDesc')}
                                     />
                                 </div>
                                 <div>
-                                    <label className="block text-sm font-medium text-gray-600 mb-1">Tanggal</label>
+                                    <label className="block text-sm font-medium text-gray-600 mb-1">{getLabel('date')}</label>
                                     <input
                                         type="date"
                                         value={costForm.date}
@@ -895,13 +977,13 @@ export default function InventoryPage() {
                                         onClick={() => setShowAddCostModal(false)}
                                         className="flex-1 py-3 rounded-xl bg-[#ecf0f3] text-gray-600 font-medium shadow-[3px_3px_6px_#cbced1,-3px_-3px_6px_#ffffff]"
                                     >
-                                        Batal
+                                        {getLabel('cancel')}
                                     </button>
                                     <button
                                         onClick={handleAddCost}
                                         className="flex-1 py-3 rounded-xl bg-[#00bfa5] text-white font-medium shadow-lg hover:bg-[#00a891]"
                                     >
-                                        Simpan
+                                        {getLabel('save')}
                                     </button>
                                 </div>
                             </div>
@@ -917,7 +999,7 @@ export default function InventoryPage() {
                         <div className="bg-[#ecf0f3] w-full h-full sm:h-auto sm:max-h-[90vh] sm:rounded-2xl shadow-xl sm:max-w-2xl overflow-y-auto">
                             <div className="flex justify-between items-center p-5 border-b border-gray-200 sticky top-0 bg-[#ecf0f3] z-10">
                                 <h3 className="text-lg font-semibold text-gray-800">
-                                    {editingVehicle ? 'Edit Kendaraan' : 'Tambah Kendaraan'}
+                                    {editingVehicle ? getLabel('editVehicle') : getLabel('addVehicle')}
                                 </h3>
                                 <button onClick={() => { setShowVehicleModal(false); resetVehicleForm(); }} className="text-gray-400 hover:text-gray-600">
                                     <FontAwesomeIcon icon={faTimes} />
@@ -926,22 +1008,22 @@ export default function InventoryPage() {
                             <div className="p-5 space-y-4">
                                 {/* Category */}
                                 <div>
-                                    <label className="block text-sm font-medium text-gray-600 mb-1">Kategori</label>
+                                    <label className="block text-sm font-medium text-gray-600 mb-1">{getLabel('category')}</label>
                                     <select
                                         value={vehicleForm.category}
                                         onChange={(e) => setVehicleForm({ ...vehicleForm, category: e.target.value })}
                                         className="w-full px-4 py-3 rounded-xl bg-[#ecf0f3] shadow-[inset_3px_3px_6px_#cbced1,inset_-3px_-3px_6px_#ffffff] focus:outline-none focus:ring-2 focus:ring-[#00bfa5]"
                                     >
-                                        <option value="CAR">Mobil</option>
-                                        <option value="MOTORCYCLE">Motor</option>
-                                        <option value="TRUCK">Truk</option>
+                                        <option value="CAR">{getLabel('car')}</option>
+                                        <option value="MOTORCYCLE">{getLabel('motorcycle')}</option>
+                                        <option value="TRUCK">{getLabel('truck')}</option>
                                     </select>
                                 </div>
 
                                 {/* Make + Model (Master Data) */}
                                 <div className="grid grid-cols-2 gap-3">
                                     <div>
-                                        <label className="block text-sm font-medium text-gray-600 mb-1">Merk *</label>
+                                        <label className="block text-sm font-medium text-gray-600 mb-1">{getLabel('make')} *</label>
                                         <div className="relative">
                                             <select
                                                 value={vehicleForm.make}
@@ -950,7 +1032,7 @@ export default function InventoryPage() {
                                                 }}
                                                 className="w-full px-4 py-3 rounded-xl bg-[#ecf0f3] shadow-[inset_3px_3px_6px_#cbced1,inset_-3px_-3px_6px_#ffffff] focus:outline-none focus:ring-2 focus:ring-[#00bfa5] appearance-none"
                                             >
-                                                <option value="">Pilih Merk...</option>
+                                                <option value="">{getLabel('selectMake')}</option>
                                                 {brands.map((brand) => (
                                                     <option key={brand.id} value={brand.name}>
                                                         {brand.name}
@@ -962,11 +1044,11 @@ export default function InventoryPage() {
                                             </div>
                                         </div>
                                         {brands.length === 0 && (
-                                            <p className="text-xs text-red-500 mt-1">Master Data kosong. Tambahkan di menu Master.</p>
+                                            <p className="text-xs text-red-500 mt-1">{getLabel('emptyMasterData')}</p>
                                         )}
                                     </div>
                                     <div>
-                                        <label className="block text-sm font-medium text-gray-600 mb-1">Model *</label>
+                                        <label className="block text-sm font-medium text-gray-600 mb-1">{getLabel('model')} *</label>
                                         <div className="relative">
                                             <select
                                                 value={vehicleForm.model}
@@ -974,7 +1056,7 @@ export default function InventoryPage() {
                                                 disabled={!vehicleForm.make}
                                                 className="w-full px-4 py-3 rounded-xl bg-[#ecf0f3] shadow-[inset_3px_3px_6px_#cbced1,inset_-3px_-3px_6px_#ffffff] focus:outline-none focus:ring-2 focus:ring-[#00bfa5] appearance-none disabled:opacity-50"
                                             >
-                                                <option value="">Pilih Model...</option>
+                                                <option value="">{getLabel('selectModel')}</option>
                                                 {availableModels.map((model) => (
                                                     <option key={model.id} value={model.name}>
                                                         {model.name}
@@ -991,11 +1073,11 @@ export default function InventoryPage() {
                                 {/* Variant + Year */}
                                 <div className="grid grid-cols-2 gap-3">
                                     <div>
-                                        <label className="block text-sm font-medium text-gray-600 mb-1">Varian</label>
-                                        <input type="text" value={vehicleForm.variant} onChange={(e) => setVehicleForm({ ...vehicleForm, variant: e.target.value })} placeholder="1.5 G AT" className="w-full px-4 py-3 rounded-xl bg-[#ecf0f3] shadow-[inset_3px_3px_6px_#cbced1,inset_-3px_-3px_6px_#ffffff] focus:outline-none focus:ring-2 focus:ring-[#00bfa5]" />
+                                        <label className="block text-sm font-medium text-gray-600 mb-1">{getLabel('variant')}</label>
+                                        <input type="text" value={vehicleForm.variant} onChange={(e) => setVehicleForm({ ...vehicleForm, variant: e.target.value })} placeholder={getLabel('exampleVariant')} className="w-full px-4 py-3 rounded-xl bg-[#ecf0f3] shadow-[inset_3px_3px_6px_#cbced1,inset_-3px_-3px_6px_#ffffff] focus:outline-none focus:ring-2 focus:ring-[#00bfa5]" />
                                     </div>
                                     <div>
-                                        <label className="block text-sm font-medium text-gray-600 mb-1">Tahun</label>
+                                        <label className="block text-sm font-medium text-gray-600 mb-1">{getLabel('year')}</label>
                                         <input type="number" value={vehicleForm.year} onChange={(e) => setVehicleForm({ ...vehicleForm, year: parseInt(e.target.value) })} className="w-full px-4 py-3 rounded-xl bg-[#ecf0f3] shadow-[inset_3px_3px_6px_#cbced1,inset_-3px_-3px_6px_#ffffff] focus:outline-none focus:ring-2 focus:ring-[#00bfa5]" />
                                     </div>
                                 </div>
@@ -1003,14 +1085,14 @@ export default function InventoryPage() {
                                 {/* Color + Condition */}
                                 <div className="grid grid-cols-2 gap-3">
                                     <div>
-                                        <label className="block text-sm font-medium text-gray-600 mb-1">Warna</label>
+                                        <label className="block text-sm font-medium text-gray-600 mb-1">{getLabel('color')}</label>
                                         <input type="text" value={vehicleForm.color} onChange={(e) => setVehicleForm({ ...vehicleForm, color: e.target.value })} placeholder="Putih" className="w-full px-4 py-3 rounded-xl bg-[#ecf0f3] shadow-[inset_3px_3px_6px_#cbced1,inset_-3px_-3px_6px_#ffffff] focus:outline-none focus:ring-2 focus:ring-[#00bfa5]" />
                                     </div>
                                     <div>
-                                        <label className="block text-sm font-medium text-gray-600 mb-1">Kondisi</label>
+                                        <label className="block text-sm font-medium text-gray-600 mb-1">{getLabel('condition')}</label>
                                         <select value={vehicleForm.condition} onChange={(e) => setVehicleForm({ ...vehicleForm, condition: e.target.value })} className="w-full px-4 py-3 rounded-xl bg-[#ecf0f3] shadow-[inset_3px_3px_6px_#cbced1,inset_-3px_-3px_6px_#ffffff] focus:outline-none focus:ring-2 focus:ring-[#00bfa5]">
-                                            <option value="READY">Siap Jual</option>
-                                            <option value="REPAIR">Perlu Perbaikan</option>
+                                            <option value="READY">{getLabel('ready')}</option>
+                                            <option value="REPAIR">{getLabel('repair')}</option>
                                         </select>
                                     </div>
                                 </div>
@@ -1018,29 +1100,29 @@ export default function InventoryPage() {
                                 {/* Price + Purchase Price */}
                                 <div className="grid grid-cols-2 gap-3">
                                     <div>
-                                        <label className="block text-sm font-medium text-gray-600 mb-1">Harga Jual *</label>
+                                        <label className="block text-sm font-medium text-gray-600 mb-1">{getLabel('sellingPrice')} *</label>
                                         <input type="number" value={vehicleForm.price} onChange={(e) => setVehicleForm({ ...vehicleForm, price: e.target.value })} placeholder="195000000" className="w-full px-4 py-3 rounded-xl bg-[#ecf0f3] shadow-[inset_3px_3px_6px_#cbced1,inset_-3px_-3px_6px_#ffffff] focus:outline-none focus:ring-2 focus:ring-[#00bfa5]" />
                                     </div>
                                     <div>
-                                        <label className="block text-sm font-medium text-gray-600 mb-1">Harga Beli</label>
+                                        <label className="block text-sm font-medium text-gray-600 mb-1">{getLabel('purchasePrice')}</label>
                                         <input type="number" value={vehicleForm.purchasePrice} onChange={(e) => setVehicleForm({ ...vehicleForm, purchasePrice: e.target.value })} placeholder="180000000" className="w-full px-4 py-3 rounded-xl bg-[#ecf0f3] shadow-[inset_3px_3px_6px_#cbced1,inset_-3px_-3px_6px_#ffffff] focus:outline-none focus:ring-2 focus:ring-[#00bfa5]" />
                                     </div>
                                 </div>
 
                                 {/* License Plate */}
                                 <div>
-                                    <label className="block text-sm font-medium text-gray-600 mb-1">Plat Nomor</label>
+                                    <label className="block text-sm font-medium text-gray-600 mb-1">{getLabel('plate')}</label>
                                     <input type="text" value={vehicleForm.licensePlate} onChange={(e) => setVehicleForm({ ...vehicleForm, licensePlate: e.target.value })} placeholder="B 1234 ABC" className="w-full px-4 py-3 rounded-xl bg-[#ecf0f3] shadow-[inset_3px_3px_6px_#cbced1,inset_-3px_-3px_6px_#ffffff] focus:outline-none focus:ring-2 focus:ring-[#00bfa5]" />
                                 </div>
 
                                 {/* Chassis + Engine */}
                                 <div className="grid grid-cols-2 gap-3">
                                     <div>
-                                        <label className="block text-sm font-medium text-gray-600 mb-1">No. Rangka</label>
+                                        <label className="block text-sm font-medium text-gray-600 mb-1">{getLabel('chassisNo')}</label>
                                         <input type="text" value={vehicleForm.chassisNumber} onChange={(e) => setVehicleForm({ ...vehicleForm, chassisNumber: e.target.value })} className="w-full px-4 py-3 rounded-xl bg-[#ecf0f3] shadow-[inset_3px_3px_6px_#cbced1,inset_-3px_-3px_6px_#ffffff] focus:outline-none focus:ring-2 focus:ring-[#00bfa5]" />
                                     </div>
                                     <div>
-                                        <label className="block text-sm font-medium text-gray-600 mb-1">No. Mesin</label>
+                                        <label className="block text-sm font-medium text-gray-600 mb-1">{getLabel('engineNo')}</label>
                                         <input type="text" value={vehicleForm.engineNumber} onChange={(e) => setVehicleForm({ ...vehicleForm, engineNumber: e.target.value })} className="w-full px-4 py-3 rounded-xl bg-[#ecf0f3] shadow-[inset_3px_3px_6px_#cbced1,inset_-3px_-3px_6px_#ffffff] focus:outline-none focus:ring-2 focus:ring-[#00bfa5]" />
                                     </div>
                                 </div>
@@ -1048,30 +1130,30 @@ export default function InventoryPage() {
                                 {/* BPKB Owner Identity */}
                                 <div className="bg-yellow-50 p-4 rounded-xl border border-yellow-100">
                                     <div className="flex items-center justify-between mb-2">
-                                        <label className="text-sm font-bold text-gray-700">Identitas Pemilik BPKB</label>
+                                        <label className="text-sm font-bold text-gray-700">{getLabel('bpkbOwner')}</label>
                                         <div className="flex items-center gap-2">
-                                            <span className="text-xs text-gray-500">Sama dengan KTP?</span>
+                                            <span className="text-xs text-gray-500">{getLabel('sameAsKtp')}</span>
                                             <button
                                                 onClick={() => setVehicleForm({ ...vehicleForm, isOwnerDifferent: !vehicleForm.isOwnerDifferent })}
                                                 className={`w-10 h-5 rounded-full transition-colors relative ${vehicleForm.isOwnerDifferent ? 'bg-[#00bfa5]' : 'bg-gray-300'}`}
                                             >
                                                 <div className={`absolute top-1 left-1 w-3 h-3 bg-white rounded-full transition-transform ${vehicleForm.isOwnerDifferent ? 'translate-x-5' : ''}`} />
                                             </button>
-                                            <span className="text-xs font-bold text-gray-700">{vehicleForm.isOwnerDifferent ? 'BERBEDA' : 'SAMA'}</span>
+                                            <span className="text-xs font-bold text-gray-700">{vehicleForm.isOwnerDifferent ? getLabel('different') : getLabel('same')}</span>
                                         </div>
                                     </div>
 
                                     {vehicleForm.isOwnerDifferent && (
                                         <div className="mt-2 animate-in fade-in slide-in-from-top-2">
-                                            <label className="block text-sm font-medium text-gray-600 mb-1">Nama Pemilik di BPKB <span className="text-red-500">*</span></label>
+                                            <label className="block text-sm font-medium text-gray-600 mb-1">{getLabel('bpkbName')} <span className="text-red-500">*</span></label>
                                             <input
                                                 type="text"
                                                 value={vehicleForm.bpkbOwnerName}
                                                 onChange={(e) => setVehicleForm({ ...vehicleForm, bpkbOwnerName: e.target.value })}
-                                                placeholder="Nama sesuai BPKB"
+                                                placeholder={getLabel('bpkbName')}
                                                 className="w-full px-4 py-3 rounded-xl bg-white border border-yellow-300 focus:outline-none focus:ring-2 focus:ring-[#00bfa5]"
                                             />
-                                            <p className="text-xs text-gray-500 mt-1">Wajib diisi karena berbeda dengan identitas pemilik.</p>
+                                            <p className="text-xs text-gray-500 mt-1">{getLabel('requiredDiff')}</p>
                                         </div>
                                     )}
                                 </div>
@@ -1097,10 +1179,10 @@ export default function InventoryPage() {
                                 {/* Buttons */}
                                 <div className="flex gap-3 pt-2">
                                     <button onClick={() => { setShowVehicleModal(false); resetVehicleForm(); }} className="flex-1 py-3 rounded-xl bg-[#ecf0f3] text-gray-600 font-medium shadow-[3px_3px_6px_#cbced1,-3px_-3px_6px_#ffffff]">
-                                        Batal
+                                        {getLabel('cancel')}
                                     </button>
                                     <button onClick={handleSaveVehicle} disabled={submitting} className="flex-1 py-3 rounded-xl bg-[#00bfa5] text-white font-medium shadow-lg hover:bg-[#00a891] disabled:opacity-50 transition-all">
-                                        {submitting ? 'Menyimpan...' : (editingVehicle ? 'Simpan Perubahan' : 'Tambah Kendaraan')}
+                                        {submitting ? getLabel('saving') : (editingVehicle ? getLabel('saveChanges') : getLabel('addVehicle'))}
                                     </button>
                                 </div>
                             </div>
@@ -1118,16 +1200,16 @@ export default function InventoryPage() {
                             <div className="w-16 h-16 rounded-full bg-red-100 flex items-center justify-center mx-auto mb-4">
                                 <FontAwesomeIcon icon={faTrash} className="text-red-500 text-2xl" />
                             </div>
-                            <h3 className="text-lg font-bold text-gray-800 mb-2">Hapus Kendaraan?</h3>
+                            <h3 className="text-lg font-bold text-gray-800 mb-2">{getLabel('deleteVehicle')}</h3>
                             <p className="text-gray-500 mb-6">
-                                Apakah Anda yakin ingin menghapus <strong>{deleteTarget.make} {deleteTarget.model}</strong>? Tindakan ini tidak dapat dibatalkan.
+                                {getLabel('deleteConfirm')} <strong>{deleteTarget.make} {deleteTarget.model}</strong>? {getLabel('deleteUndo')}
                             </p>
                             <div className="flex gap-3">
                                 <button onClick={() => { setShowDeleteConfirm(false); setDeleteTarget(null); }} className="flex-1 py-3 rounded-xl bg-[#ecf0f3] text-gray-600 font-medium shadow-[3px_3px_6px_#cbced1,-3px_-3px_6px_#ffffff]">
-                                    Batal
+                                    {getLabel('cancel')}
                                 </button>
                                 <button onClick={handleDeleteVehicle} className="flex-1 py-3 rounded-xl bg-red-500 text-white font-medium shadow-lg hover:bg-red-600 transition-all">
-                                    Ya, Hapus
+                                    {getLabel('yesDelete')}
                                 </button>
                             </div>
                         </div>

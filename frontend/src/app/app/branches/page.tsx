@@ -5,6 +5,7 @@ import { Plus, Search, Edit2, Trash2, MapPin, Building, Phone, Users, X, Check, 
 import Link from 'next/link';
 import { toast } from 'sonner';
 import { API_URL } from '@/lib/api';
+import { useLanguage } from '@/hooks/useLanguage';
 
 interface Branch {
     id: string;
@@ -17,6 +18,7 @@ interface Branch {
 }
 
 export default function BranchesPage() {
+    const { t, language } = useLanguage();
     const [branches, setBranches] = useState<Branch[]>([]);
     const [loading, setLoading] = useState(true);
     const [search, setSearch] = useState('');
@@ -30,6 +32,39 @@ export default function BranchesPage() {
         address: '',
         phone: '',
     });
+
+    const getLabel = (key: string) => {
+        const labels: Record<string, Record<string, string>> = {
+            totalBranches: { id: 'Total Cabang', en: 'Total Branches' },
+            totalStaff: { id: 'Total Staff', en: 'Total Staff' },
+            totalVehicles: { id: 'Total Kendaraan', en: 'Total Vehicles' },
+            searchBranch: { id: 'Cari cabang...', en: 'Search branches...' },
+            noBranches: { id: 'Belum ada cabang', en: 'No branches found' },
+            addBranch: { id: 'Tambah Cabang', en: 'Add Branch' },
+            editBranch: { id: 'Edit Cabang', en: 'Edit Branch' },
+            branchName: { id: 'Nama Cabang', en: 'Branch Name' },
+            fullAddress: { id: 'Alamat Lengkap', en: 'Full Address' },
+            phone: { id: 'No. Telepon', en: 'Phone Number' },
+            exampleBranch: { id: 'Contoh: Cabang Bandung', en: 'Example: Bandung Branch' },
+            exampleAddress: { id: 'Jl. Contoh No. 123, Kota', en: '123 Example St, City' },
+            examplePhone: { id: '021-1234567', en: '021-1234567' },
+            saveChanges: { id: 'Simpan Perubahan', en: 'Save Changes' },
+            deleteBranchTitle: { id: 'Hapus Cabang?', en: 'Delete Branch?' },
+            deleteBranchDesc: { id: 'Apakah Anda yakin ingin menghapus cabang ini? Tindakan ini tidak dapat dibatalkan.', en: 'Are you sure you want to delete this branch? This action cannot be undone.' },
+            cancel: { id: 'Batal', en: 'Cancel' },
+            yesDelete: { id: 'Ya, Hapus', en: 'Yes, Delete' },
+            created: { id: 'Dibuat', en: 'Created' },
+            multiBranchFeature: { id: 'Fitur Multi-Cabang', en: 'Multi-Branch Feature' },
+            multiBranchDesc: { id: 'Kelola beberapa cabang dealer dalam satu dashboard. Pantau inventaris, staff, dan performa setiap cabang secara terpisah.', en: 'Manage multiple dealer branches in one dashboard. Monitor inventory, staff, and performance for each branch separately.' },
+            whatYouGet: { id: 'Yang Anda dapatkan:', en: 'What you get:' },
+            unlimitedBranches: { id: 'Kelola unlimited cabang', en: 'Manage unlimited branches' },
+            branchReports: { id: 'Laporan per cabang', en: 'Reports per branch' },
+            staffAssignment: { id: 'Assignment staff ke cabang', en: 'Staff assignment to branches' },
+            vehicleTransfer: { id: 'Transfer kendaraan antar cabang', en: 'Vehicle transfer between branches' },
+            upgradeToPro: { id: 'Upgrade ke Pro', en: 'Upgrade to Pro' },
+        };
+        return labels[key]?.[language === 'id' ? 'id' : 'en'] || labels[key]?.['en'] || key;
+    };
 
     useEffect(() => {
         fetchBranches();
@@ -95,17 +130,17 @@ export default function BranchesPage() {
             });
 
             if (res.ok) {
-                toast.success(editingBranch ? 'Cabang berhasil diperbarui' : 'Cabang berhasil ditambahkan');
+                toast.success(editingBranch ? t.success : t.success);
                 setShowModal(false);
                 resetForm();
                 fetchBranches();
             } else {
                 const error = await res.json();
-                toast.error(error.message || 'Gagal menyimpan cabang');
+                toast.error(error.message || t.error);
             }
         } catch (err) {
             console.error('Error saving branch:', err);
-            toast.error('Gagal menyimpan cabang');
+            toast.error(t.error);
         }
     };
 
@@ -118,15 +153,15 @@ export default function BranchesPage() {
                 headers: { 'Authorization': `Bearer ${token}` },
             });
             if (res.ok) {
-                toast.success('Cabang berhasil dihapus');
+                toast.success(t.success);
                 fetchBranches();
             } else {
                 const error = await res.json();
-                toast.error(error.message || 'Gagal menghapus cabang');
+                toast.error(error.message || t.error);
             }
         } catch (err) {
             console.error('Error deleting branch:', err);
-            toast.error('Gagal menghapus cabang');
+            toast.error(t.error);
         }
     };
 
@@ -159,31 +194,31 @@ export default function BranchesPage() {
                 </div>
 
                 <h1 className="text-3xl font-bold text-gray-800 mb-3">
-                    Fitur Multi-Cabang
+                    {getLabel('multiBranchFeature')}
                 </h1>
 
                 <p className="text-gray-500 max-w-md mb-6">
-                    Kelola beberapa cabang dealer dalam satu dashboard. Pantau inventaris, staff, dan performa setiap cabang secara terpisah.
+                    {getLabel('multiBranchDesc')}
                 </p>
 
                 <div className="bg-gradient-to-r from-purple-50 to-indigo-50 border border-purple-200 rounded-2xl p-6 max-w-md mb-8">
-                    <h3 className="font-semibold text-purple-800 mb-3">Yang Anda dapatkan:</h3>
+                    <h3 className="font-semibold text-purple-800 mb-3">{getLabel('whatYouGet')}</h3>
                     <ul className="text-left space-y-2">
                         <li className="flex items-center gap-2 text-sm text-purple-700">
                             <Check className="w-4 h-4 text-purple-500" />
-                            Kelola unlimited cabang
+                            {getLabel('unlimitedBranches')}
                         </li>
                         <li className="flex items-center gap-2 text-sm text-purple-700">
                             <Check className="w-4 h-4 text-purple-500" />
-                            Laporan per cabang
+                            {getLabel('branchReports')}
                         </li>
                         <li className="flex items-center gap-2 text-sm text-purple-700">
                             <Check className="w-4 h-4 text-purple-500" />
-                            Assignment staff ke cabang
+                            {getLabel('staffAssignment')}
                         </li>
                         <li className="flex items-center gap-2 text-sm text-purple-700">
                             <Check className="w-4 h-4 text-purple-500" />
-                            Transfer kendaraan antar cabang
+                            {getLabel('vehicleTransfer')}
                         </li>
                     </ul>
                 </div>
@@ -193,7 +228,7 @@ export default function BranchesPage() {
                     className="flex items-center gap-2 bg-gradient-to-r from-purple-500 to-indigo-600 text-white font-semibold px-8 py-3 rounded-xl hover:opacity-90 transition-opacity shadow-lg"
                 >
                     <Crown className="w-5 h-5" />
-                    Upgrade ke Pro
+                    {getLabel('upgradeToPro')}
                 </Link>
             </div>
         );
@@ -212,8 +247,8 @@ export default function BranchesPage() {
             {/* Header */}
             <div className="flex justify-between items-center">
                 <div>
-                    <h1 className="text-2xl font-bold text-gray-800">Manajemen Cabang</h1>
-                    <p className="text-gray-500 mt-1">Kelola lokasi dealer Anda</p>
+                    <h1 className="text-2xl font-bold text-gray-800">{t.branchTitle}</h1>
+                    <p className="text-gray-500 mt-1">{language === 'id' ? 'Kelola lokasi dealer Anda' : 'Manage your dealer locations'}</p>
                 </div>
                 <button
                     onClick={() => {
@@ -222,22 +257,22 @@ export default function BranchesPage() {
                     }}
                     className="flex items-center gap-2 bg-[#00bfa5] text-white px-4 py-2.5 rounded-xl font-medium hover:bg-[#00a896] transition-colors shadow-lg"
                 >
-                    <Plus className="w-5 h-5" /> Tambah Cabang
+                    <Plus className="w-5 h-5" /> {t.addBranch}
                 </button>
             </div>
 
             {/* Stats */}
             <div className="grid grid-cols-3 gap-4">
                 <div className="bg-[#ecf0f3] rounded-xl p-4 shadow-[3px_3px_6px_#cbced1,-3px_-3px_6px_#ffffff]">
-                    <p className="text-sm text-gray-500">Total Cabang</p>
+                    <p className="text-sm text-gray-500">{getLabel('totalBranches')}</p>
                     <p className="text-2xl font-bold text-gray-800">{branches.length}</p>
                 </div>
                 <div className="bg-[#ecf0f3] rounded-xl p-4 shadow-[3px_3px_6px_#cbced1,-3px_-3px_6px_#ffffff]">
-                    <p className="text-sm text-gray-500">Total Staff</p>
+                    <p className="text-sm text-gray-500">{getLabel('totalStaff')}</p>
                     <p className="text-2xl font-bold text-blue-600">{branches.reduce((a, b) => a + b.staffCount, 0)}</p>
                 </div>
                 <div className="bg-[#ecf0f3] rounded-xl p-4 shadow-[3px_3px_6px_#cbced1,-3px_-3px_6px_#ffffff]">
-                    <p className="text-sm text-gray-500">Total Kendaraan</p>
+                    <p className="text-sm text-gray-500">{getLabel('totalVehicles')}</p>
                     <p className="text-2xl font-bold text-emerald-600">{branches.reduce((a, b) => a + b.vehicleCount, 0)}</p>
                 </div>
             </div>
@@ -249,7 +284,7 @@ export default function BranchesPage() {
                     type="text"
                     value={search}
                     onChange={(e) => setSearch(e.target.value)}
-                    placeholder="Cari cabang..."
+                    placeholder={getLabel('searchBranch')}
                     className="w-full pl-12 pr-4 py-3 rounded-xl bg-[#ecf0f3] border-none shadow-[inset_3px_3px_6px_#cbced1,inset_-3px_-3px_6px_#ffffff] focus:outline-none focus:ring-2 focus:ring-[#00bfa5] text-gray-700"
                 />
             </div>
@@ -266,7 +301,7 @@ export default function BranchesPage() {
                                 <div>
                                     <h3 className="font-semibold text-gray-800">{branch.name}</h3>
                                     <p className="text-xs text-gray-500">
-                                        Dibuat {new Date(branch.createdAt).toLocaleDateString('id-ID')}
+                                        {getLabel('created')} {new Date(branch.createdAt).toLocaleDateString(language === 'id' ? 'id-ID' : 'en-US')}
                                     </p>
                                 </div>
                             </div>
@@ -306,7 +341,7 @@ export default function BranchesPage() {
                             </div>
                             <div className="flex items-center gap-2">
                                 <Building className="w-4 h-4 text-emerald-500" />
-                                <span className="text-sm font-medium text-gray-700">{branch.vehicleCount} Kendaraan</span>
+                                <span className="text-sm font-medium text-gray-700">{branch.vehicleCount} {t.unit || 'Unit'}</span>
                             </div>
                         </div>
                     </div>
@@ -314,7 +349,7 @@ export default function BranchesPage() {
 
                 {filteredBranches.length === 0 && (
                     <div className="col-span-full text-center py-12 text-gray-500">
-                        Belum ada cabang
+                        {getLabel('noBranches')}
                     </div>
                 )}
             </div>
@@ -325,7 +360,7 @@ export default function BranchesPage() {
                     <div className="bg-[#ecf0f3] rounded-2xl shadow-xl max-w-md w-full">
                         <div className="flex justify-between items-center p-5 border-b border-gray-200">
                             <h3 className="text-lg font-semibold text-gray-800">
-                                {editingBranch ? 'Edit Cabang' : 'Tambah Cabang Baru'}
+                                {editingBranch ? getLabel('editBranch') : getLabel('addBranch')}
                             </h3>
                             <button onClick={() => setShowModal(false)} className="p-1 hover:bg-gray-200 rounded">
                                 <X className="w-5 h-5 text-gray-500" />
@@ -333,32 +368,32 @@ export default function BranchesPage() {
                         </div>
                         <div className="p-5 space-y-4">
                             <div>
-                                <label className="block text-sm font-medium text-gray-600 mb-2">Nama Cabang</label>
+                                <label className="block text-sm font-medium text-gray-600 mb-2">{getLabel('branchName')}</label>
                                 <input
                                     type="text"
                                     value={form.name}
                                     onChange={(e) => setForm({ ...form, name: e.target.value })}
-                                    placeholder="Contoh: Cabang Bandung"
+                                    placeholder={getLabel('exampleBranch')}
                                     className="w-full px-4 py-3 rounded-xl bg-[#ecf0f3] border-none shadow-[inset_3px_3px_6px_#cbced1,inset_-3px_-3px_6px_#ffffff] focus:outline-none focus:ring-2 focus:ring-[#00bfa5] text-gray-700"
                                 />
                             </div>
                             <div>
-                                <label className="block text-sm font-medium text-gray-600 mb-2">Alamat Lengkap</label>
+                                <label className="block text-sm font-medium text-gray-600 mb-2">{getLabel('fullAddress')}</label>
                                 <textarea
                                     value={form.address}
                                     onChange={(e) => setForm({ ...form, address: e.target.value })}
-                                    placeholder="Jl. Contoh No. 123, Kota"
+                                    placeholder={getLabel('exampleAddress')}
                                     rows={3}
                                     className="w-full px-4 py-3 rounded-xl bg-[#ecf0f3] border-none shadow-[inset_3px_3px_6px_#cbced1,inset_-3px_-3px_6px_#ffffff] focus:outline-none focus:ring-2 focus:ring-[#00bfa5] text-gray-700 resize-none"
                                 />
                             </div>
                             <div>
-                                <label className="block text-sm font-medium text-gray-600 mb-2">No. Telepon</label>
+                                <label className="block text-sm font-medium text-gray-600 mb-2">{getLabel('phone')}</label>
                                 <input
                                     type="tel"
                                     value={form.phone}
                                     onChange={(e) => setForm({ ...form, phone: e.target.value })}
-                                    placeholder="021-1234567"
+                                    placeholder={getLabel('examplePhone')}
                                     className="w-full px-4 py-3 rounded-xl bg-[#ecf0f3] border-none shadow-[inset_3px_3px_6px_#cbced1,inset_-3px_-3px_6px_#ffffff] focus:outline-none focus:ring-2 focus:ring-[#00bfa5] text-gray-700"
                                 />
                             </div>
@@ -367,7 +402,7 @@ export default function BranchesPage() {
                                 className="w-full bg-[#00bfa5] text-white py-3 rounded-xl font-medium hover:bg-[#00a896] transition-colors flex items-center justify-center gap-2"
                             >
                                 <Check className="w-5 h-5" />
-                                {editingBranch ? 'Simpan Perubahan' : 'Tambah Cabang'}
+                                {editingBranch ? getLabel('saveChanges') : getLabel('addBranch')}
                             </button>
                         </div>
                     </div>
@@ -382,13 +417,13 @@ export default function BranchesPage() {
                             <div className="w-16 h-16 rounded-full bg-red-100 flex items-center justify-center mx-auto mb-4">
                                 <AlertTriangle className="w-8 h-8 text-red-500" />
                             </div>
-                            <h3 className="text-lg font-bold text-gray-800 mb-2">Hapus Cabang?</h3>
+                            <h3 className="text-lg font-bold text-gray-800 mb-2">{getLabel('deleteBranchTitle')}</h3>
                             <p className="text-gray-500 mb-6">
-                                Apakah Anda yakin ingin menghapus cabang ini? Tindakan ini tidak dapat dibatalkan.
+                                {getLabel('deleteBranchDesc')}
                             </p>
                             <div className="flex gap-3">
-                                <button onClick={() => setDeleteTargetId(null)} className="flex-1 py-3 rounded-xl bg-[#ecf0f3] text-gray-600 font-medium shadow-[3px_3px_6px_#cbced1,-3px_-3px_6px_#ffffff]">Batal</button>
-                                <button onClick={() => handleDelete(deleteTargetId)} className="flex-1 py-3 rounded-xl bg-red-500 text-white font-medium shadow-lg hover:bg-red-600 transition-all">Ya, Hapus</button>
+                                <button onClick={() => setDeleteTargetId(null)} className="flex-1 py-3 rounded-xl bg-[#ecf0f3] text-gray-600 font-medium shadow-[3px_3px_6px_#cbced1,-3px_-3px_6px_#ffffff]">{getLabel('cancel')}</button>
+                                <button onClick={() => handleDelete(deleteTargetId)} className="flex-1 py-3 rounded-xl bg-red-500 text-white font-medium shadow-lg hover:bg-red-600 transition-all">{getLabel('yesDelete')}</button>
                             </div>
                         </div>
                     </div>

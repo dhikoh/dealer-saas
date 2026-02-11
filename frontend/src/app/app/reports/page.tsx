@@ -3,6 +3,8 @@
 import React, { useEffect, useState } from 'react';
 import { BarChart3, TrendingUp, TrendingDown, Car, DollarSign, Users, Package, Download, Calendar, RefreshCw } from 'lucide-react';
 import { toast } from 'sonner';
+import { useLanguage } from '@/hooks/useLanguage';
+import { useCurrency } from '@/hooks/useCurrency';
 
 interface DashboardStats {
     totalVehicles: number;
@@ -45,6 +47,9 @@ interface PerformanceMetrics {
 import { API_URL as API_BASE } from '@/lib/api';
 
 export default function ReportsPage() {
+    const { t } = useLanguage();
+    const { fmt, fmtCompact } = useCurrency();
+
     const [stats, setStats] = useState<DashboardStats | null>(null);
     const [monthlySales, setMonthlySales] = useState<MonthlySales[]>([]);
     const [topBrands, setTopBrands] = useState<TopBrand[]>([]);
@@ -92,19 +97,10 @@ export default function ReportsPage() {
             }
         } catch (err) {
             console.error('Error fetching analytics:', err);
+            toast.error(t.error);
         } finally {
             setLoading(false);
         }
-    };
-
-    const formatCurrency = (value: number) => {
-        if (value >= 1000000000) {
-            return `Rp ${(value / 1000000000).toFixed(1)}M`;
-        }
-        if (value >= 1000000) {
-            return `Rp ${(value / 1000000).toFixed(0)}jt`;
-        }
-        return new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', minimumFractionDigits: 0 }).format(value);
     };
 
     const handleExport = async (entity: 'vehicles' | 'customers' | 'transactions') => {
@@ -124,10 +120,10 @@ export default function ReportsPage() {
             link.download = `${names[entity]}_${new Date().toISOString().split('T')[0]}.csv`;
             link.click();
             window.URL.revokeObjectURL(url);
-            toast.success(`Data ${names[entity]} berhasil diexport`);
+            toast.success(t.exportSuccess);
         } catch (error) {
             console.error('Export error:', error);
-            toast.error('Gagal mengekspor data. Silakan coba lagi.');
+            toast.error(t.exportFailed);
         }
     };
 
@@ -150,8 +146,8 @@ export default function ReportsPage() {
             {/* Header */}
             <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
                 <div>
-                    <h1 className="text-2xl font-bold text-gray-800">Laporan & Statistik</h1>
-                    <p className="text-gray-500 mt-1">Pantau performa bisnis Anda secara real-time</p>
+                    <h1 className="text-2xl font-bold text-gray-800">{t.reportsTitle}</h1>
+                    <p className="text-gray-500 mt-1">{t.reportsDesc}</p>
                 </div>
                 <div className="flex items-center gap-2">
                     <select
@@ -159,10 +155,10 @@ export default function ReportsPage() {
                         onChange={(e) => setPeriod(e.target.value)}
                         className="px-4 py-2.5 rounded-xl bg-[#ecf0f3] border-none shadow-[3px_3px_6px_#cbced1,-3px_-3px_6px_#ffffff] focus:outline-none focus:ring-2 focus:ring-[#00bfa5] text-gray-700"
                     >
-                        <option value="1">1 Bulan</option>
-                        <option value="3">3 Bulan</option>
-                        <option value="6">6 Bulan</option>
-                        <option value="12">1 Tahun</option>
+                        <option value="1">1 {t.monthLabel}</option>
+                        <option value="3">3 {t.monthLabel}</option>
+                        <option value="6">6 {t.monthLabel}</option>
+                        <option value="12">1 {t.yearLabel}</option>
                     </select>
                     <button
                         onClick={fetchData}
@@ -172,6 +168,7 @@ export default function ReportsPage() {
                         <RefreshCw className="w-4 h-4" />
                     </button>
                     <ExportDropdown
+                        t={t}
                         onExportVehicles={() => handleExport('vehicles')}
                         onExportCustomers={() => handleExport('customers')}
                         onExportTransactions={() => handleExport('transactions')}
@@ -183,24 +180,24 @@ export default function ReportsPage() {
             <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
                 <StatCard
                     icon={<Car className="w-6 h-6" />}
-                    label="Total Kendaraan"
+                    label={t.unit} // Using generic unit/vehicle label or keep Total Kendaraan if available
                     value={stats?.totalVehicles || 0}
                     subValue={`${stats?.availableVehicles || 0} tersedia`}
                     color="teal"
                 />
                 <StatCard
                     icon={<Package className="w-6 h-6" />}
-                    label="Terjual Bulan Ini"
+                    label={t.soldThisMonth}
                     value={stats?.soldThisMonth || 0}
-                    subValue={`${(stats?.salesChange ?? 0) >= 0 ? '+' : ''}${stats?.salesChange || 0} dari bulan lalu`}
+                    subValue={`${(stats?.salesChange ?? 0) >= 0 ? '+' : ''}${stats?.salesChange || 0} ${t.fromLastMonth}`}
                     trend={(stats?.salesChange ?? 0) >= 0 ? 'up' : 'down'}
                     color="emerald"
                 />
                 <StatCard
                     icon={<DollarSign className="w-6 h-6" />}
-                    label="Revenue Bulan Ini"
-                    value={formatCurrency(stats?.revenueThisMonth || 0)}
-                    subValue={`${(stats?.revenueChange ?? 0) >= 0 ? '+' : ''}${stats?.revenueChange || 0}% dari bulan lalu`}
+                    label={t.revenueThisMonth}
+                    value={fmtCompact(stats?.revenueThisMonth || 0)}
+                    subValue={`${(stats?.revenueChange ?? 0) >= 0 ? '+' : ''}${stats?.revenueChange || 0}% ${t.fromLastMonth}`}
                     trend={(stats?.revenueChange ?? 0) >= 0 ? 'up' : 'down'}
                     color="amber"
                 />
@@ -208,7 +205,7 @@ export default function ReportsPage() {
                     icon={<Users className="w-6 h-6" />}
                     label="Total Customer"
                     value={stats?.totalCustomers || 0}
-                    subValue={`+${stats?.newCustomersThisMonth || 0} baru bulan ini`}
+                    subValue={`+${stats?.newCustomersThisMonth || 0} ${t.newThisMonth}`}
                     color="indigo"
                 />
             </div>
@@ -217,13 +214,13 @@ export default function ReportsPage() {
             <div className="bg-[#ecf0f3] rounded-2xl p-6 shadow-[5px_5px_10px_#cbced1,-5px_-5px_10px_#ffffff]">
                 <div className="flex justify-between items-center mb-6">
                     <div>
-                        <h3 className="text-lg font-semibold text-gray-800">Penjualan Bulanan</h3>
-                        <p className="text-sm text-gray-500">Unit terjual dan pendapatan</p>
+                        <h3 className="text-lg font-semibold text-gray-800">{t.monthlySalesChart}</h3>
+                        <p className="text-sm text-gray-500">{t.unitsSoldAndRevenue}</p>
                     </div>
                     <div className="flex items-center gap-4 text-sm">
                         <div className="flex items-center gap-2">
                             <div className="w-3 h-3 rounded-full bg-[#00bfa5]"></div>
-                            <span className="text-gray-600">Unit</span>
+                            <span className="text-gray-600">{t.unit}</span>
                         </div>
                         <div className="flex items-center gap-2">
                             <div className="w-3 h-3 rounded-full bg-indigo-500"></div>
@@ -245,7 +242,7 @@ export default function ReportsPage() {
                                     <div
                                         className="w-4 sm:w-5 bg-gradient-to-t from-indigo-500 to-indigo-400 rounded-t-md transition-all duration-500"
                                         style={{ height: `${maxRevenue > 0 ? (m.revenue / maxRevenue) * 100 : 0}%`, minHeight: m.revenue > 0 ? '8px' : '0' }}
-                                        title={formatCurrency(m.revenue)}
+                                        title={fmt(m.revenue)}
                                     />
                                 </div>
                                 <span className="text-xs text-gray-500">{m.month}</span>
@@ -254,7 +251,7 @@ export default function ReportsPage() {
                     </div>
                 ) : (
                     <div className="h-48 flex items-center justify-center text-gray-400">
-                        Belum ada data penjualan
+                        {t.noSalesData}
                     </div>
                 )}
             </div>
@@ -263,11 +260,11 @@ export default function ReportsPage() {
             <div className="grid md:grid-cols-3 gap-4">
                 {/* Top Selling */}
                 <div className="bg-[#ecf0f3] rounded-2xl p-5 shadow-[5px_5px_10px_#cbced1,-5px_-5px_10px_#ffffff]">
-                    <h4 className="text-sm font-semibold text-gray-600 mb-4">Merek Terlaris</h4>
+                    <h4 className="text-sm font-semibold text-gray-600 mb-4">{t.topBrands}</h4>
                     <div className="space-y-3">
                         {topBrands.length > 0 ? (
                             topBrands.map((brand) => (
-                                <RankItem key={brand.rank} rank={brand.rank} name={brand.name} value={`${brand.count} unit`} />
+                                <RankItem key={brand.rank} rank={brand.rank} name={brand.name} value={`${brand.count} ${t.unit}`} />
                             ))
                         ) : (
                             <p className="text-sm text-gray-400">Belum ada data</p>
@@ -277,7 +274,7 @@ export default function ReportsPage() {
 
                 {/* Revenue by Category */}
                 <div className="bg-[#ecf0f3] rounded-2xl p-5 shadow-[5px_5px_10px_#cbced1,-5px_-5px_10px_#ffffff]">
-                    <h4 className="text-sm font-semibold text-gray-600 mb-4">Revenue per Kategori</h4>
+                    <h4 className="text-sm font-semibold text-gray-600 mb-4">{t.revenueByCategory}</h4>
                     <div className="space-y-3">
                         {categoryRevenue.length > 0 ? (
                             categoryRevenue.map((cat) => (
@@ -291,23 +288,23 @@ export default function ReportsPage() {
 
                 {/* Performance */}
                 <div className="bg-[#ecf0f3] rounded-2xl p-5 shadow-[5px_5px_10px_#cbced1,-5px_-5px_10px_#ffffff]">
-                    <h4 className="text-sm font-semibold text-gray-600 mb-4">Performa</h4>
+                    <h4 className="text-sm font-semibold text-gray-600 mb-4">{t.performanceTitle}</h4>
                     <div className="space-y-4">
                         <div className="flex justify-between">
-                            <span className="text-gray-500">Avg. Lama Stok</span>
-                            <span className="font-semibold text-gray-700">{performance?.avgDaysToSell || 0} hari</span>
+                            <span className="text-gray-500">{t.avgStockDays}</span>
+                            <span className="font-semibold text-gray-700">{performance?.avgDaysToSell || 0} {t.days}</span>
                         </div>
                         <div className="flex justify-between">
-                            <span className="text-gray-500">Margin Rata-rata</span>
+                            <span className="text-gray-500">{t.avgMargin}</span>
                             <span className="font-semibold text-emerald-600">{performance?.avgMargin || 0}%</span>
                         </div>
                         <div className="flex justify-between">
-                            <span className="text-gray-500">Tingkat Konversi</span>
+                            <span className="text-gray-500">{t.conversionRate}</span>
                             <span className="font-semibold text-gray-700">{performance?.conversionRate || 0}%</span>
                         </div>
                         <div className="flex justify-between">
-                            <span className="text-gray-500">Total Terjual (6 bln)</span>
-                            <span className="font-semibold text-blue-600">{performance?.totalSold || 0} unit</span>
+                            <span className="text-gray-500">{t.totalSoldPeriod}</span>
+                            <span className="font-semibold text-blue-600">{performance?.totalSold || 0} {t.unit}</span>
                         </div>
                     </div>
                 </div>
@@ -402,7 +399,7 @@ function CategoryBar({ name, percent, color }: { name: string; percent: number; 
     );
 }
 
-function ExportDropdown({ onExportVehicles, onExportCustomers, onExportTransactions }: { onExportVehicles: () => void; onExportCustomers: () => void; onExportTransactions: () => void }) {
+function ExportDropdown({ onExportVehicles, onExportCustomers, onExportTransactions, t }: { onExportVehicles: () => void; onExportCustomers: () => void; onExportTransactions: () => void; t: any }) {
     const [open, setOpen] = React.useState(false);
 
     return (
@@ -420,19 +417,19 @@ function ExportDropdown({ onExportVehicles, onExportCustomers, onExportTransacti
                         onClick={() => { onExportVehicles(); setOpen(false); }}
                         className="w-full px-4 py-3 text-left text-sm text-gray-700 hover:bg-gray-50 flex items-center gap-2"
                     >
-                        🚗 Kendaraan (CSV)
+                        🚗 {t.exportVehicles}
                     </button>
                     <button
                         onClick={() => { onExportCustomers(); setOpen(false); }}
                         className="w-full px-4 py-3 text-left text-sm text-gray-700 hover:bg-gray-50 flex items-center gap-2"
                     >
-                        👤 Pelanggan (CSV)
+                        👤 {t.exportCustomers}
                     </button>
                     <button
                         onClick={() => { onExportTransactions(); setOpen(false); }}
                         className="w-full px-4 py-3 text-left text-sm text-gray-700 hover:bg-gray-50 flex items-center gap-2"
                     >
-                        📊 Transaksi (CSV)
+                        📊 {t.exportTransactions}
                     </button>
                 </div>
             )}

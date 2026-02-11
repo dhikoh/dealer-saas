@@ -1,8 +1,10 @@
 'use client';
 
 import React, { useEffect, useState } from 'react';
-import { Save, Building2, Phone, Mail, MapPin, AlertCircle, CheckCircle, Lock, Bell, Key, Eye, EyeOff } from 'lucide-react';
+import { Save, Building2, Phone, Mail, MapPin, AlertCircle, CheckCircle, Lock, Bell, Key, Eye, EyeOff, Globe, DollarSign } from 'lucide-react';
 import { toast } from 'sonner';
+import { useLanguage } from '@/hooks/useLanguage';
+import { useCurrency } from '@/hooks/useCurrency';
 
 interface TenantProfile {
     id: string;
@@ -17,13 +19,16 @@ interface TenantProfile {
 
 import { API_URL } from '@/lib/api';
 
-const TABS = [
-    { id: 'profile', name: 'Profil', icon: Building2 },
-    { id: 'security', name: 'Keamanan', icon: Lock },
-    { id: 'notifications', name: 'Notifikasi', icon: Bell },
-];
-
 export default function SettingsPage() {
+    const { t } = useLanguage();
+    const { currency, setCurrency, currencyList } = useCurrency();
+
+    const TABS = [
+        { id: 'profile', name: t.companyProfile, icon: Building2 },
+        { id: 'security', name: t.changePassword, icon: Lock },
+        { id: 'notifications', name: t.notificationPrefs, icon: Bell },
+    ];
+
     const [activeTab, setActiveTab] = useState('profile');
     const [profile, setProfile] = useState<TenantProfile | null>(null);
     const [loading, setLoading] = useState(true);
@@ -99,10 +104,10 @@ export default function SettingsPage() {
 
             if (!res.ok) throw new Error('Failed to update profile');
 
-            toast.success('Profil berhasil diperbarui!');
+            toast.success(t.success);
             fetchProfile();
         } catch (err) {
-            toast.error('Gagal menyimpan perubahan');
+            toast.error(t.error);
         } finally {
             setSaving(false);
         }
@@ -112,12 +117,12 @@ export default function SettingsPage() {
         e.preventDefault();
 
         if (passwordForm.newPassword !== passwordForm.confirmPassword) {
-            toast.error('Password baru tidak cocok');
+            toast.error(t.warning);
             return;
         }
 
         if (passwordForm.newPassword.length < 6) {
-            toast.error('Password minimal 6 karakter');
+            toast.error(t.minChars);
             return;
         }
 
@@ -141,10 +146,10 @@ export default function SettingsPage() {
                 throw new Error(err.message || 'Failed to change password');
             }
 
-            toast.success('Password berhasil diubah!');
+            toast.success(t.success);
             setPasswordForm({ currentPassword: '', newPassword: '', confirmPassword: '' });
         } catch (err: any) {
-            toast.error(err.message || 'Gagal mengubah password');
+            toast.error(err.message || t.error);
         } finally {
             setSaving(false);
         }
@@ -154,7 +159,7 @@ export default function SettingsPage() {
         setSaving(true);
         // Simulating save - in real app would call API
         await new Promise(resolve => setTimeout(resolve, 500));
-        toast.success('Pengaturan notifikasi disimpan!');
+        toast.success(t.success);
         setSaving(false);
     };
 
@@ -170,8 +175,8 @@ export default function SettingsPage() {
         <div className="max-w-4xl mx-auto space-y-6">
             {/* Header */}
             <div className="mb-8">
-                <h1 className="text-2xl font-bold text-gray-800">Pengaturan</h1>
-                <p className="text-gray-500 mt-1">Kelola profil, keamanan, dan preferensi notifikasi</p>
+                <h1 className="text-2xl font-bold text-gray-800">{t.settingsTitle}</h1>
+                <p className="text-gray-500 mt-1">{t.companyProfileDesc}</p>
             </div>
 
             {/* Tabs */}
@@ -205,13 +210,13 @@ export default function SettingsPage() {
                                 <Building2 className="w-6 h-6 text-[#00bfa5]" />
                             </div>
                             <div>
-                                <h2 className="text-lg font-semibold text-gray-800">Profil Perusahaan</h2>
-                                <p className="text-sm text-gray-500">Informasi ini akan tampil di kop invoice</p>
+                                <h2 className="text-lg font-semibold text-gray-800">{t.companyProfile}</h2>
+                                <p className="text-sm text-gray-500">{t.companyProfileDesc}</p>
                             </div>
                         </div>
 
                         <div>
-                            <label className="block text-sm font-medium text-gray-600 mb-2">Nama Dealer / Perusahaan</label>
+                            <label className="block text-sm font-medium text-gray-600 mb-2">{t.dealerName}</label>
                             <div className="relative">
                                 <Building2 className="w-5 h-5 absolute left-4 top-1/2 transform -translate-y-1/2 text-gray-400" />
                                 <input
@@ -224,7 +229,7 @@ export default function SettingsPage() {
                         </div>
 
                         <div>
-                            <label className="block text-sm font-medium text-gray-600 mb-2">Alamat Lengkap</label>
+                            <label className="block text-sm font-medium text-gray-600 mb-2">{t.fullAddress}</label>
                             <div className="relative">
                                 <MapPin className="w-5 h-5 absolute left-4 top-4 text-gray-400" />
                                 <textarea
@@ -238,7 +243,7 @@ export default function SettingsPage() {
 
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
                             <div>
-                                <label className="block text-sm font-medium text-gray-600 mb-2">Nomor Telepon</label>
+                                <label className="block text-sm font-medium text-gray-600 mb-2">{t.phoneNumber}</label>
                                 <div className="relative">
                                     <Phone className="w-5 h-5 absolute left-4 top-1/2 transform -translate-y-1/2 text-gray-400" />
                                     <input
@@ -250,7 +255,7 @@ export default function SettingsPage() {
                                 </div>
                             </div>
                             <div>
-                                <label className="block text-sm font-medium text-gray-600 mb-2">Email Bisnis</label>
+                                <label className="block text-sm font-medium text-gray-600 mb-2">{t.businessEmail}</label>
                                 <div className="relative">
                                     <Mail className="w-5 h-5 absolute left-4 top-1/2 transform -translate-y-1/2 text-gray-400" />
                                     <input
@@ -263,16 +268,36 @@ export default function SettingsPage() {
                             </div>
                         </div>
 
+                        {/* Currency Preference */}
+                        <div className="pt-4 border-t border-gray-200">
+                            <label className="block text-sm font-medium text-gray-600 mb-2">{t.currencyPreference}</label>
+                            <div className="relative">
+                                <DollarSign className="w-5 h-5 absolute left-4 top-1/2 transform -translate-y-1/2 text-gray-400" />
+                                <select
+                                    value={currency}
+                                    onChange={(e) => setCurrency(e.target.value as any)}
+                                    className="w-full pl-12 pr-4 py-3 rounded-xl bg-[#ecf0f3] border-none shadow-[3px_3px_6px_#cbced1,-3px_-3px_6px_#ffffff] focus:outline-none focus:ring-2 focus:ring-[#00bfa5] text-gray-700"
+                                >
+                                    {currencyList.map((c) => (
+                                        <option key={c.code} value={c.code}>
+                                            {c.code} - {c.symbol} ({c.name})
+                                        </option>
+                                    ))}
+                                </select>
+                            </div>
+                        </div>
+
+
                         {/* Account Info */}
                         <div className="pt-4 border-t border-gray-200">
-                            <h3 className="text-sm font-semibold text-gray-700 mb-3">Informasi Akun</h3>
+                            <h3 className="text-sm font-semibold text-gray-700 mb-3">{t.accountInfo}</h3>
                             <div className="grid grid-cols-3 gap-4 text-sm">
                                 <div>
                                     <span className="text-gray-500">Slug</span>
                                     <p className="font-medium text-gray-700">{profile?.slug}</p>
                                 </div>
                                 <div>
-                                    <span className="text-gray-500">Paket</span>
+                                    <span className="text-gray-500">{t.planTier}</span>
                                     <p className="font-medium text-gray-700">{profile?.planTier}</p>
                                 </div>
                                 <div>
@@ -298,7 +323,7 @@ export default function SettingsPage() {
                                 ) : (
                                     <Save className="w-5 h-5" />
                                 )}
-                                Simpan Perubahan
+                                {t.saveSettings}
                             </button>
                         </div>
                     </form>
@@ -312,13 +337,13 @@ export default function SettingsPage() {
                                 <Key className="w-6 h-6 text-[#00bfa5]" />
                             </div>
                             <div>
-                                <h2 className="text-lg font-semibold text-gray-800">Ubah Password</h2>
-                                <p className="text-sm text-gray-500">Pastikan password baru minimal 6 karakter</p>
+                                <h2 className="text-lg font-semibold text-gray-800">{t.changePassword}</h2>
+                                <p className="text-sm text-gray-500">{t.changePasswordDesc}</p>
                             </div>
                         </div>
 
                         <div>
-                            <label className="block text-sm font-medium text-gray-600 mb-2">Password Saat Ini</label>
+                            <label className="block text-sm font-medium text-gray-600 mb-2">{t.currentPassword}</label>
                             <div className="relative">
                                 <Lock className="w-5 h-5 absolute left-4 top-1/2 transform -translate-y-1/2 text-gray-400" />
                                 <input
@@ -338,7 +363,7 @@ export default function SettingsPage() {
                         </div>
 
                         <div>
-                            <label className="block text-sm font-medium text-gray-600 mb-2">Password Baru</label>
+                            <label className="block text-sm font-medium text-gray-600 mb-2">{t.newPassword}</label>
                             <div className="relative">
                                 <Lock className="w-5 h-5 absolute left-4 top-1/2 transform -translate-y-1/2 text-gray-400" />
                                 <input
@@ -358,7 +383,7 @@ export default function SettingsPage() {
                         </div>
 
                         <div>
-                            <label className="block text-sm font-medium text-gray-600 mb-2">Konfirmasi Password Baru</label>
+                            <label className="block text-sm font-medium text-gray-600 mb-2">{t.confirmNewPassword}</label>
                             <div className="relative">
                                 <Lock className="w-5 h-5 absolute left-4 top-1/2 transform -translate-y-1/2 text-gray-400" />
                                 <input
@@ -388,7 +413,7 @@ export default function SettingsPage() {
                                 ) : (
                                     <Key className="w-5 h-5" />
                                 )}
-                                Ubah Password
+                                {t.changePassword}
                             </button>
                         </div>
                     </form>
@@ -402,17 +427,17 @@ export default function SettingsPage() {
                                 <Bell className="w-6 h-6 text-[#00bfa5]" />
                             </div>
                             <div>
-                                <h2 className="text-lg font-semibold text-gray-800">Preferensi Notifikasi</h2>
-                                <p className="text-sm text-gray-500">Atur notifikasi yang ingin Anda terima</p>
+                                <h2 className="text-lg font-semibold text-gray-800">{t.notificationPrefs}</h2>
+                                <p className="text-sm text-gray-500">{t.notificationPrefsDesc}</p>
                             </div>
                         </div>
 
                         <div className="space-y-4">
                             {[
-                                { key: 'emailReminders', title: 'Pengingat Email', desc: 'Terima pengingat pembayaran dan jatuh tempo' },
-                                { key: 'paymentAlerts', title: 'Alert Pembayaran', desc: 'Notifikasi saat ada pembayaran masuk atau tagihan baru' },
-                                { key: 'systemUpdates', title: 'Update Sistem', desc: 'Informasi fitur baru dan maintenance' },
-                                { key: 'marketingEmails', title: 'Email Marketing', desc: 'Promo dan penawaran khusus' },
+                                { key: 'emailReminders', title: t.emailReminders, desc: t.emailRemindersDesc },
+                                { key: 'paymentAlerts', title: t.paymentAlerts, desc: t.paymentAlertsDesc },
+                                { key: 'systemUpdates', title: t.systemUpdates, desc: t.systemUpdatesDesc },
+                                { key: 'marketingEmails', title: t.marketingEmails, desc: t.marketingEmailsDesc },
                             ].map((item) => (
                                 <div key={item.key} className="flex items-center justify-between p-4 bg-white/50 rounded-xl">
                                     <div>
@@ -449,7 +474,7 @@ export default function SettingsPage() {
                                 ) : (
                                     <Save className="w-5 h-5" />
                                 )}
-                                Simpan Pengaturan
+                                {t.saveSettings}
                             </button>
                         </div>
                     </div>
