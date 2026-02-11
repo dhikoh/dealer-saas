@@ -13,12 +13,14 @@ import {
     faTruck
 } from '@fortawesome/free-solid-svg-icons';
 import { useLanguage } from '@/hooks/useLanguage';
+import { useCurrency } from '@/hooks/useCurrency';
 import { toast } from 'sonner';
 
 import { API_URL } from '@/lib/api';
 
 export default function StatsPage() {
     const { t } = useLanguage();
+    const { fmt } = useCurrency();
     const [loading, setLoading] = useState(true);
     const [stats, setStats] = useState({
         totalVehicles: 0,
@@ -107,9 +109,6 @@ export default function StatsPage() {
         }
     };
 
-    const formatCurrency = (val: number) =>
-        new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', minimumFractionDigits: 0 }).format(val);
-
     // Stats Card Component
     const StatCard = ({
         title,
@@ -192,7 +191,7 @@ export default function StatsPage() {
                 />
                 <StatCard
                     title={t.revenue}
-                    value={formatCurrency(stats.revenue)}
+                    value={fmt(stats.revenue)}
                     icon={faMoneyBillWave}
                     color="#10b981"
                 />
@@ -225,7 +224,7 @@ export default function StatsPage() {
                                     </div>
                                     <span className="font-medium text-gray-700 text-sm">{item.count} transaksi</span>
                                 </div>
-                                <span className="font-semibold text-gray-800 text-sm">{formatCurrency(item.revenue)}</span>
+                                <span className="font-semibold text-gray-800 text-sm">{fmt(item.revenue)}</span>
                             </div>
                         ))}
                     </div>
