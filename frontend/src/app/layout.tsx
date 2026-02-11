@@ -14,6 +14,7 @@ const poppins = Poppins({
 export const metadata: Metadata = {
   title: "OTOHUB - Smart Management",
   description: "SaaS Dealership Management System",
+  metadataBase: new URL('https://oto.modula.click'),
 };
 
 export default function RootLayout({

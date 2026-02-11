@@ -39,14 +39,24 @@ export function middleware(request: NextRequest) {
         return NextResponse.next();
     }
 
-    // 2. Allow public routes without authentication
+    const token = request.cookies.get('auth_token')?.value;
+
+    // 2. ROOT PATH / LANDING PAGE HANDLER
+    if (pathname === '/') {
+        // If user is logged in, go to Dashboard
+        if (token) {
+            return NextResponse.redirect(new URL('/app', request.url));
+        }
+        // If guest, show Landing Page
+        return NextResponse.next();
+    }
+
+    // 3. Allow public routes without authentication
     if (PUBLIC_ROUTES.some(route => pathname === route || pathname.startsWith(route + '/'))) {
         return NextResponse.next();
     }
 
-    // 3. Check for authentication token
-    const token = request.cookies.get('auth_token')?.value;
-
+    // 4. Check for authentication token
     if (!token) {
         // No token found - redirect to login
         const loginUrl = new URL('/auth', request.url);

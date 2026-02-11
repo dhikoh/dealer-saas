@@ -262,4 +262,85 @@ export class AnalyticsService {
 
         return results;
     }
+
+    // ==================== DEALER GROUP ANALYTICS ====================
+
+    /**
+     * Get aggregated analytics for the entire dealer group
+     */
+    async getGroupAnalytics(tenantId: string) {
+        const tenant = await this.prisma.tenant.findUnique({
+            where: { id: tenantId },
+            select: { dealerGroupId: true }
+        });
+
+        if (!tenant?.dealerGroupId) {
+            return {
+                totalVehicles: 0,
+                totalValue: 0,
+                topDealers: [],
+                categoryBreakdown: []
+            };
+        }
+
+        const groupId = tenant.dealerGroupId;
+
+        // 1. Total Vehicles & Value
+        const aggregate = await this.prisma.vehicle.aggregate({
+            where: {
+                tenant: { dealerGroupId: groupId },
+                status: 'AVAILABLE'
+            },
+            _count: { id: true },
+            _sum: { price: true }
+        });
+
+        // 2. Top Dealers by Stock Count
+        const vehiclesByDealer = await this.prisma.vehicle.groupBy({
+            by: ['tenantId'],
+            where: {
+                tenant: { dealerGroupId: groupId },
+                status: 'AVAILABLE'
+            },
+            _count: { id: true },
+            orderBy: { _count: { id: 'desc' } },
+            take: 5
+        });
+
+        // Get dealer names
+        const dealerIds = vehiclesByDealer.map(v => v.tenantId);
+        const dealers = await this.prisma.tenant.findMany({
+            where: { id: { in: dealerIds } },
+            select: { id: true, name: true }
+        });
+
+        const topDealers = vehiclesByDealer.map(item => {
+            const dealer = dealers.find(d => d.id === item.tenantId);
+            return {
+                name: dealer?.name || 'Unknown Dealer',
+                count: item._count.id
+            };
+        });
+
+        // 3. Category Breakdown
+        const vehiclesByCategory = await this.prisma.vehicle.groupBy({
+            by: ['category'],
+            where: {
+                tenant: { dealerGroupId: groupId },
+                status: 'AVAILABLE'
+            },
+            _count: { id: true },
+            orderBy: { _count: { id: 'desc' } }
+        });
+
+        return {
+            totalVehicles: aggregate._count.id || 0,
+            totalValue: Number(aggregate._sum.price || 0),
+            topDealers,
+            categoryBreakdown: vehiclesByCategory.map(v => ({
+                category: v.category,
+                count: v._count.id
+            }))
+        };
+    }
 }

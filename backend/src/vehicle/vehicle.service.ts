@@ -1,10 +1,14 @@
 import { Injectable, BadRequestException, NotFoundException, ForbiddenException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
+import { NotificationService } from '../notification/notification.service';
 import { getPlanById } from '../config/plan-tiers.config';
 
 @Injectable()
 export class VehicleService {
-    constructor(private prisma: PrismaService) { }
+    constructor(
+        private prisma: PrismaService,
+        private notificationService: NotificationService,
+    ) { }
 
     // ==================== VEHICLE CRUD ====================
 
@@ -303,12 +307,12 @@ export class VehicleService {
         // 1. Get Requestor & Source
         const requestor = await this.prisma.tenant.findUnique({
             where: { id: tenantId },
-            select: { dealerGroupId: true }
+            select: { dealerGroupId: true, name: true }
         });
 
         const sourceVehicle = await this.prisma.vehicle.findUnique({
             where: { id: sourceVehicleId },
-            include: { tenant: { select: { dealerGroupId: true, name: true } } }
+            include: { tenant: { select: { id: true, dealerGroupId: true, name: true } } }
         });
 
         if (!sourceVehicle) throw new NotFoundException('Vehicle not found');
@@ -319,15 +323,36 @@ export class VehicleService {
         }
 
         // 3. Prepare Data for Cloning
-        // Exclude system fields AND relation objects (tenant, costs, etc.)
         const { id, tenantId: oldTid, createdAt, updatedAt, tenant: _t, ...dataToCopy } = sourceVehicle as any;
 
         // 4. Create New Vehicle (using existing create method to handle Plan Limits)
-        return this.create(tenantId, {
+        const newVehicle = await this.create(tenantId, {
             ...dataToCopy,
             status: 'AVAILABLE',
             conditionNote: `Copied from ${sourceVehicle.tenant.name} (${sourceVehicle.make} ${sourceVehicle.model})`,
-            purchaseDate: new Date(), // Set purchase date to now for the new owner
+            purchaseDate: new Date(),
         });
+
+        // 5. Notify source dealer's OWNER users about the copy
+        try {
+            const sourceOwners = await this.prisma.user.findMany({
+                where: { tenantId: sourceVehicle.tenant.id, role: 'OWNER' },
+                select: { id: true },
+            });
+            const vehicleLabel = `${sourceVehicle.make} ${sourceVehicle.model} ${sourceVehicle.year}`;
+            for (const owner of sourceOwners) {
+                await this.notificationService.createNotification({
+                    userId: owner.id,
+                    title: 'Unit Disalin',
+                    message: `${requestor.name} menyalin data kendaraan ${vehicleLabel} dari inventaris Anda.`,
+                    type: 'info',
+                    link: '/app/inventory',
+                });
+            }
+        } catch {
+            // Non-critical: don't fail the copy if notification fails
+        }
+
+        return newVehicle;
     }
 }

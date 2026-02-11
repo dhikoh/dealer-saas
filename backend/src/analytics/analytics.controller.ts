@@ -38,4 +38,9 @@ export class AnalyticsController {
             months ? parseInt(months) : 6,
         );
     }
+
+    @Get('group/stock')
+    getGroupAnalytics(@Request() req) {
+        return this.analyticsService.getGroupAnalytics(req.user.tenantId);
+    }
 }

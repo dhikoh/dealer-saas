@@ -7,7 +7,7 @@ export class NotificationService {
 
     // Get notifications for a user
     async getNotifications(userId: string, limit: number = 20) {
-        return (this.prisma as any).notification.findMany({
+        return this.prisma.notification.findMany({
             where: { userId },
             orderBy: { createdAt: 'desc' },
             take: limit,
@@ -16,14 +16,14 @@ export class NotificationService {
 
     // Get unread count
     async getUnreadCount(userId: string): Promise<number> {
-        return (this.prisma as any).notification.count({
+        return this.prisma.notification.count({
             where: { userId, read: false },
         });
     }
 
     // Mark notification as read
     async markAsRead(userId: string, notificationId: string) {
-        return (this.prisma as any).notification.updateMany({
+        return this.prisma.notification.updateMany({
             where: { id: notificationId, userId },
             data: { read: true },
         });
@@ -31,7 +31,7 @@ export class NotificationService {
 
     // Mark all as read
     async markAllAsRead(userId: string) {
-        return (this.prisma as any).notification.updateMany({
+        return this.prisma.notification.updateMany({
             where: { userId, read: false },
             data: { read: true },
         });
@@ -42,10 +42,10 @@ export class NotificationService {
         userId: string;
         title: string;
         message: string;
-        type: string; // 'info' | 'success' | 'warning' | 'error'
+        type: string;
         link?: string;
     }) {
-        return (this.prisma as any).notification.create({
+        return this.prisma.notification.create({
             data: {
                 userId: data.userId,
                 title: data.title,
@@ -62,7 +62,7 @@ export class NotificationService {
         const cutoffDate = new Date();
         cutoffDate.setDate(cutoffDate.getDate() - daysOld);
 
-        return (this.prisma as any).notification.deleteMany({
+        return this.prisma.notification.deleteMany({
             where: {
                 userId,
                 createdAt: { lt: cutoffDate },
@@ -71,3 +71,4 @@ export class NotificationService {
         });
     }
 }
+

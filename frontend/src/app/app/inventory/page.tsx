@@ -92,6 +92,13 @@ interface VehicleCost {
     date: string;
 }
 
+interface GroupAnalytics {
+    totalVehicles: number;
+    totalValue: number;
+    topDealers: { name: string; count: number }[];
+    categoryBreakdown: { category: string; count: number }[];
+}
+
 
 
 export default function InventoryPage() {
@@ -99,6 +106,7 @@ export default function InventoryPage() {
     const { fmt } = useCurrency();
     const [vehicles, setVehicles] = useState<Vehicle[]>([]);
     const [groupVehicles, setGroupVehicles] = useState<Vehicle[]>([]); // GROUP STOCK STATE
+    const [groupAnalytics, setGroupAnalytics] = useState<GroupAnalytics | null>(null); // GROUP ANALYTICS STATE
     const [loading, setLoading] = useState(true);
     const [groupLoading, setGroupLoading] = useState(false);
 
@@ -313,17 +321,31 @@ export default function InventoryPage() {
         if (!token) return;
         setGroupLoading(true);
 
+        // Construct params for search term
+        const params = new URLSearchParams();
+        if (searchTerm) {
+            params.append('search', searchTerm);
+        }
+
         try {
-            const res = await fetch(`${API_URL}/vehicles/group/stock`, {
-                headers: { Authorization: `Bearer ${token}` },
+            const res = await fetch(`${API_URL}/vehicles/group/stock?${params}`, {
+                headers: { 'Authorization': `Bearer ${token}` },
             });
-            if (res.ok) {
-                setGroupVehicles(await res.json());
-            } else {
-                setGroupVehicles([]);
+            if (!res.ok) throw new Error('Failed to fetch group vehicles');
+            const data = await res.json();
+            setGroupVehicles(data);
+
+            // Fetch Analytics
+            const resAnalytics = await fetch(`${API_URL}/analytics/group/stock`, {
+                headers: { 'Authorization': `Bearer ${token}` },
+            });
+            if (resAnalytics.ok) {
+                const analyticsData = await resAnalytics.json();
+                setGroupAnalytics(analyticsData);
             }
         } catch (error) {
-            console.error('Failed to fetch group vehicles:', error);
+            console.error('Error fetching group data:', error);
+            toast.error('Gagal mengambil data stok grup');
         } finally {
             setGroupLoading(false);
         }
@@ -357,7 +379,7 @@ export default function InventoryPage() {
     useEffect(() => {
         if (pageTab === 'INVENTORY') fetchVehicles();
         if (pageTab === 'GROUP') fetchGroupVehicles();
-    }, [pageTab]);
+    }, [pageTab, searchTerm]); // Added searchTerm to dependency array for group stock search
 
     const fetchVehicles = async () => {
         const token = getToken();
@@ -588,10 +610,10 @@ export default function InventoryPage() {
             </div>
 
             {/* PAGE-LEVEL TABS */}
-            <div className="flex gap-3 mb-6">
+            <div className="flex gap-4 border-b border-gray-200 mb-6 overflow-x-auto pb-2 scrollbar-hide">
                 <button
                     onClick={() => setPageTab('INVENTORY')}
-                    className={`px-5 py-2.5 rounded-xl text-sm font-medium transition-all flex items-center gap-2 ${pageTab === 'INVENTORY'
+                    className={`px-5 py-2.5 rounded-xl text-sm font-medium transition-all flex items-center gap-2 whitespace-nowrap ${pageTab === 'INVENTORY'
                         ? 'bg-[#00bfa5] text-white shadow-lg'
                         : 'bg-[#ecf0f3] text-gray-600 shadow-[3px_3px_6px_#cbced1,-3px_-3px_6px_#ffffff] hover:text-[#00bfa5]'
                         }`}
@@ -601,7 +623,7 @@ export default function InventoryPage() {
                 </button>
                 <button
                     onClick={() => setPageTab('GROUP')}
-                    className={`px-5 py-2.5 rounded-xl text-sm font-medium transition-all flex items-center gap-2 ${pageTab === 'GROUP'
+                    className={`px-5 py-2.5 rounded-xl text-sm font-medium transition-all flex items-center gap-2 whitespace-nowrap ${pageTab === 'GROUP'
                         ? 'bg-[#00bfa5] text-white shadow-lg'
                         : 'bg-[#ecf0f3] text-gray-600 shadow-[3px_3px_6px_#cbced1,-3px_-3px_6px_#ffffff] hover:text-[#00bfa5]'
                         }`}
@@ -611,7 +633,7 @@ export default function InventoryPage() {
                 </button>
                 <button
                     onClick={() => setPageTab('TRANSFERS')}
-                    className={`px-5 py-2.5 rounded-xl text-sm font-medium transition-all flex items-center gap-2 ${pageTab === 'TRANSFERS'
+                    className={`px-5 py-2.5 rounded-xl text-sm font-medium transition-all flex items-center gap-2 whitespace-nowrap ${pageTab === 'TRANSFERS'
                         ? 'bg-[#00bfa5] text-white shadow-lg'
                         : 'bg-[#ecf0f3] text-gray-600 shadow-[3px_3px_6px_#cbced1,-3px_-3px_6px_#ffffff] hover:text-[#00bfa5]'
                         }`}
@@ -626,9 +648,35 @@ export default function InventoryPage() {
 
             {/* ==================== GROUP STOCK TAB ==================== */}
             {pageTab === 'GROUP' && (
-                <div>
-                    {/* Search for Group Stock */}
-                    <div className="relative mb-6">
+                <div className="space-y-6">
+                    {/* Analytics Summary */}
+                    {groupAnalytics && (
+                        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+                            <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm">
+                                <p className="text-sm text-slate-500 mb-1">Total Unit Grup</p>
+                                <p className="text-2xl font-bold text-slate-900">{groupAnalytics.totalVehicles} Unit</p>
+                            </div>
+                            <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm">
+                                <p className="text-sm text-slate-500 mb-1">Total Nilai Aset</p>
+                                <p className="text-2xl font-bold text-slate-900">{fmt(groupAnalytics.totalValue)}</p>
+                            </div>
+                            <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm">
+                                <p className="text-sm text-slate-500 mb-1">Top Dealer (Stok)</p>
+                                <div className="space-y-1 mt-1">
+                                    {groupAnalytics.topDealers.slice(0, 2).map((d: any, i: number) => (
+                                        <div key={i} className="flex justify-between text-sm">
+                                            <span className="font-medium text-slate-700 truncate max-w-[120px]">{d.name}</span>
+                                            <span className="text-slate-500">{d.count} unit</span>
+                                        </div>
+                                    ))}
+                                    {groupAnalytics.topDealers.length === 0 && <span className="text-slate-400 text-sm">-</span>}
+                                </div>
+                            </div>
+                        </div>
+                    )}
+
+                    {/* Search & Filter */}
+                    <div className="flex flex-col md:flex-row gap-4">
                         <input
                             type="text"
                             value={searchTerm}
@@ -659,7 +707,8 @@ export default function InventoryPage() {
                         </div>
                     ) : (
                         <div className="bg-[#ecf0f3] rounded-2xl shadow-[9px_9px_16px_#cbced1,-9px_-9px_16px_#ffffff] overflow-hidden">
-                            <div className="overflow-x-auto">
+                            {/* DESKTOP TABLE */}
+                            <div className="hidden md:block overflow-x-auto">
                                 <table className="w-full">
                                     <thead>
                                         <tr className="bg-[#e0e4e8]">
@@ -710,6 +759,50 @@ export default function InventoryPage() {
                                         ))}
                                     </tbody>
                                 </table>
+                            </div>
+
+                            {/* MOBILE CARD VIEW */}
+                            <div className="md:hidden p-4 space-y-4">
+                                {filteredGroupData.map((item) => (
+                                    <div key={item.id} className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm">
+                                        <div className="flex justify-between items-start mb-3">
+                                            <div className="flex items-center gap-3">
+                                                <div className="w-10 h-10 rounded-lg bg-slate-50 flex items-center justify-center text-[#00bfa5]">
+                                                    <FontAwesomeIcon icon={item.category === 'CAR' ? faCar : faMotorcycle} />
+                                                </div>
+                                                <div>
+                                                    <h4 className="font-bold text-slate-800">{item.make} {item.model}</h4>
+                                                    <p className="text-xs text-slate-500">{item.variant} • {item.year}</p>
+                                                </div>
+                                            </div>
+                                            <span className="px-2 py-1 rounded bg-slate-100 text-xs font-medium text-slate-600">
+                                                {item.color}
+                                            </span>
+                                        </div>
+
+                                        <div className="space-y-2 mb-4">
+                                            <div className="flex justify-between text-sm">
+                                                <span className="text-slate-500">Harga Jual</span>
+                                                <span className="font-bold text-slate-900">{fmt(Number(item.price))}</span>
+                                            </div>
+                                            <div className="flex justify-between text-sm">
+                                                <span className="text-slate-500">Dealer</span>
+                                                <span className="text-slate-700">{item.tenant?.name || '-'}</span>
+                                            </div>
+                                        </div>
+
+                                        <button
+                                            onClick={() => {
+                                                setCopyTarget(item);
+                                                setShowCopyConfirm(true);
+                                            }}
+                                            className="w-full py-2.5 rounded-lg bg-[#00bfa5] text-white text-sm font-medium shadow hover:bg-[#00a891] transition-colors flex items-center justify-center gap-2"
+                                        >
+                                            <FontAwesomeIcon icon={faPlus} />
+                                            {getLabel('copyUnit')}
+                                        </button>
+                                    </div>
+                                ))}
                             </div>
                         </div>
                     )}

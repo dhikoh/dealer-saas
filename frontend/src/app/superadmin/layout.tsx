@@ -6,7 +6,7 @@ import Link from 'next/link';
 import {
     LayoutDashboard, Users, CreditCard, FileText, Settings, Bell,
     ChevronLeft, ChevronRight, LogOut, Check, CheckCheck, X,
-    ShieldCheck, Activity
+    ShieldCheck, Activity, Globe
 } from 'lucide-react';
 import { API_URL } from '@/lib/api';
 
@@ -25,6 +25,7 @@ const menuItems = [
     { id: 'plans', label: 'Plan Tiers', icon: CreditCard, href: '/superadmin/plans' },
     { id: 'invoices', label: 'Invoices & Billing', icon: FileText, href: '/superadmin/invoices' },
     { id: 'approvals', label: 'Approvals', icon: ShieldCheck, href: '/superadmin/approvals' },
+    { id: 'cms', label: 'CMS / Landing', icon: Globe, href: '/superadmin/cms' },
     { id: 'activity', label: 'Activity Log', icon: Activity, href: '/superadmin/activity' },
     { id: 'settings', label: 'Settings', icon: Settings, href: '/superadmin/settings' },
 ];
