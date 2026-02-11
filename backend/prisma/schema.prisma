@@ -12,12 +12,6 @@ datasource db {
 
 // ==================== TENANT & USER ====================
 
-// ==================== TENANT & USER ====================
-
-// ... existing code ...
-
-// ==================== TENANT & USER ====================
-
 model Tenant {
   id                 String   @id @default(uuid())
   name               String
@@ -630,25 +624,6 @@ model AdminActivityLog {
   @@index([action])
   @@index([createdAt])
   @@map("admin_activity_logs")
-}
-
-// ==================== NOTIFICATIONS ====================
-
-model Notification {
-  id        String   @id @default(uuid())
-  userId    String
-  
-  title     String
-  message   String
-  type      String   @default("info") // info, success, warning, error
-  link      String?  // Optional link to navigate
-  read      Boolean  @default(false)
-  
-  createdAt DateTime @default(now())
-  
-  @@index([userId])
-  @@index([read])
-  @@map("notifications")
 }
 
 // ==================== TENANT ACTIVITY LOG ====================

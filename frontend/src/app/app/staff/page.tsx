@@ -333,7 +333,7 @@ export default function StaffPage() {
                                 />
                             </div>
                             <div>
-                                <label className="block text-sm font-medium text-gray-600 mb-2">{t.authEmail}</label>
+                                <label className="block text-sm font-medium text-gray-600 mb-2">{t.businessEmail}</label>
                                 <input
                                     type="email"
                                     value={form.email}
