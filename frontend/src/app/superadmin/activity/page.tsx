@@ -16,7 +16,8 @@ interface ActivityLog {
         name: string;
         email: string;
         role: string;
-    };
+    } | null;
+    userEmail?: string;
 }
 
 const actionIcons: Record<string, any> = {
@@ -111,7 +112,7 @@ export default function ActivityLogPage() {
                                             <div className="flex items-center gap-3 mt-2 text-xs text-slate-400">
                                                 <span className="flex items-center gap-1">
                                                     <User className="w-3 h-3" />
-                                                    {log.user.name} ({log.user.role})
+                                                    {log.user?.name || log.userEmail || 'Unknown'} ({log.user?.role || '?'})
                                                 </span>
                                                 {log.ipAddress && <span>IP: {log.ipAddress}</span>}
                                             </div>

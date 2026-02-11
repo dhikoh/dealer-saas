@@ -447,7 +447,30 @@ export class SuperadminService {
             (this.prisma as any).adminActivityLog.count({ where }),
         ]);
 
-        return { data, pagination: { page, limit, total, totalPages: Math.ceil(total / limit) } };
+        // ENRICH LOGS WITH USER DETAILS
+        // Since AdminActivityLog doesn't have a relation to User, we fetch manually
+        const userIds = [...new Set(data.map((log: any) => log.userId))].filter(Boolean);
+
+        const users = await this.prisma.user.findMany({
+            where: { id: { in: userIds as string[] } },
+            select: { id: true, name: true, email: true, role: true },
+        });
+
+        const userMap = new Map(users.map(u => [u.id, u]));
+
+        const enrichedData = data.map((log: any) => {
+            const user = userMap.get(log.userId);
+            return {
+                ...log,
+                user: user || {
+                    name: 'Unknown User',
+                    email: log.userEmail || 'N/A',
+                    role: 'UNKNOWN',
+                },
+            };
+        });
+
+        return { data: enrichedData, pagination: { page, limit, total, totalPages: Math.ceil(total / limit) } };
     }
 
     // ==================== DIRECT PLAN CHANGE (No Invoice) ====================

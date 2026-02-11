@@ -16,6 +16,7 @@ export class BranchService {
     }
 
     async findAll(tenantId: string) {
+        if (!tenantId) return []; // Handle Superadmin or specialized cases
         return this.prisma.branch.findMany({
             where: { tenantId },
             include: {
