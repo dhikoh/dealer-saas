@@ -78,7 +78,15 @@ export class CreateVehicleDto {
     @IsOptional()
     @Transform(({ value }) => (value === '' || value === null ? undefined : value))
     @IsDateString({}, { message: 'Format tanggal STNK tidak valid' })
+    @IsOptional()
+    @Transform(({ value }) => (value === '' || value === null ? undefined : value))
+    @IsDateString({}, { message: 'Format tanggal STNK tidak valid' })
     stnkExpiry?: string;
+
+    @IsOptional()
+    @Transform(({ value }) => (value === '' || value === null ? undefined : value))
+    @IsDateString({}, { message: 'Format tanggal pajak tidak valid' })
+    taxExpiry?: string;
 
     @IsOptional()
     @IsBoolean()

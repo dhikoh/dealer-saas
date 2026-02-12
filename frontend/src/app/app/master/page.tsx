@@ -1,10 +1,11 @@
 'use client';
 
 import React, { useEffect, useState } from 'react';
-import { Plus, Edit2, Trash2, Car, Bike, Truck, Bus, Wrench, Package, CircleDot, X, Search, Settings } from 'lucide-react';
+import { Plus, Edit2, Trash2, Car, Bike, Truck, Bus, Wrench, Package, CircleDot, X, Search, Settings, Database } from 'lucide-react';
 import { getCategories, addCategory, ICON_OPTIONS, COLOR_OPTIONS, VehicleCategory, VEHICLE_ICONS } from '@/lib/categories';
 import { API_URL } from '@/lib/api';
 import { useLanguage } from '@/hooks/useLanguage';
+import { toast } from 'sonner';
 
 interface Brand {
     id: string;
@@ -148,6 +149,30 @@ export default function MasterDataPage() {
         setCategoryForm({ name: '', nameId: '', icon: 'circle', color: 'gray' });
     };
 
+    const handleSeedData = async () => {
+        try {
+            setLoading(true);
+            const token = localStorage.getItem('access_token');
+            const res = await fetch(`${API_URL}/vehicles/seed-master-data`, {
+                method: 'POST',
+                headers: {
+                    'Authorization': `Bearer ${token}`,
+                },
+            });
+            if (res.ok) {
+                toast.success(language === 'id' ? 'Master Data berhasil ditambahkan' : 'Master Data seeded successfully');
+                fetchBrands();
+            } else {
+                toast.error(language === 'id' ? 'Gagal menambahkan data' : 'Failed to seed data');
+            }
+        } catch (err) {
+            console.error('Error seeding data:', err);
+            toast.error(language === 'id' ? 'Terjadi kesalahan' : 'An error occurred');
+        } finally {
+            setLoading(false);
+        }
+    };
+
     const filteredBrands = brands.filter(b =>
         b.name.toLowerCase().includes(search.toLowerCase())
     );
@@ -182,6 +207,16 @@ export default function MasterDataPage() {
                     <p className="text-gray-500 mt-1">{t.masterDesc}</p>
                 </div>
                 <div className="flex gap-2">
+                    <button
+                        onClick={handleSeedData}
+                        className={`flex items-center gap-2 px-4 py-2.5 rounded-xl font-medium transition-colors ${theme === 'dark'
+                            ? 'bg-gray-700 text-gray-300 hover:bg-gray-600'
+                            : 'bg-[#ecf0f3] text-gray-600 shadow-[3px_3px_6px_#cbced1,-3px_-3px_6px_#ffffff] hover:text-[#00bfa5]'
+                            }`}
+                        title="Seed Default Data"
+                    >
+                        <Database className="w-5 h-5" />
+                    </button>
                     <button
                         onClick={() => setShowCategoryModal(true)}
                         className={`flex items-center gap-2 px-4 py-2.5 rounded-xl font-medium transition-colors ${theme === 'dark'

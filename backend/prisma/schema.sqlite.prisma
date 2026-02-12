@@ -196,6 +196,19 @@ model Vehicle {
   transactions Transaction[]
   costs        VehicleCost[]
 
+  // Identity Fields
+  bpkbOwnerName   String?
+  isOwnerDifferent Boolean @default(false)
+  
+  // Images
+  ktpOwnerImage   String?
+  stnkImage       String?
+  bpkbImage       String?
+  taxImage        String?
+
+  // Tax
+  taxExpiry       DateTime?
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 

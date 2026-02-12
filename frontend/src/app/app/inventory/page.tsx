@@ -55,6 +55,7 @@ interface Vehicle {
     isShowroom?: boolean;
     bpkbNumber?: string;
     stnkExpiry?: string;
+    taxExpiry?: string;
     bpkbAvailable: boolean;
     fakturAvailable: boolean;
     serviceBook: boolean;
@@ -197,6 +198,8 @@ export default function InventoryPage() {
             costOther: { id: 'Lainnya', en: 'Other' },
             exampleDesc: { id: 'Contoh: Service rutin', en: 'Example: Routine service' },
             choose: { id: 'Pilih', en: 'Choose' },
+            stnkExpiry: { id: 'Masa Berlaku STNK (5 Thn)', en: 'STNK Expiry (5 Yr)' },
+            taxExpiry: { id: 'Masa Berlaku Pajak (1 Thn)', en: 'Tax Expiry (1 Yr)' },
             reserved: { id: 'Terpesan', en: 'Reserved' },
         };
         return labels[key]?.[language === 'id' ? 'id' : 'en'] || labels[key]?.['en'] || key;
@@ -247,6 +250,7 @@ export default function InventoryPage() {
         engineNumber: '',
         bpkbNumber: '',
         stnkExpiry: '',
+        taxExpiry: '',
         bpkbAvailable: true,
         fakturAvailable: true,
         serviceBook: false,
@@ -308,7 +312,7 @@ export default function InventoryPage() {
         setVehicleForm({
             category: 'CAR', make: '', model: '', variant: '', year: new Date().getFullYear(), color: '', price: '', purchasePrice: '',
             purchaseDate: '', status: 'AVAILABLE', condition: 'READY', conditionNote: '', isShowroom: true, licensePlate: '',
-            chassisNumber: '', engineNumber: '', bpkbNumber: '', stnkExpiry: '', bpkbAvailable: true, fakturAvailable: true,
+            chassisNumber: '', engineNumber: '', bpkbNumber: '', stnkExpiry: '', taxExpiry: '', bpkbAvailable: true, fakturAvailable: true,
             serviceBook: false, spareKey: false, specs: '', branchId: '', isOwnerDifferent: false, bpkbOwnerName: '',
         });
         setVehicleImages([]);
@@ -488,6 +492,7 @@ export default function InventoryPage() {
                     purchasePrice: vehicleForm.purchasePrice ? parseFloat(vehicleForm.purchasePrice) : undefined,
                     purchaseDate: vehicleForm.purchaseDate || undefined,
                     stnkExpiry: vehicleForm.stnkExpiry || undefined,
+                    taxExpiry: vehicleForm.taxExpiry || undefined,
                     year: Number(vehicleForm.year),
                     images: JSON.stringify(vehicleImages),
                     ...vehicleDocs,
@@ -952,6 +957,7 @@ export default function InventoryPage() {
                                                             engineNumber: item.engineNumber || '',
                                                             bpkbNumber: item.bpkbNumber || '',
                                                             stnkExpiry: item.stnkExpiry ? new Date(item.stnkExpiry).toISOString().split('T')[0] : '',
+                                                            taxExpiry: item.taxExpiry ? new Date(item.taxExpiry).toISOString().split('T')[0] : '',
                                                             bpkbAvailable: item.bpkbAvailable,
                                                             fakturAvailable: item.fakturAvailable,
                                                             serviceBook: item.serviceBook,
@@ -1407,6 +1413,28 @@ export default function InventoryPage() {
                                 <div>
                                     <label className="block text-sm font-medium text-gray-600 mb-1">{getLabel('plate')}</label>
                                     <input type="text" value={vehicleForm.licensePlate} onChange={(e) => setVehicleForm({ ...vehicleForm, licensePlate: e.target.value })} placeholder="B 1234 ABC" className="w-full px-4 py-3 rounded-xl bg-[#ecf0f3] shadow-[inset_3px_3px_6px_#cbced1,inset_-3px_-3px_6px_#ffffff] focus:outline-none focus:ring-2 focus:ring-[#00bfa5]" />
+                                </div>
+
+                                {/* STNK + Tax Expiry */}
+                                <div className="grid grid-cols-2 gap-3">
+                                    <div>
+                                        <label className="block text-sm font-medium text-gray-600 mb-1">{getLabel('stnkExpiry')}</label>
+                                        <input
+                                            type="date"
+                                            value={vehicleForm.stnkExpiry}
+                                            onChange={(e) => setVehicleForm({ ...vehicleForm, stnkExpiry: e.target.value })}
+                                            className="w-full px-4 py-3 rounded-xl bg-[#ecf0f3] shadow-[inset_3px_3px_6px_#cbced1,inset_-3px_-3px_6px_#ffffff] focus:outline-none focus:ring-2 focus:ring-[#00bfa5]"
+                                        />
+                                    </div>
+                                    <div>
+                                        <label className="block text-sm font-medium text-gray-600 mb-1">{getLabel('taxExpiry')}</label>
+                                        <input
+                                            type="date"
+                                            value={vehicleForm.taxExpiry}
+                                            onChange={(e) => setVehicleForm({ ...vehicleForm, taxExpiry: e.target.value })}
+                                            className="w-full px-4 py-3 rounded-xl bg-[#ecf0f3] shadow-[inset_3px_3px_6px_#cbced1,inset_-3px_-3px_6px_#ffffff] focus:outline-none focus:ring-2 focus:ring-[#00bfa5]"
+                                        />
+                                    </div>
                                 </div>
 
                                 {/* Chassis + Engine */}

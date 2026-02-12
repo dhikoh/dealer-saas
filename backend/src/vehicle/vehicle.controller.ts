@@ -108,6 +108,11 @@ export class VehicleController {
         );
     }
 
+    @Post('seed-master-data')
+    seedMasterData(@Request() req) {
+        return this.vehicleService.seedDefaultBrands(req.user.tenantId);
+    }
+
     // ==================== VEHICLE COSTS ====================
 
     @Get(':id/costs')
