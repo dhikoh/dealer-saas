@@ -54,9 +54,15 @@ export class VehicleService {
             }
         }
 
+        // PRE-PROCESSING: Ensure Dates are Dates
+        const createData = { ...data };
+        if (createData.stnkExpiry) createData.stnkExpiry = new Date(createData.stnkExpiry);
+        if (createData.taxExpiry) createData.taxExpiry = new Date(createData.taxExpiry);
+        if (createData.purchaseDate) createData.purchaseDate = new Date(createData.purchaseDate);
+
         return this.prisma.vehicle.create({
             data: {
-                ...data,
+                ...createData,
                 tenantId,
             },
         });
@@ -98,9 +104,15 @@ export class VehicleService {
             }
         }
 
+        // PRE-PROCESSING: Ensure Dates are Dates
+        const updateData = { ...data };
+        if (updateData.stnkExpiry) updateData.stnkExpiry = new Date(updateData.stnkExpiry);
+        if (updateData.taxExpiry) updateData.taxExpiry = new Date(updateData.taxExpiry);
+        if (updateData.purchaseDate) updateData.purchaseDate = new Date(updateData.purchaseDate);
+
         return this.prisma.vehicle.update({
             where: { id },
-            data,
+            data: updateData,
         });
     }
 

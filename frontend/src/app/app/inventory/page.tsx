@@ -226,6 +226,7 @@ export default function InventoryPage() {
 
     // Image/Document state for vehicle modal
     const [vehicleImages, setVehicleImages] = useState<string[]>([]);
+    const [pendingFiles, setPendingFiles] = useState<File[]>([]);
     const [vehicleDocs, setVehicleDocs] = useState<Record<string, string | null>>({
         ktpOwnerImage: null, stnkImage: null, bpkbImage: null, taxImage: null,
     });
@@ -316,6 +317,7 @@ export default function InventoryPage() {
             serviceBook: false, spareKey: false, specs: '', branchId: '', isOwnerDifferent: false, bpkbOwnerName: '',
         });
         setVehicleImages([]);
+        setPendingFiles([]);
         setVehicleDocs({ ktpOwnerImage: null, stnkImage: null, bpkbImage: null, taxImage: null });
         setEditingVehicle(null);
     };
@@ -462,9 +464,18 @@ export default function InventoryPage() {
         }
 
         // VALIDATION: Showroom requires at least 1 photo
-        if (vehicleForm.isShowroom && vehicleImages.length === 0) {
-            toast.error('Minimal 1 foto wajib diupload untuk tampil di Showroom/Website');
-            return;
+        if (vehicleForm.isShowroom) {
+            if (editingVehicle) {
+                if (vehicleImages.length === 0) {
+                    toast.error('Minimal 1 foto wajib diupload untuk tampil di Showroom/Website');
+                    return;
+                }
+            } else {
+                if (pendingFiles.length === 0) {
+                    toast.error('Minimal 1 foto wajib diupload untuk tampil di Showroom/Website');
+                    return;
+                }
+            }
         }
 
         // VALIDATION: Identity mismatch requires name
@@ -494,12 +505,31 @@ export default function InventoryPage() {
                     stnkExpiry: vehicleForm.stnkExpiry || undefined,
                     taxExpiry: vehicleForm.taxExpiry || undefined,
                     year: Number(vehicleForm.year),
-                    images: JSON.stringify(vehicleImages),
+                    images: editingVehicle ? JSON.stringify(vehicleImages) : '[]',
                     ...vehicleDocs,
                 }),
             });
 
             if (res.ok) {
+                const data = await res.json();
+
+                // 2. If Creating (or Updating) and there are Pending Files -> Upload them
+                if (pendingFiles.length > 0) {
+                    const vehicleId = editingVehicle ? editingVehicle.id : data.id;
+                    const formData = new FormData();
+                    pendingFiles.forEach(f => formData.append('images', f));
+
+                    const uploadRes = await fetch(`${API_URL}/upload/vehicle/${vehicleId}/multiple`, {
+                        method: 'POST',
+                        headers: { Authorization: `Bearer ${token}` },
+                        body: formData,
+                    });
+
+                    if (!uploadRes.ok) {
+                        toast.warning('Kendaraan tersimpan, tetapi gagal mengupload foto.');
+                    }
+                }
+
                 toast.success(editingVehicle ? 'Kendaraan berhasil diperbarui' : 'Kendaraan berhasil ditambahkan');
                 setShowVehicleModal(false);
                 resetVehicleForm();
@@ -974,6 +1004,7 @@ export default function InventoryPage() {
                                                         } catch (e) {
                                                             setVehicleImages([]);
                                                         }
+                                                        setPendingFiles([]);
                                                         // Set docs
                                                         setVehicleDocs({
                                                             ktpOwnerImage: item.ktpOwnerImage || null,
@@ -1481,13 +1512,14 @@ export default function InventoryPage() {
                                 </div>
 
                                 {/* Image Upload (only for existing vehicles) */}
-                                {editingVehicle && (
-                                    <VehicleImageUploader
-                                        vehicleId={editingVehicle.id}
-                                        existingImages={vehicleImages}
-                                        onImagesChange={setVehicleImages}
-                                    />
-                                )}
+                                {/* Image Upload */}
+                                <VehicleImageUploader
+                                    vehicleId={editingVehicle ? editingVehicle.id : undefined}
+                                    existingImages={vehicleImages}
+                                    onImagesChange={setVehicleImages}
+                                    pendingFiles={pendingFiles}
+                                    onPendingFilesChange={setPendingFiles}
+                                />
 
                                 {/* Document Upload (only for existing vehicles) */}
                                 {editingVehicle && (
