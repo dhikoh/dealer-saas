@@ -700,6 +700,23 @@ model ApiKey {
   active    Boolean   @default(true)
   createdAt DateTime  @default(now())
 
-  @@index([active])
   @@map("api_keys")
+}
+
+// ==================== DYNAMIC PAYMENT METHODS (v2.2) ====================
+
+model AdminPaymentMethod {
+  id            String   @id @default(uuid())
+  provider      String   // BCA, MANDIRI, BRI, BNI, QRIS, EWALLET
+  accountName   String   // a.n PT OTOHUB INDONESIA
+  accountNumber String   // 1234567890 (or QR String)
+  description   String?  // Optional note
+  logo          String?  // URL to logo image
+  isActive      Boolean  @default(true)
+  instructions  String?  // JSON string of instructions step-by-step
+
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  @@map("admin_payment_methods")
 }
