@@ -1,4 +1,5 @@
 import { IsString, IsNotEmpty, IsNumber, IsOptional, IsInt, IsBoolean, IsDateString, Min, IsIn } from 'class-validator';
+import { Transform } from 'class-transformer';
 
 export class CreateVehicleDto {
     @IsString({ message: 'Kategori harus berupa teks' })
@@ -36,6 +37,7 @@ export class CreateVehicleDto {
     purchasePrice?: number;
 
     @IsOptional()
+    @Transform(({ value }) => (value === '' || value === null ? undefined : value))
     @IsDateString({}, { message: 'Format tanggal beli tidak valid' })
     purchaseDate?: string;
 
@@ -74,6 +76,7 @@ export class CreateVehicleDto {
     bpkbNumber?: string;
 
     @IsOptional()
+    @Transform(({ value }) => (value === '' || value === null ? undefined : value))
     @IsDateString({}, { message: 'Format tanggal STNK tidak valid' })
     stnkExpiry?: string;
 

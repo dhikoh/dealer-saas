@@ -486,6 +486,8 @@ export default function InventoryPage() {
                     ...vehicleForm,
                     price: parseFloat(vehicleForm.price),
                     purchasePrice: vehicleForm.purchasePrice ? parseFloat(vehicleForm.purchasePrice) : undefined,
+                    purchaseDate: vehicleForm.purchaseDate || undefined,
+                    stnkExpiry: vehicleForm.stnkExpiry || undefined,
                     year: Number(vehicleForm.year),
                     images: JSON.stringify(vehicleImages),
                     ...vehicleDocs,

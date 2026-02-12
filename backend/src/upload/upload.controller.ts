@@ -44,6 +44,11 @@ export class UploadController {
         if (!file) {
             throw new BadRequestException('No file uploaded');
         }
+        // Strict check: Only images allowed for vehicle photos
+        if (!file.mimetype.startsWith('image/')) {
+            throw new BadRequestException('Hanya file gambar yang diperbolehkan');
+        }
+
         // SECURITY: Verify vehicle belongs to tenant
         const vehicle = await this.prisma.vehicle.findFirst({
             where: { id: vehicleId, tenantId: req.user.tenantId },
@@ -67,6 +72,14 @@ export class UploadController {
         if (!files || files.length === 0) {
             throw new BadRequestException('No files uploaded');
         }
+
+        // Strict check: Only images allowed
+        for (const file of files) {
+            if (!file.mimetype.startsWith('image/')) {
+                throw new BadRequestException('Hanya file gambar yang diperbolehkan');
+            }
+        }
+
         // SECURITY: Verify vehicle belongs to tenant
         const vehicle = await this.prisma.vehicle.findFirst({
             where: { id: vehicleId, tenantId: req.user.tenantId },
@@ -99,6 +112,8 @@ export class UploadController {
         if (!file) {
             throw new BadRequestException('No file uploaded');
         }
+        // Customer docs allow PDF, so module-level filter is sufficient
+
         // SECURITY: Verify customer belongs to tenant
         const customer = await this.prisma.customer.findFirst({
             where: { id: customerId, tenantId: req.user.tenantId },
@@ -122,6 +137,10 @@ export class UploadController {
         if (!file) {
             throw new BadRequestException('No file uploaded');
         }
+        // Strict check: Only images allowed
+        if (!file.mimetype.startsWith('image/')) {
+            throw new BadRequestException('Hanya file gambar yang diperbolehkan');
+        }
 
         req.uploadType = 'payments';
 
@@ -140,6 +159,10 @@ export class UploadController {
     ) {
         if (!file) {
             throw new BadRequestException('No file uploaded');
+        }
+        // Strict check: Only images allowed
+        if (!file.mimetype.startsWith('image/')) {
+            throw new BadRequestException('Hanya file gambar yang diperbolehkan');
         }
 
         req.uploadType = 'receipts';

@@ -355,4 +355,177 @@ export class VehicleService {
 
         return newVehicle;
     }
+
+    // ==================== MASTER DATA SEEDING ====================
+
+    /**
+     * Seeds popular Indonesian vehicle brands, models, and variants
+     * for a new tenant during onboarding. Uses upsert to avoid duplicates.
+     */
+    async seedDefaultBrands(tenantId: string) {
+        const defaultBrands: { name: string; category: string; models: { name: string; variants?: string }[] }[] = [
+            // ── CARS ──
+            {
+                name: 'Toyota', category: 'CAR', models: [
+                    { name: 'Avanza', variants: '1.3 E MT,1.3 E AT,1.5 G MT,1.5 G AT' },
+                    { name: 'Innova', variants: 'G MT,G AT,V MT,V AT,Venturer' },
+                    { name: 'Innova Zenix', variants: 'G,V,Q,V HEV,Q HEV' },
+                    { name: 'Rush', variants: '1.5 S MT,1.5 S AT,1.5 G MT,1.5 G AT,TRD Sportivo' },
+                    { name: 'Yaris', variants: 'E CVT,G CVT,TRD Sportivo CVT' },
+                    { name: 'Fortuner', variants: '2.4 G MT,2.4 G AT,2.4 VRZ AT,2.8 GR Sport AT' },
+                    { name: 'Calya', variants: '1.2 E MT,1.2 E AT,1.2 G MT,1.2 G AT' },
+                    { name: 'Raize', variants: '1.0T G CVT,1.0T GR Sport CVT,1.2 G MT' },
+                    { name: 'Agya', variants: '1.0 E MT,1.0 E AT,1.2 G MT,1.2 G AT,1.2 GR Sport AT' },
+                    { name: 'Veloz', variants: '1.5 MT,1.5 CVT,Q CVT' },
+                    { name: 'HiLux', variants: 'Single Cab,Double Cab E,Double Cab G,Double Cab V' },
+                ],
+            },
+            {
+                name: 'Honda', category: 'CAR', models: [
+                    { name: 'Brio', variants: 'S MT,E MT,E CVT,RS MT,RS CVT' },
+                    { name: 'Jazz', variants: 'S MT,S CVT,RS CVT' },
+                    { name: 'HR-V', variants: '1.5 S CVT,1.5 E CVT,1.5 Turbo RS' },
+                    { name: 'CR-V', variants: '1.5 Turbo,1.5 Turbo Prestige' },
+                    { name: 'Civic', variants: '1.5 Turbo,1.5 Turbo RS' },
+                    { name: 'City', variants: 'S CVT,E CVT,RS CVT' },
+                    { name: 'BR-V', variants: 'S MT,E CVT,Prestige CVT' },
+                    { name: 'WR-V', variants: 'E CVT,RS CVT' },
+                    { name: 'Mobilio', variants: 'S MT,E MT,E CVT,RS CVT' },
+                ],
+            },
+            {
+                name: 'Mitsubishi', category: 'CAR', models: [
+                    { name: 'Xpander', variants: 'GLS MT,GLS AT,Exceed MT,Exceed AT,Ultimate AT,Cross AT' },
+                    { name: 'Pajero Sport', variants: 'GLX MT,Exceed AT,Dakar AT,Dakar Ultimate AT' },
+                    { name: 'L300', variants: 'Pickup,Minibus' },
+                    { name: 'Outlander', variants: '2.0 CVT,2.4 CVT,PHEV' },
+                    { name: 'Triton', variants: 'Single Cab,Double Cab GLS,Double Cab Exceed,Double Cab Ultimate' },
+                ],
+            },
+            {
+                name: 'Suzuki', category: 'CAR', models: [
+                    { name: 'Ertiga', variants: 'GA MT,GL MT,GL AT,GX MT,GX AT,Sport AT' },
+                    { name: 'XL7', variants: 'Zeta MT,Zeta AT,Alpha MT,Alpha AT,Beta AT' },
+                    { name: 'Baleno', variants: 'MT,AT' },
+                    { name: 'Swift', variants: 'GS,GX' },
+                    { name: 'Jimny', variants: '5MT,4AT' },
+                    { name: 'Carry', variants: 'Pickup FD,Pickup WD,Minibus' },
+                    { name: 'S-Presso', variants: 'MT,AGS' },
+                ],
+            },
+            {
+                name: 'Daihatsu', category: 'CAR', models: [
+                    { name: 'Xenia', variants: '1.3 X MT,1.3 X AT,1.5 R MT,1.5 R AT' },
+                    { name: 'Terios', variants: 'X MT,X AT,R MT,R AT,R Adventure AT' },
+                    { name: 'Ayla', variants: '1.0 D MT,1.0 X MT,1.2 R MT,1.2 R AT' },
+                    { name: 'Sigra', variants: '1.0 D MT,1.0 M MT,1.2 X MT,1.2 R MT,1.2 R AT' },
+                    { name: 'Rocky', variants: '1.0T MC CVT,1.0T ADS CVT,1.2 X MT' },
+                    { name: 'Gran Max', variants: 'Pickup,Minibus' },
+                ],
+            },
+            {
+                name: 'Hyundai', category: 'CAR', models: [
+                    { name: 'Creta', variants: 'Active IVT,Style IVT,Prime IVT' },
+                    { name: 'Stargazer', variants: 'Active IVT,Trend IVT,Prime IVT,X' },
+                    { name: 'Ioniq 5', variants: 'Standard,Long Range,N Performance' },
+                    { name: 'Santa Fe', variants: '2.5 MPI,2.2 CRDi' },
+                ],
+            },
+            {
+                name: 'Nissan', category: 'CAR', models: [
+                    { name: 'Livina', variants: 'E MT,E CVT,VE CVT,VL CVT' },
+                    { name: 'Kicks', variants: 'e-POWER' },
+                    { name: 'Magnite', variants: 'MT,CVT' },
+                    { name: 'X-Trail', variants: 'e-POWER' },
+                ],
+            },
+            {
+                name: 'Wuling', category: 'CAR', models: [
+                    { name: 'Confero', variants: '1.5 C,1.5 L,1.5 S' },
+                    { name: 'Almaz', variants: '1.5T Lux CVT,RS Pro,Hybrid' },
+                    { name: 'Air EV', variants: 'Standard,Long Range' },
+                ],
+            },
+
+            // ── MOTORCYCLES ──
+            {
+                name: 'Honda', category: 'MOTORCYCLE', models: [
+                    { name: 'Beat', variants: 'CBS,Street,Deluxe' },
+                    { name: 'Vario 125', variants: 'CBS,CBS ISS' },
+                    { name: 'Vario 160', variants: 'CBS,ABS' },
+                    { name: 'Scoopy', variants: 'Fashion,Sporty,Prestige' },
+                    { name: 'PCX 160', variants: 'CBS,ABS' },
+                    { name: 'ADV 160', variants: 'CBS,ABS' },
+                    { name: 'CBR150R', variants: 'Standard,ABS' },
+                    { name: 'CRF150L', variants: 'Standard' },
+                    { name: 'CB150R', variants: 'Streetfire' },
+                    { name: 'CB150X', variants: 'Standard,ABS' },
+                ],
+            },
+            {
+                name: 'Yamaha', category: 'MOTORCYCLE', models: [
+                    { name: 'NMAX', variants: '155 Standard,155 Connected,155 ABS' },
+                    { name: 'Aerox 155', variants: 'Standard,S,Connected' },
+                    { name: 'MX King 155', variants: 'Standard' },
+                    { name: 'MT-15', variants: 'Standard,ABS' },
+                    { name: 'R15', variants: 'Standard,Connected,M' },
+                    { name: 'Mio', variants: 'M3,Gear S' },
+                    { name: 'XSR 155', variants: 'Standard' },
+                    { name: 'Fazzio', variants: '125 Standard,Hybrid Connected' },
+                    { name: 'Filano', variants: 'Standard,ABS' },
+                ],
+            },
+            {
+                name: 'Kawasaki', category: 'MOTORCYCLE', models: [
+                    { name: 'Ninja 250', variants: 'Standard,ABS,SE' },
+                    { name: 'KLX 150', variants: 'Standard,L,BF,BF SE,Supermoto' },
+                    { name: 'W175', variants: 'Standard,Cafe,SE' },
+                    { name: 'Ninja ZX-25R', variants: 'Standard,SE' },
+                ],
+            },
+            {
+                name: 'Suzuki', category: 'MOTORCYCLE', models: [
+                    { name: 'Satria F150', variants: 'Standard,Injection' },
+                    { name: 'GSX-R150', variants: 'Standard,ABS' },
+                    { name: 'Nex II', variants: 'Standard,Cross' },
+                    { name: 'Address', variants: 'Standard,Playful' },
+                ],
+            },
+        ];
+
+        for (const brandData of defaultBrands) {
+            const brand = await this.prisma.vehicleBrand.upsert({
+                where: {
+                    tenantId_name_category: {
+                        tenantId,
+                        name: brandData.name,
+                        category: brandData.category,
+                    },
+                },
+                update: {},
+                create: {
+                    tenantId,
+                    name: brandData.name,
+                    category: brandData.category,
+                },
+            });
+
+            for (const modelData of brandData.models) {
+                await this.prisma.vehicleModel.upsert({
+                    where: {
+                        brandId_name: {
+                            brandId: brand.id,
+                            name: modelData.name,
+                        },
+                    },
+                    update: { variants: modelData.variants ?? null },
+                    create: {
+                        brandId: brand.id,
+                        name: modelData.name,
+                        variants: modelData.variants ?? null,
+                    },
+                });
+            }
+        }
+    }
 }

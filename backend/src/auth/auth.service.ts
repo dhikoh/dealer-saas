@@ -1,4 +1,4 @@
-import { BadRequestException, ForbiddenException, HttpException, HttpStatus, Injectable, UnauthorizedException } from '@nestjs/common';
+import { BadRequestException, ForbiddenException, HttpException, HttpStatus, Injectable, UnauthorizedException, Inject, forwardRef } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateAuthDto } from './dto/create-auth.dto';
@@ -7,6 +7,7 @@ import { EmailService } from '../email/email.service';
 import { HttpService } from '@nestjs/axios';
 import { randomBytes } from 'crypto';
 import { ActivityLogService } from '../activity-log/activity-log.service';
+import { VehicleService } from '../vehicle/vehicle.service';
 
 @Injectable()
 export class AuthService {
@@ -21,6 +22,8 @@ export class AuthService {
     private emailService: EmailService,
     private httpService: HttpService,
     private activityLogService: ActivityLogService,
+    @Inject(forwardRef(() => VehicleService))
+    private vehicleService: VehicleService,
   ) { }
 
   // Clean up old entries every 30 minutes
@@ -303,6 +306,16 @@ export class AuthService {
       },
       include: { tenant: true }
     });
+
+    // Seed default vehicle brands/models for the new tenant
+    try {
+      if (user.tenantId) {
+        await this.vehicleService.seedDefaultBrands(user.tenantId);
+      }
+    } catch (error) {
+      // Don't fail onboarding if seeding fails, just log it
+      console.error('Failed to seed default brands:', error);
+    }
 
     return await this.createToken(user);
   }
