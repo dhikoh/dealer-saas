@@ -53,7 +53,11 @@ export class DealerGroupService {
                 members: {
                     include: {
                         plan: true,
-                        _count: { select: { vehicles: true, transactions: true } }
+                        _count: { select: { vehicles: true } },
+                        transactions: {
+                            where: { status: 'PAID', type: 'SALE' },
+                            select: { finalPrice: true }
+                        }
                     }
                 },
                 owner: { include: { tenant: true } }
@@ -68,19 +72,27 @@ export class DealerGroupService {
                     name: groupOwned.name,
                     code: groupOwned.code,
                     adminTenant: groupOwned.owner?.tenant,
-                    members: groupOwned.members.map(m => ({
-                        id: m.id,
-                        name: m.name,
-                        email: m.email,
-                        phone: m.phone,
-                        subscriptionStatus: m.subscriptionStatus,
-                        nextBillingDate: m.nextBillingDate,
-                        planName: m.plan?.name || m.planTier,
-                        stats: {
-                            vehicles: m._count.vehicles,
-                            transactions: m._count.transactions
-                        }
-                    }))
+                    members: groupOwned.members.map(m => {
+                        const revenue = m.transactions.reduce((acc, tx) => acc + Number(tx.finalPrice), 0);
+                        const txCount = m.transactions.length; // Actually we want Total Count regardless of status? Or just Sales? 
+                        // Let's get total count separately or assume we want just Paid Sales performance.
+                        // For MVP, let's use the fetched transactions count which is Paid Sales.
+
+                        return {
+                            id: m.id,
+                            name: m.name,
+                            email: m.email,
+                            phone: m.phone,
+                            subscriptionStatus: m.subscriptionStatus,
+                            nextBillingDate: m.nextBillingDate,
+                            planName: m.plan?.name || m.planTier,
+                            stats: {
+                                vehicles: m._count.vehicles,
+                                transactions: txCount,
+                                revenue: revenue
+                            }
+                        };
+                    })
                 }
             };
         }

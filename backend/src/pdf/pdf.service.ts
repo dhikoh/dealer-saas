@@ -932,4 +932,150 @@ export class PdfService {
 
         doc.end();
     }
+    /**
+     * Helper: Convert number to text (Terbilang)
+     */
+    private terbilang(nominal: number): string {
+        const bilangan = ['', 'Satu', 'Dua', 'Tiga', 'Empat', 'Lima', 'Enam', 'Tujuh', 'Delapan', 'Sembilan', 'Sepuluh', 'Sebelas'];
+        let kalimat = '';
+
+        if (nominal < 12) {
+            kalimat = bilangan[nominal];
+        } else if (nominal < 20) {
+            kalimat = this.terbilang(nominal - 10) + ' Belas';
+        } else if (nominal < 100) {
+            kalimat = this.terbilang(Math.floor(nominal / 10)) + ' Puluh ' + this.terbilang(nominal % 10);
+        } else if (nominal < 200) {
+            kalimat = 'Seratus ' + this.terbilang(nominal - 100);
+        } else if (nominal < 1000) {
+            kalimat = this.terbilang(Math.floor(nominal / 100)) + ' Ratus ' + this.terbilang(nominal % 100);
+        } else if (nominal < 2000) {
+            kalimat = 'Seribu ' + this.terbilang(nominal - 1000);
+        } else if (nominal < 1000000) {
+            kalimat = this.terbilang(Math.floor(nominal / 1000)) + ' Ribu ' + this.terbilang(nominal % 1000);
+        } else if (nominal < 1000000000) {
+            kalimat = this.terbilang(Math.floor(nominal / 1000000)) + ' Juta ' + this.terbilang(nominal % 1000000);
+        } else if (nominal < 1000000000000) {
+            kalimat = this.terbilang(Math.floor(nominal / 1000000000)) + ' Milyar ' + this.terbilang(nominal % 1000000000);
+        }
+
+        return kalimat.trim();
+    }
+
+    /**
+     * Generate Transaction Receipt (Kwitansi) PDF
+     * Official proof of payment
+     */
+    async generateTransactionReceipt(
+        transactionId: string,
+        tenantId: string,
+        res: any,
+    ) {
+        const transaction = await this.prisma.transaction.findFirst({
+            where: { id: transactionId, tenantId },
+            include: {
+                vehicle: true,
+                customer: true,
+                salesPerson: true,
+                credit: true,
+                payments: { orderBy: { date: 'desc' } } // Get payments
+            },
+        }) as any;
+
+        if (!transaction) {
+            throw new Error('Transaction not found');
+        }
+
+        const tenant = await this.prisma.tenant.findUnique({
+            where: { id: tenantId },
+        }) as any;
+
+        const doc = new PDFDocument({ margin: 50 });
+
+        res.setHeader('Content-Type', 'application/pdf');
+        res.setHeader(
+            'Content-Disposition',
+            `attachment; filename=Kwitansi_${transactionId.slice(0, 8)}.pdf`,
+        );
+
+        doc.pipe(res);
+
+        // === HEADER ===
+        this.drawHeader(doc, tenant, 'KWITANSI', `KWT-${transactionId.slice(0, 8).toUpperCase()}`);
+
+        doc.fontSize(10).font('Helvetica');
+        doc.text(`No: KWT-${transactionId.slice(0, 8).toUpperCase()}`);
+        doc.text(`Tanggal: ${this.formatDate(new Date())}`);
+        doc.moveDown();
+        doc.moveTo(50, doc.y).lineTo(550, doc.y).stroke({ width: 2 });
+        doc.moveDown(2);
+
+        // Decide Amount & Description based on context
+        let amount = Number(transaction.finalPrice);
+        let description = `Pelunasan pembelian unit ${transaction.vehicle.make} ${transaction.vehicle.model}`;
+
+        // If Credit with DP
+        if (transaction.paymentType === 'CREDIT' && transaction.credit) {
+            amount = Number(transaction.credit.downPayment);
+            description = `Pembayaran Uang Muka (DP) ${transaction.vehicle.make} ${transaction.vehicle.model}`;
+        }
+
+        const terbilangText = this.terbilang(amount) + ' Rupiah';
+
+        // === CONTENT ===
+        const startX = 50;
+        let currentY = doc.y;
+
+        // Rows config
+        const rowGap = 25;
+        const labelWidth = 120;
+        const valueWidth = 380;
+
+        // Helper to draw row
+        const drawRow = (label: string, value: string, isMultiLine = false) => {
+            doc.fontSize(12).font('Helvetica-Bold').text(label, startX, currentY);
+            doc.font('Helvetica').text(':', startX + labelWidth - 10, currentY);
+
+            // Draw Dots background if needed, or just text? 
+            // Let's use a nice box background for value
+            if (isMultiLine) {
+                doc.rect(startX + labelWidth, currentY - 5, valueWidth, 40).fillAndStroke('#f9f9f9', '#eee');
+                doc.fillColor('#333').text(value, startX + labelWidth + 10, currentY, { width: valueWidth - 20 });
+                currentY += 45;
+            } else {
+                doc.rect(startX + labelWidth, currentY - 5, valueWidth, 20).fillAndStroke('#f9f9f9', '#eee');
+                doc.fillColor('#333').text(value, startX + labelWidth + 10, currentY);
+                currentY += rowGap;
+            }
+            doc.fillColor('#000'); // Reset
+        };
+
+        drawRow('Telah terima dari', transaction.customer?.name || '-');
+        drawRow('Uang Sejumlah', `# ${terbilangText} #`, true); // Highlight terbilang
+        drawRow('Guna Pembayaran', description, true);
+
+        doc.moveDown(2);
+        currentY += 20;
+
+        // === AMOUNT BOX ===
+        doc.rect(50, currentY, 200, 40).stroke(); // Box
+        doc.fontSize(16).font('Helvetica-Bold')
+            .text(this.formatCurrency(amount), 60, currentY + 12);
+
+        // === SIGNATURE ===
+        doc.fontSize(10).font('Helvetica');
+        doc.text(`${(tenant.address || 'Kota').split(',')[0]}, ${this.formatDate(new Date())}`, 350, currentY, { align: 'center', width: 200 });
+        doc.text('Yang Menerima,', 350, currentY + 15, { align: 'center', width: 200 });
+
+        doc.moveDown(4);
+        const signY = doc.y + 40;
+        doc.fontSize(10).font('Helvetica-Bold').text(`( ${transaction.salesPerson?.name || 'Admin'} )`, 350, signY, { align: 'center', width: 200 });
+
+        // Footer note
+        doc.text('', 50, signY + 30); // Move cursor down
+        doc.fontSize(8).font('Helvetica-Oblique').fillColor('#555');
+        doc.text('Kwitansi ini merupakan alat bukti pembayaran yang sah.', { align: 'center' });
+
+        doc.end();
+    }
 }

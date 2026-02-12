@@ -48,6 +48,14 @@ export class CreateTransactionDto {
     finalPrice: number;
 
     @IsOptional()
+    @IsString({ message: 'Metode pembayaran harus berupa teks' })
+    paymentMethod?: string;
+
+    @IsOptional()
+    @IsString({ message: 'Nomor referensi harus berupa teks' })
+    referenceNumber?: string;
+
+    @IsOptional()
     @IsString({ message: 'Catatan harus berupa teks' })
     notes?: string;
 

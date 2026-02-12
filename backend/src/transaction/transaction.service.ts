@@ -119,6 +119,9 @@ export class TransactionService {
         paymentType: string;
         finalPrice: number;
         notes?: string;
+        // Payment Details (New)
+        paymentMethod?: string; // CASH, TRANSFER, etc.
+        referenceNumber?: string;
         // Credit fields if paymentType is CREDIT
         creditData?: {
             creditType: string;
@@ -178,9 +181,9 @@ export class TransactionService {
                     basePrice: new Decimal(data.finalPrice), // Default for now
                     taxPercentage: new Decimal(0),
                     taxAmount: new Decimal(0),
-                    paymentStatus: 'UNPAID',
+                    paymentStatus: data.paymentType === 'CASH' ? 'PAID' : 'UNPAID', // Will be updated if partial
                     notes: data.notes,
-                    status: 'PENDING',
+                    status: data.paymentType === 'CASH' ? 'COMPLETED' : 'PENDING', // If Cash, it's done? Or PENDING? Usually PENDING until confirmed, but for MVP simpler.
                     date: new Date(), // Set current date
                 },
                 include: {
@@ -189,7 +192,55 @@ export class TransactionService {
                 },
             });
 
-            // 2. Create Credit Record (if applicable)
+            // 2. Create Initial Payment (CASH or DP)
+            // Determine initial payment amount
+            let initialPaymentAmount = 0;
+            if (data.paymentType === 'CASH') {
+                initialPaymentAmount = data.finalPrice;
+            } else if (data.paymentType === 'CREDIT' && data.creditData) {
+                initialPaymentAmount = data.creditData.downPayment;
+            }
+
+            // Create Payment Record if amount > 0
+            if (initialPaymentAmount > 0) {
+                await tx.transactionPayment.create({
+                    data: {
+                        transactionId: transaction.id,
+                        amount: new Decimal(initialPaymentAmount),
+                        method: data.paymentMethod || 'CASH', // Default to CASH if not specified
+                        referenceNumber: data.referenceNumber,
+                        note: data.paymentType === 'CREDIT' ? 'Down Payment (DP)' : 'Full Payment',
+                        date: new Date(),
+                    }
+                });
+
+                // Update Transaction Payment Status if it was partial (Credit with DP)
+                if (data.paymentType === 'CREDIT') {
+                    await tx.transaction.update({
+                        where: { id: transaction.id },
+                        data: {
+                            paymentStatus: 'PARTIAL', // DP Paid
+                            // Status remains PENDING until Credit is Approved? Or COMPLETED? 
+                            // For Dealer Credit, it's usually considered 'sold' once DP is in and agreement signed.
+                            status: 'PENDING'
+                        }
+                    });
+                } else {
+                    // CASH
+                    await tx.transaction.update({
+                        where: { id: transaction.id },
+                        data: {
+                            paymentStatus: 'PAID',
+                            status: 'PENDING' // Admin usually needs to verify? Let's keep PENDING for safety, or COMPLETED for speed.
+                            // Let's stick to PENDING as default, then updateStatus to PAID completes it.
+                            // BUT, if we just created the payment, shouldn't we auto-complete?
+                            // For MVP speed: If CASH and Payment In -> COMPLETED.
+                        }
+                    });
+                }
+            }
+
+            // 3. Create Credit Record (if applicable)
             if (data.paymentType === 'CREDIT' && data.creditData) {
                 const cd = data.creditData;
                 const totalCredit = data.finalPrice - cd.downPayment;
@@ -211,7 +262,7 @@ export class TransactionService {
                 });
             }
 
-            // 3. Update Vehicle Status
+            // 4. Update Vehicle Status
             if (data.type === 'SALE') {
                 await tx.vehicle.update({
                     where: { id: data.vehicleId },

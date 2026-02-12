@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useEffect, useState } from 'react';
-import { Plus, Search, Filter, DollarSign, ShoppingCart, TrendingUp, TrendingDown, Eye, FileText, X, Check, ChevronLeft, ChevronRight, Printer, Calculator } from 'lucide-react';
+import { Plus, Search, Filter, DollarSign, ShoppingCart, TrendingUp, TrendingDown, Eye, FileText, X, Check, ChevronLeft, ChevronRight, Printer, Calculator, Banknote } from 'lucide-react';
 import { toast } from 'sonner';
 import { useLanguage } from '@/hooks/useLanguage';
 import { useCurrency } from '@/hooks/useCurrency';
@@ -55,6 +55,7 @@ export default function TransactionsPage() {
         vehicleId: '',
         customerId: '',
         paymentType: 'CASH' as 'CASH' | 'CREDIT',
+        paymentMethod: 'CASH',
         finalPrice: '',
         date: new Date().toISOString().split('T')[0],
         notes: '',
@@ -166,6 +167,7 @@ export default function TransactionsPage() {
                     vehicleId: txForm.vehicleId,
                     customerId: txForm.customerId,
                     paymentType: txForm.paymentType,
+                    paymentMethod: txForm.paymentMethod,
                     finalPrice: parseFloat(txForm.finalPrice),
                     notes: txForm.notes || undefined,
                     creditData: txForm.paymentType === 'CREDIT' ? {
@@ -186,6 +188,7 @@ export default function TransactionsPage() {
                     vehicleId: '',
                     customerId: '',
                     paymentType: 'CASH',
+                    paymentMethod: 'CASH',
                     finalPrice: '',
                     date: new Date().toISOString().split('T')[0],
                     notes: '',
@@ -238,6 +241,24 @@ export default function TransactionsPage() {
             window.open(url, '_blank');
         } catch (err) {
             toast.error('Gagal mencetak SPK');
+            console.error(err);
+        }
+    };
+
+    const handlePrintReceipt = async (txId: string) => {
+        try {
+            const token = getToken();
+            const res = await fetch(`${API_URL}/pdf/transaction/${txId}/receipt`, {
+                headers: { 'Authorization': `Bearer ${token}` }
+            });
+
+            if (!res.ok) throw new Error('Failed to generate Receipt');
+
+            const blob = await res.blob();
+            const url = window.URL.createObjectURL(blob);
+            window.open(url, '_blank');
+        } catch (err) {
+            toast.error('Gagal mencetak Kwitansi');
             console.error(err);
         }
     };
@@ -371,6 +392,13 @@ export default function TransactionsPage() {
                                         title="Cetak SPK"
                                     >
                                         <FileText className="w-4 h-4" />
+                                    </button>
+                                    <button
+                                        onClick={() => handlePrintReceipt(tx.id)}
+                                        className="p-2 rounded-lg text-gray-500 hover:bg-gray-200 hover:text-emerald-600 transition-colors mr-1"
+                                        title="Cetak Kwitansi"
+                                    >
+                                        <Banknote className="w-4 h-4" />
                                     </button>
                                     <button
                                         onClick={() => setSelectedTx(tx)}
@@ -532,6 +560,23 @@ export default function TransactionsPage() {
                                         </button>
                                     ))}
                                 </div>
+                            </div>
+
+                            {/* Payment Method Details (Instrument) */}
+                            <div>
+                                <label className="block text-sm font-medium text-gray-600 mb-2">Metode Pembayaran (Instrument)</label>
+                                <select
+                                    value={txForm.paymentMethod}
+                                    onChange={(e) => setTxForm({ ...txForm, paymentMethod: e.target.value })}
+                                    className="w-full px-4 py-3 rounded-xl bg-[#ecf0f3] shadow-[inset_3px_3px_6px_#cbced1,inset_-3px_-3px_6px_#ffffff] focus:outline-none focus:ring-2 focus:ring-[#00bfa5] text-gray-700"
+                                >
+                                    <option value="CASH">Tunai (Cash)</option>
+                                    <option value="TRANSFER">Transfer Bank</option>
+                                    <option value="DEBIT">Kartu Debit</option>
+                                    <option value="CREDIT_CARD">Kartu Kredit</option>
+                                    <option value="QRIS">QRIS</option>
+                                    <option value="CHEQUE">Cek / Giro</option>
+                                </select>
                             </div>
 
                             {/* Credit Details */}

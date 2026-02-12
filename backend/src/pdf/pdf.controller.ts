@@ -81,6 +81,22 @@ export class PdfController {
     }
 
     /**
+     * Generate Transaction Receipt (Kwitansi) PDF
+     */
+    @Get('transaction/:transactionId/receipt')
+    async getTransactionReceipt(
+        @Param('transactionId') transactionId: string,
+        @Request() req: any,
+        @Res() res: any,
+    ) {
+        return this.pdfService.generateTransactionReceipt(
+            transactionId,
+            req.user.tenantId,
+            res,
+        );
+    }
+
+    /**
      * Generate Sales Report PDF
      * Monthly summary with top brands and recent transactions
      */
