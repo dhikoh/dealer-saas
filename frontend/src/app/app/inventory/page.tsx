@@ -504,6 +504,7 @@ export default function InventoryPage() {
                     purchaseDate: vehicleForm.purchaseDate || undefined,
                     stnkExpiry: vehicleForm.stnkExpiry || undefined,
                     taxExpiry: vehicleForm.taxExpiry || undefined,
+                    branchId: vehicleForm.branchId || undefined, // FIX: Send undefined if empty string
                     year: Number(vehicleForm.year),
                     images: editingVehicle ? JSON.stringify(vehicleImages) : '[]',
                     ...vehicleDocs,

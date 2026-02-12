@@ -18,6 +18,7 @@ import {
     faTrash,
     faChevronLeft,
     faChevronRight,
+    faFilePdf,
 } from '@fortawesome/free-solid-svg-icons';
 import { useLanguage } from '@/hooks/useLanguage';
 import { toast } from 'sonner';
@@ -66,6 +67,7 @@ export default function CustomersPage() {
     const [deleteTarget, setDeleteTarget] = useState<Customer | null>(null);
     const [editTarget, setEditTarget] = useState<Customer | null>(null);
     const [currentPage, setCurrentPage] = useState(1);
+    const [submitting, setSubmitting] = useState(false);
     const ITEMS_PER_PAGE = 12;
 
     // Form states
@@ -112,6 +114,8 @@ export default function CustomersPage() {
 
     const handleAddCustomer = async (e: React.FormEvent) => {
         e.preventDefault();
+        if (submitting) return;
+
         const token = getToken();
         if (!token) return;
 
@@ -121,6 +125,7 @@ export default function CustomersPage() {
             return;
         }
 
+        setSubmitting(true);
         try {
             // 1. Create Customer
             const res = await fetch(`${API_URL}/customers`, {
@@ -172,10 +177,13 @@ export default function CustomersPage() {
                 setKtpFile(null);
                 fetchCustomers();
             } else {
-                toast.error('Gagal menambahkan customer');
+                const errData = await res.json();
+                toast.error(errData.message || 'Gagal menambahkan customer');
             }
         } catch (error) {
             toast.error('Gagal menambahkan customer');
+        } finally {
+            setSubmitting(false);
         }
     };
 
@@ -245,6 +253,36 @@ export default function CustomersPage() {
             console.error('Failed to check blacklist:', error);
         } finally {
             setCheckLoading(false);
+        }
+    };
+
+    const handleExportPdf = async (customerId: string, customerName: string) => {
+        const token = getToken();
+        if (!token) return;
+
+        const toastId = toast.loading('Mengunduh PDF...');
+        try {
+            const res = await fetch(`${API_URL}/customers/${customerId}/pdf`, {
+                headers: { Authorization: `Bearer ${token}` },
+            });
+
+            if (res.ok) {
+                const blob = await res.blob();
+                const url = window.URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = `Customer_${customerName.replace(/\s+/g, '_')}.pdf`;
+                document.body.appendChild(a);
+                a.click();
+                window.URL.revokeObjectURL(url);
+                document.body.removeChild(a);
+                toast.success('PDF berhasil diunduh', { id: toastId });
+            } else {
+                throw new Error('Gagal mengunduh PDF');
+            }
+        } catch (error) {
+            console.error(error);
+            toast.error('Gagal mengunduh PDF', { id: toastId });
         }
     };
 

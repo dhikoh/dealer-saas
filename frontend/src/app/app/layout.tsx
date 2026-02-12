@@ -84,8 +84,7 @@ export default function DashboardLayout({
                     </main>
                 </div>
 
-                {/* TOASTER FOR DASHBOARD ALERTS */}
-                <Toaster position="top-right" richColors />
+                {/* TOASTER REMOVED - Already in RootLayout */}
             </div>
         </BranchProvider>
     );

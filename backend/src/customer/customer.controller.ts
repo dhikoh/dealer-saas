@@ -8,7 +8,9 @@ import {
     Param,
     Query,
     Request,
+    Res,
 } from '@nestjs/common';
+import type { Response } from 'express';
 import { CustomerService } from './customer.service';
 import { CreateCustomerDto } from './dto/create-customer.dto';
 import { UpdateCustomerDto } from './dto/update-customer.dto';
@@ -25,6 +27,19 @@ export class CustomerController {
     @Get(':id')
     findOne(@Param('id') id: string, @Request() req) {
         return this.customerService.findOne(id, req.user.tenantId);
+    }
+
+    @Get(':id/pdf')
+    async downloadPdf(@Param('id') id: string, @Request() req, @Res() res: Response) {
+        const buffer = await this.customerService.generatePdf(id, req.user.tenantId);
+
+        res.set({
+            'Content-Type': 'application/pdf',
+            'Content-Disposition': `attachment; filename=customer-${id}.pdf`,
+            'Content-Length': buffer.length,
+        });
+
+        res.end(buffer);
     }
 
     @Get(':id/documents')
