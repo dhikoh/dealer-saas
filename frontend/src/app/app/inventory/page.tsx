@@ -227,6 +227,7 @@ export default function InventoryPage() {
     // Image/Document state for vehicle modal
     const [vehicleImages, setVehicleImages] = useState<string[]>([]);
     const [pendingFiles, setPendingFiles] = useState<File[]>([]);
+    const [pendingDocs, setPendingDocs] = useState<Record<string, File>>({}); // New for pending docs
     const [vehicleDocs, setVehicleDocs] = useState<Record<string, string | null>>({
         ktpOwnerImage: null, stnkImage: null, bpkbImage: null, taxImage: null,
     });
@@ -318,6 +319,7 @@ export default function InventoryPage() {
         });
         setVehicleImages([]);
         setPendingFiles([]);
+        setPendingDocs({});
         setVehicleDocs({ ktpOwnerImage: null, stnkImage: null, bpkbImage: null, taxImage: null });
         setEditingVehicle(null);
     };
@@ -528,6 +530,49 @@ export default function InventoryPage() {
 
                     if (!uploadRes.ok) {
                         toast.warning('Kendaraan tersimpan, tetapi gagal mengupload foto.');
+                    }
+                }
+
+                // 3. Upload Pending Documents (Fixed 500 Error Logic)
+                const pendingDocKeys = Object.keys(pendingDocs);
+                if (pendingDocKeys.length > 0) {
+                    const vehicleId = editingVehicle ? editingVehicle.id : data.id;
+
+                    for (const key of pendingDocKeys) {
+                        const file = pendingDocs[key];
+                        const formData = new FormData();
+                        formData.append('image', file);
+
+                        try {
+                            const docRes = await fetch(`${API_URL}/upload/vehicle/${vehicleId}`, {
+                                method: 'POST',
+                                headers: { Authorization: `Bearer ${token}` },
+                                body: formData
+                            });
+
+                            if (docRes.ok) {
+                                const docData = await docRes.json();
+                                // We need to update the vehicle with this new URL
+                                // Since we already saved the vehicle, we need a separate PATCH/PUT
+                                // But honestly, the cleanest way is just to let the user know or silent update?
+                                // The endpoint `/upload/vehicle/${vehicleId}` MIGHT already update the DB if it knows the key?
+                                // CHECK: UploadService/Controller. 
+                                // Result: Controller @Post('vehicle/:id') calls uploadService.processUpload -> returns URL.
+                                // It does NOT update the vehicle record in DB.
+                                // So we MUST update the vehicle record with the new URL.
+
+                                await fetch(`${API_URL}/vehicles/${vehicleId}`, {
+                                    method: 'PUT',
+                                    headers: {
+                                        'Content-Type': 'application/json',
+                                        Authorization: `Bearer ${token}`
+                                    },
+                                    body: JSON.stringify({ [key]: docData.url })
+                                });
+                            }
+                        } catch (err) {
+                            console.error(`Failed to upload ${key}`, err);
+                        }
                     }
                 }
 
@@ -1006,6 +1051,7 @@ export default function InventoryPage() {
                                                             setVehicleImages([]);
                                                         }
                                                         setPendingFiles([]);
+                                                        setPendingDocs({}); // Clear pending docs when editing
                                                         // Set docs
                                                         setVehicleDocs({
                                                             ktpOwnerImage: item.ktpOwnerImage || null,
@@ -1523,13 +1569,21 @@ export default function InventoryPage() {
                                 />
 
                                 {/* Document Upload (only for existing vehicles) */}
-                                {editingVehicle && (
-                                    <DocumentUploader
-                                        vehicleId={editingVehicle.id}
-                                        documents={vehicleDocs}
-                                        onDocumentChange={(key, url) => setVehicleDocs(prev => ({ ...prev, [key]: url }))}
-                                    />
-                                )}
+                                <DocumentUploader
+                                    vehicleId={editingVehicle?.id || ''}
+                                    documents={vehicleDocs}
+                                    onDocumentChange={(key, url) => setVehicleDocs(prev => ({ ...prev, [key]: url }))}
+                                    onFileSelect={(key, file) => {
+                                        if (file) {
+                                            setPendingDocs(prev => ({ ...prev, [key]: file }));
+                                        } else {
+                                            // Handle removal if needed, for now just replace
+                                            const newDocs = { ...pendingDocs };
+                                            delete newDocs[key];
+                                            setPendingDocs(newDocs);
+                                        }
+                                    }}
+                                />
 
                                 {/* Buttons */}
                                 <div className="flex gap-3 pt-2">

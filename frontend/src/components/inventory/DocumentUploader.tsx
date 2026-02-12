@@ -24,6 +24,7 @@ interface DocumentUploaderProps {
     vehicleId: string;
     documents: Record<string, string | null>; // { ktpOwnerImage: url, stnkImage: url, ... }
     onDocumentChange: (key: string, url: string) => void;
+    onFileSelect?: (key: string, file: File | null) => void; // New prop for pending uploads
 }
 
 const DOCUMENT_FIELDS: DocumentField[] = [
@@ -33,19 +34,28 @@ const DOCUMENT_FIELDS: DocumentField[] = [
     { key: 'taxImage', label: 'Bukti Pajak Terakhir', icon: faFileAlt },
 ];
 
-export default function DocumentUploader({ vehicleId, documents, onDocumentChange }: DocumentUploaderProps) {
+export default function DocumentUploader({ vehicleId, documents, onDocumentChange, onFileSelect }: DocumentUploaderProps) {
     const [uploadingKey, setUploadingKey] = useState<string | null>(null);
     const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+    const [pendingFiles, setPendingFiles] = useState<Record<string, File>>({}); // Local pending state for UI
     const fileRefs = useRef<Record<string, HTMLInputElement | null>>({});
 
-    const handleUpload = async (key: string, file: File) => {
-        const token = localStorage.getItem('access_token');
-        if (!token) return;
-
+    const handleFileChange = async (key: string, file: File) => {
         if (file.size > 5 * 1024 * 1024) {
             toast.error('File terlalu besar (maks 5MB)');
             return;
         }
+
+        // MODE 1: PENDING UPLOAD (Create New Vehicle)
+        if (!vehicleId && onFileSelect) {
+            setPendingFiles(prev => ({ ...prev, [key]: file }));
+            onFileSelect(key, file); // Notify parent
+            return;
+        }
+
+        // MODE 2: DIRECT UPLOAD (Edit Existing Vehicle)
+        const token = localStorage.getItem('access_token');
+        if (!token) return;
 
         setUploadingKey(key);
         try {
@@ -82,6 +92,7 @@ export default function DocumentUploader({ vehicleId, documents, onDocumentChang
             <div className="space-y-2">
                 {DOCUMENT_FIELDS.map((field) => {
                     const hasDoc = !!documents[field.key];
+                    const isPending = !!pendingFiles[field.key];
                     const isUploading = uploadingKey === field.key;
 
                     return (
@@ -91,14 +102,16 @@ export default function DocumentUploader({ vehicleId, documents, onDocumentChang
                         >
                             <div className="flex items-center gap-3">
                                 <FontAwesomeIcon
-                                    icon={hasDoc ? faCheckCircle : faTimesCircle}
-                                    className={hasDoc ? 'text-green-500' : 'text-gray-300'}
+                                    icon={hasDoc ? faCheckCircle : isPending ? faCheckCircle : faTimesCircle}
+                                    className={hasDoc ? 'text-green-500' : isPending ? 'text-blue-500' : 'text-gray-300'}
                                 />
                                 <div>
                                     <div className="text-sm font-medium text-gray-700">{field.label}</div>
-                                    {hasDoc && (
+                                    {hasDoc ? (
                                         <div className="text-xs text-green-600">Sudah diunggah</div>
-                                    )}
+                                    ) : isPending ? (
+                                        <div className="text-xs text-blue-600">Siap diupload (Menunggu Simpan)</div>
+                                    ) : null}
                                 </div>
                             </div>
                             <div className="flex items-center gap-2">
@@ -114,14 +127,17 @@ export default function DocumentUploader({ vehicleId, documents, onDocumentChang
                                 <button
                                     onClick={() => fileRefs.current[field.key]?.click()}
                                     disabled={isUploading}
-                                    className="px-3 py-1.5 text-xs rounded-lg bg-[#00bfa5]/10 text-[#00bfa5] hover:bg-[#00bfa5]/20 transition-all font-medium disabled:opacity-50"
+                                    className={`px-3 py-1.5 text-xs rounded-lg transition-all font-medium disabled:opacity-50 ${isPending
+                                            ? 'bg-blue-50 text-blue-600 hover:bg-blue-100'
+                                            : 'bg-[#00bfa5]/10 text-[#00bfa5] hover:bg-[#00bfa5]/20'
+                                        }`}
                                 >
                                     {isUploading ? (
                                         <FontAwesomeIcon icon={faSpinner} className="animate-spin" />
                                     ) : (
                                         <>
                                             <FontAwesomeIcon icon={faCloudUploadAlt} className="mr-1" />
-                                            {hasDoc ? 'Ganti' : 'Upload'}
+                                            {hasDoc ? 'Ganti' : isPending ? 'Ganti File' : 'Upload'}
                                         </>
                                     )}
                                 </button>
@@ -131,7 +147,7 @@ export default function DocumentUploader({ vehicleId, documents, onDocumentChang
                                     accept="image/*,.pdf"
                                     className="hidden"
                                     onChange={(e) => {
-                                        if (e.target.files?.[0]) handleUpload(field.key, e.target.files[0]);
+                                        if (e.target.files?.[0]) handleFileChange(field.key, e.target.files[0]);
                                     }}
                                 />
                             </div>

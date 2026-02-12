@@ -20,6 +20,7 @@ import {
     faChevronRight,
     faFilePdf,
 } from '@fortawesome/free-solid-svg-icons';
+import CustomerDocumentUploader from '@/components/customers/CustomerDocumentUploader';
 import { useLanguage } from '@/hooks/useLanguage';
 import { toast } from 'sonner';
 import { API_URL } from '@/lib/api';
@@ -33,6 +34,11 @@ interface Customer {
     address?: string;
     createdAt: string;
     ktpImage?: string;
+    kkImage?: string;
+    homeProofImage?: string;
+    salarySlipImage?: string;
+    bankStatementImage?: string;
+    businessLicenseImage?: string;
 }
 
 interface BlacklistEntry {
@@ -110,137 +116,127 @@ export default function CustomersPage() {
         }
     };
 
-    const [ktpFile, setKtpFile] = useState<File | null>(null);
+    setForm({ ktpNumber: '', name: '', phone: '', email: '', address: '' });
+    setEditForm({ name: '', phone: '', email: '', address: '' });
+    setPendingDocs({});
+    setCustomerDocs({});
+    setKtpFile(null); // Keep for legacy compat if needed, or remove
+};
 
-    const handleAddCustomer = async (e: React.FormEvent) => {
-        e.preventDefault();
-        if (submitting) return;
+const [ktpFile, setKtpFile] = useState<File | null>(null); // Deprecated but kept for compatibility in refactor
 
-        const token = getToken();
-        if (!token) return;
+const handleAddCustomer = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (submitting) return;
 
-        // KTP validation
-        if (form.ktpNumber && !/^\d{16}$/.test(form.ktpNumber)) {
-            toast.error('No. KTP harus 16 digit angka');
-            return;
-        }
+    const token = getToken();
+    if (!token) return;
 
-        setSubmitting(true);
-        try {
-            // 1. Create Customer
-            const res = await fetch(`${API_URL}/customers`, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    Authorization: `Bearer ${token}`,
-                },
-                body: JSON.stringify(form),
-            });
+    // KTP validation
+    if (form.ktpNumber && !/^\d{16}$/.test(form.ktpNumber)) {
+        toast.error('No. KTP harus 16 digit angka');
+        return;
+    }
 
-            if (res.ok) {
-                const newCustomer = await res.json();
+    setSubmitting(true);
+    try {
+        // 1. Create Customer
+        const res = await fetch(`${API_URL}/customers`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                Authorization: `Bearer ${token}`,
+            },
+            body: JSON.stringify(form),
+        });
 
-                // 2. Upload KTP if exists
-                if (ktpFile) {
-                    try {
-                        const formData = new FormData();
-                        formData.append('document', ktpFile);
+        if (res.ok) {
+            const newCustomer = await res.json();
 
-                        const uploadRes = await fetch(`${API_URL}/upload/customer/${newCustomer.id}/ktp`, {
-                            method: 'POST',
-                            headers: { Authorization: `Bearer ${token}` },
-                            body: formData,
+            // 2. Upload Pending Documents
+            const pendingKeys = Object.keys(pendingDocs);
+            for (const key of pendingKeys) {
+                const file = pendingDocs[key];
+                // Map key to docType (simple mapping for now, or look up from Uploader)
+                const docTypeMap: Record<string, string> = {
+                    ktpImage: 'ktp',
+                    kkImage: 'kk',
+                    homeProofImage: 'home-proof',
+                    salarySlipImage: 'salary-slip',
+                    bankStatementImage: 'bank-statement',
+                    businessLicenseImage: 'business-license'
+                };
+
+                const docType = docTypeMap[key];
+                if (!docType) continue;
+
+                try {
+                    const formData = new FormData();
+                    formData.append('document', file);
+
+                    const uploadRes = await fetch(`${API_URL}/upload/customer/${newCustomer.id}/${docType}`, {
+                        method: 'POST',
+                        headers: { Authorization: `Bearer ${token}` },
+                        body: formData,
+                    });
+
+                    if (uploadRes.ok) {
+                        const uploadData = await uploadRes.json();
+                        // Update customer with URL
+                        await fetch(`${API_URL}/customers/${newCustomer.id}`, {
+                            method: 'PUT',
+                            headers: {
+                                'Content-Type': 'application/json',
+                                Authorization: `Bearer ${token}`,
+                            },
+                            body: JSON.stringify({ [key]: uploadData.url }),
                         });
-
-                        if (uploadRes.ok) {
-                            const uploadData = await uploadRes.json();
-
-                            // 3. Update Customer with KTP Image URL
-                            await fetch(`${API_URL}/customers/${newCustomer.id}`, {
-                                method: 'PUT',
-                                headers: {
-                                    'Content-Type': 'application/json',
-                                    Authorization: `Bearer ${token}`,
-                                },
-                                body: JSON.stringify({ ktpImage: uploadData.url }),
-                            });
-                        }
-                    } catch (uploadError) {
-                        console.error('Failed to upload KTP:', uploadError);
-                        toast.error('Customer dibuat tapi gagal upload KTP');
                     }
+                } catch (e) {
+                    console.error(`Failed to upload ${key}`, e);
                 }
-
-                toast.success('Customer berhasil ditambahkan');
-                setShowAddModal(false);
-                setForm({ ktpNumber: '', name: '', phone: '', email: '', address: '' });
-                setKtpFile(null);
-                fetchCustomers();
-            } else {
-                const errData = await res.json();
-                toast.error(errData.message || 'Gagal menambahkan customer');
             }
-        } catch (error) {
-            toast.error('Gagal menambahkan customer');
-        } finally {
-            setSubmitting(false);
+
+            toast.success('Customer berhasil ditambahkan');
+            setShowAddModal(false);
+            resetForms();
+            fetchCustomers();
+        } else {
+            const errData = await res.json();
+            toast.error(errData.message || 'Gagal menambahkan customer');
         }
-    };
+    } catch (error) {
+        toast.error('Gagal menambahkan customer');
+    } finally {
+        setSubmitting(false);
+    }
+};
 
-    const handleEditCustomer = async (e: React.FormEvent) => {
-        e.preventDefault();
-        if (submitting) return;
+const handleEditCustomer = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (submitting) return;
 
-        const token = getToken();
-        if (!token || !editTarget) return;
+    const token = getToken();
+    if (!token || !editTarget) return;
 
-        setSubmitting(true);
-        try {
-            // 1. Update Basic Info
-            const res = await fetch(`${API_URL}/customers/${editTarget.id}`, {
-                method: 'PUT',
-                headers: {
-                    'Content-Type': 'application/json',
-                    Authorization: `Bearer ${token}`,
-                },
-                body: JSON.stringify(editForm),
-            });
+    setSubmitting(true);
+    try {
+        // 1. Update Basic Info
+        const res = await fetch(`${API_URL}/customers/${editTarget.id}`, {
+            method: 'PUT',
+            headers: {
+                'Content-Type': 'application/json',
+                Authorization: `Bearer ${token}`,
+            },
+            body: JSON.stringify(editForm),
+        });
 
+        if (res.ok) {
             if (res.ok) {
-                // 2. Upload KTP if new file selected
-                if (ktpFile) {
-                    try {
-                        const formData = new FormData();
-                        formData.append('document', ktpFile);
-
-                        const uploadRes = await fetch(`${API_URL}/upload/customer/${editTarget.id}/ktp`, {
-                            method: 'POST',
-                            headers: { Authorization: `Bearer ${token}` },
-                            body: formData,
-                        });
-
-                        if (uploadRes.ok) {
-                            const uploadData = await uploadRes.json();
-                            // Update image URL in DB
-                            await fetch(`${API_URL}/customers/${editTarget.id}`, {
-                                method: 'PUT',
-                                headers: {
-                                    'Content-Type': 'application/json',
-                                    Authorization: `Bearer ${token}`,
-                                },
-                                body: JSON.stringify({ ktpImage: uploadData.url }),
-                            });
-                        }
-                    } catch (uploadError) {
-                        console.error('Failed to upload KTP:', uploadError);
-                        toast.error('Gagal mengupload foto KTP baru');
-                    }
-                }
-
                 toast.success('Customer berhasil diperbarui');
                 setShowEditModal(false);
                 setEditTarget(null);
-                setKtpFile(null);
+                resetForms();
                 fetchCustomers();
             } else {
                 toast.error('Gagal memperbarui customer');
@@ -437,6 +433,15 @@ export default function CustomersPage() {
                                     onClick={() => {
                                         setEditTarget(customer);
                                         setEditForm({ name: customer.name, phone: customer.phone, email: customer.email || '', address: customer.address || '' });
+                                        // Load existing docs
+                                        setCustomerDocs({
+                                            ktpImage: customer.ktpImage || null,
+                                            kkImage: customer.kkImage || null,
+                                            homeProofImage: customer.homeProofImage || null,
+                                            salarySlipImage: customer.salarySlipImage || null,
+                                            bankStatementImage: customer.bankStatementImage || null,
+                                            businessLicenseImage: customer.businessLicenseImage || null
+                                        });
                                         setKtpFile(null);
                                         setShowEditModal(true);
                                     }}
@@ -532,8 +537,8 @@ export default function CustomersPage() {
 
             {/* ADD CUSTOMER MODAL */}
             {showAddModal && (
-                <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-                    <div className="bg-[#ecf0f3] rounded-2xl p-6 w-full max-w-md shadow-2xl">
+                <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 overflow-y-auto py-10">
+                    <div className="bg-[#ecf0f3] rounded-2xl p-6 w-full max-w-4xl shadow-2xl">
                         <div className="flex items-center justify-between mb-6">
                             <h2 className="text-xl font-bold text-gray-800">Tambah Customer</h2>
                             <button onClick={() => setShowAddModal(false)}>
@@ -599,16 +604,21 @@ export default function CustomersPage() {
                             </div>
 
                             <div>
-                                <label className="block text-sm font-medium text-gray-600 mb-1">Foto KTP</label>
-                                <div className="relative">
-                                    <input
-                                        type="file"
-                                        accept="image/*"
-                                        onChange={(e) => setKtpFile(e.target.files?.[0] || null)}
-                                        className="w-full px-4 py-3 rounded-xl bg-[#ecf0f3] shadow-[inset_3px_3px_6px_#cbced1,inset_-3px_-3px_6px_#ffffff] focus:outline-none focus:ring-2 focus:ring-[#00bfa5] file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-[#00bfa5] file:text-white hover:file:bg-[#00a891]"
-                                    />
-                                </div>
-                                <p className="text-xs text-gray-400 mt-1">Format: JPG, PNG. Maks 5MB.</p>
+                                <h3 className="text-lg font-bold text-gray-800 mb-4 border-b border-gray-300 pb-2">Dokumen Pendukung</h3>
+                                <CustomerDocumentUploader
+                                    customerId=""
+                                    documents={customerDocs}
+                                    onDocumentChange={(key, url) => setCustomerDocs(prev => ({ ...prev, [key]: url }))}
+                                    onFileSelect={(key, file) => {
+                                        if (file) {
+                                            setPendingDocs(prev => ({ ...prev, [key]: file }));
+                                        } else {
+                                            const newDocs = { ...pendingDocs };
+                                            delete newDocs[key];
+                                            setPendingDocs(newDocs);
+                                        }
+                                    }}
+                                />
                             </div>
 
                             <div className="flex gap-3 pt-4">
@@ -762,8 +772,8 @@ export default function CustomersPage() {
             )}
             {/* EDIT CUSTOMER MODAL */}
             {showEditModal && editTarget && (
-                <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-                    <div className="bg-[#ecf0f3] rounded-2xl p-6 w-full max-w-md shadow-2xl max-h-[90vh] overflow-y-auto">
+                <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 overflow-y-auto py-10">
+                    <div className="bg-[#ecf0f3] rounded-2xl p-6 w-full max-w-4xl shadow-2xl">
                         <div className="flex items-center justify-between mb-6">
                             <h2 className="text-xl font-bold text-gray-800">Edit Customer</h2>
                             <button onClick={() => { setShowEditModal(false); setEditTarget(null); setKtpFile(null); }}>
@@ -792,60 +802,54 @@ export default function CustomersPage() {
                                 <textarea value={editForm.address} onChange={(e) => setEditForm({ ...editForm, address: e.target.value })} className="w-full px-4 py-3 rounded-xl bg-[#ecf0f3] shadow-[inset_3px_3px_6px_#cbced1,inset_-3px_-3px_6px_#ffffff] focus:outline-none focus:ring-2 focus:ring-[#00bfa5] resize-none" rows={3} />
                             </div>
 
-                            <div>
-                                <label className="block text-sm font-medium text-gray-600 mb-1">Foto KTP</label>
-                                {editTarget.ktpImage && !ktpFile && (
-                                    <div className="mb-2">
-                                        <p className="text-xs text-gray-400 mb-1">Foto saat ini:</p>
-                                        <img src={`${API_URL}${editTarget.ktpImage}`} alt="KTP" className="w-full h-32 object-cover rounded-lg border border-gray-200" />
-                                    </div>
-                                )}
-                                <div className="relative">
-                                    <input
-                                        type="file"
-                                        accept="image/*"
-                                        onChange={(e) => setKtpFile(e.target.files?.[0] || null)}
-                                        className="w-full px-4 py-3 rounded-xl bg-[#ecf0f3] shadow-[inset_3px_3px_6px_#cbced1,inset_-3px_-3px_6px_#ffffff] focus:outline-none focus:ring-2 focus:ring-[#00bfa5] file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-[#00bfa5] file:text-white hover:file:bg-[#00a891]"
-                                    />
-                                </div>
-                                <p className="text-xs text-gray-400 mt-1">Upload baru untuk mengganti foto lama.</p>
+                            <div className="mt-8">
+                                <h3 className="text-lg font-bold text-gray-800 mb-4 border-b border-gray-300 pb-2">Dokumen Pendukung</h3>
+                                <CustomerDocumentUploader
+                                    customerId={editTarget.id}
+                                    documents={customerDocs}
+                                    onDocumentChange={(key, url) => setCustomerDocs(prev => ({ ...prev, [key]: url }))}
+                                />
                             </div>
 
-                            <button type="button" onClick={() => handleExportPdf(editTarget.id, editTarget.name)} className="w-full py-3 rounded-xl bg-gray-200 text-gray-700 font-medium hover:bg-gray-300 flex items-center justify-center gap-2 transition-all">
-                                <FontAwesomeIcon icon={faFilePdf} /> Export PDF
-                            </button>
-
-                            <div className="flex gap-3 pt-2">
-                                <button type="button" onClick={() => { setShowEditModal(false); setEditTarget(null); setKtpFile(null); }} className="flex-1 py-3 rounded-xl bg-[#ecf0f3] text-gray-600 font-medium shadow-[3px_3px_6px_#cbced1,-3px_-3px_6px_#ffffff]">Batal</button>
-                                <button type="submit" disabled={submitting} className="flex-1 py-3 rounded-xl bg-[#00bfa5] text-white font-medium shadow-lg hover:bg-[#00a891] disabled:opacity-50">
-                                    {submitting ? <FontAwesomeIcon icon={faSpinner} className="animate-spin" /> : 'Simpan Perubahan'}
-                                </button>
-                            </div>
-                        </form>
                     </div>
-                </div>
+
+                    <button type="button" onClick={() => handleExportPdf(editTarget.id, editTarget.name)} className="w-full py-3 rounded-xl bg-gray-200 text-gray-700 font-medium hover:bg-gray-300 flex items-center justify-center gap-2 transition-all">
+                        <FontAwesomeIcon icon={faFilePdf} /> Export PDF
+                    </button>
+
+                    <div className="flex gap-3 pt-2">
+                        <button type="button" onClick={() => { setShowEditModal(false); setEditTarget(null); setKtpFile(null); }} className="flex-1 py-3 rounded-xl bg-[#ecf0f3] text-gray-600 font-medium shadow-[3px_3px_6px_#cbced1,-3px_-3px_6px_#ffffff]">Batal</button>
+                        <button type="submit" disabled={submitting} className="flex-1 py-3 rounded-xl bg-[#00bfa5] text-white font-medium shadow-lg hover:bg-[#00a891] disabled:opacity-50">
+                            {submitting ? <FontAwesomeIcon icon={faSpinner} className="animate-spin" /> : 'Simpan Perubahan'}
+                        </button>
+                    </div>
+                </form>
+                    </div >
+                </div >
             )}
 
-            {/* DELETE CONFIRMATION */}
-            {showDeleteConfirm && deleteTarget && (
-                <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-                    <div className="bg-[#ecf0f3] rounded-2xl shadow-xl max-w-sm w-full p-6">
-                        <div className="text-center">
-                            <div className="w-16 h-16 rounded-full bg-red-100 flex items-center justify-center mx-auto mb-4">
-                                <FontAwesomeIcon icon={faTrash} className="text-red-500 text-2xl" />
-                            </div>
-                            <h3 className="text-lg font-bold text-gray-800 mb-2">Hapus Customer?</h3>
-                            <p className="text-gray-500 mb-6">
-                                Apakah Anda yakin ingin menghapus <strong>{deleteTarget.name}</strong>? Tindakan ini tidak dapat dibatalkan.
-                            </p>
-                            <div className="flex gap-3">
-                                <button onClick={() => { setShowDeleteConfirm(false); setDeleteTarget(null); }} className="flex-1 py-3 rounded-xl bg-[#ecf0f3] text-gray-600 font-medium shadow-[3px_3px_6px_#cbced1,-3px_-3px_6px_#ffffff]">Batal</button>
-                                <button onClick={handleDeleteCustomer} className="flex-1 py-3 rounded-xl bg-red-500 text-white font-medium shadow-lg hover:bg-red-600 transition-all">Ya, Hapus</button>
-                            </div>
-                        </div>
+{/* DELETE CONFIRMATION */ }
+{
+    showDeleteConfirm && deleteTarget && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+            <div className="bg-[#ecf0f3] rounded-2xl shadow-xl max-w-sm w-full p-6">
+                <div className="text-center">
+                    <div className="w-16 h-16 rounded-full bg-red-100 flex items-center justify-center mx-auto mb-4">
+                        <FontAwesomeIcon icon={faTrash} className="text-red-500 text-2xl" />
+                    </div>
+                    <h3 className="text-lg font-bold text-gray-800 mb-2">Hapus Customer?</h3>
+                    <p className="text-gray-500 mb-6">
+                        Apakah Anda yakin ingin menghapus <strong>{deleteTarget.name}</strong>? Tindakan ini tidak dapat dibatalkan.
+                    </p>
+                    <div className="flex gap-3">
+                        <button onClick={() => { setShowDeleteConfirm(false); setDeleteTarget(null); }} className="flex-1 py-3 rounded-xl bg-[#ecf0f3] text-gray-600 font-medium shadow-[3px_3px_6px_#cbced1,-3px_-3px_6px_#ffffff]">Batal</button>
+                        <button onClick={handleDeleteCustomer} className="flex-1 py-3 rounded-xl bg-red-500 text-white font-medium shadow-lg hover:bg-red-600 transition-all">Ya, Hapus</button>
                     </div>
                 </div>
-            )}
+            </div>
         </div>
+    )
+}
+        </div >
     );
 }

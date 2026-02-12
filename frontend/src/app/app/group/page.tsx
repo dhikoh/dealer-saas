@@ -80,6 +80,20 @@ export default function GroupDashboardPage() {
                         Statistik gabungan dari {totalMembers} dealer dalam jaringan Anda.
                     </p>
                 </div>
+                <div className="flex gap-3">
+                    <Link
+                        href="/app/settings/dealer-group"
+                        className="bg-white text-gray-700 px-4 py-2 rounded-xl border border-gray-200 font-bold hover:bg-gray-50 flex items-center gap-2"
+                    >
+                        <FontAwesomeIcon icon={faUsers} /> Kelola Member
+                    </Link>
+                    <Link
+                        href="/app/settings/dealer-group?action=invite"
+                        className="bg-orange-600 text-white px-4 py-2 rounded-xl font-bold hover:bg-orange-700 flex items-center gap-2 shadow-lg shadow-orange-200"
+                    >
+                        <FontAwesomeIcon icon={faCrown} /> Undang Dealer
+                    </Link>
+                </div>
             </div>
 
             {/* KEY METRICS */}

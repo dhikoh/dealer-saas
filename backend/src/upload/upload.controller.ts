@@ -148,6 +148,26 @@ export class UploadController {
     }
 
     /**
+     * Upload finance/operating cost proof
+     */
+    @Post('finance/proof')
+    @UseInterceptors(FileInterceptor('proof'))
+    uploadFinanceProof(
+        @UploadedFile() file: Express.Multer.File,
+        @Request() req: any,
+    ) {
+        if (!file) {
+            throw new BadRequestException('No file uploaded');
+        }
+        // Strict check: Only images allowed
+        if (!file.mimetype.startsWith('image/')) {
+            throw new BadRequestException('Hanya file gambar yang diperbolehkan');
+        }
+
+        return this.uploadService.processUpload(file as any, 'finance');
+    }
+
+    /**
      * Upload vehicle cost receipt
      */
     @Post('receipt/:vehicleId')

@@ -3,7 +3,7 @@
 import React, { useState, useEffect } from "react";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { faPlus, faMoneyBill, faBuilding, faBolt, faTrash } from "@fortawesome/free-solid-svg-icons";
-import { toast } from "react-hot-toast";
+import { toast } from "sonner";
 
 interface OperatingCost {
     id: string;
@@ -11,7 +11,9 @@ interface OperatingCost {
     amount: number;
     category: string;
     date: string;
+
     note?: string;
+    proofImage?: string;
 }
 
 const CATEGORIES = [
@@ -36,6 +38,8 @@ export default function FinancePage() {
         date: new Date().toISOString().split("T")[0],
         note: "",
     });
+    const [proofFile, setProofFile] = useState<File | null>(null);
+    const [viewProofUrl, setViewProofUrl] = useState<string | null>(null);
 
     const fetchCosts = async () => {
         try {
@@ -62,19 +66,48 @@ export default function FinancePage() {
         e.preventDefault();
         try {
             const token = localStorage.getItem("token");
+            let proofUrl = "";
+
+            // 1. Upload Proof if exists
+            if (proofFile) {
+                const formData = new FormData();
+                formData.append('proof', proofFile);
+
+                try {
+                    const uploadRes = await fetch(`${API_URL}/upload/finance/proof`, {
+                        method: "POST",
+                        headers: { Authorization: `Bearer ${token}` },
+                        body: formData
+                    });
+
+                    if (uploadRes.ok) {
+                        const data = await uploadRes.json();
+                        proofUrl = data.url;
+                    } else {
+                        toast.error("Gagal upload bukti pembayaran");
+                        return;
+                    }
+                } catch (err) {
+                    toast.error("Gagal upload bukti pembayaran");
+                    return;
+                }
+            }
+
+            // 2. Create Cost
             const res = await fetch(`${API_URL}/finance/costs`, {
                 method: "POST",
                 headers: {
                     "Content-Type": "application/json",
                     Authorization: `Bearer ${token}`,
                 },
-                body: JSON.stringify(formData),
+                body: JSON.stringify({ ...formData, proofImage: proofUrl || undefined }),
             });
 
             if (res.ok) {
                 toast.success("Biaya berhasil disimpan");
                 setShowModal(false);
                 setFormData({ name: "", amount: "", category: "OTHER", date: new Date().toISOString().split("T")[0], note: "" });
+                setProofFile(null);
                 fetchCosts();
             } else {
                 toast.error("Gagal menyimpan biaya");
@@ -159,7 +192,16 @@ export default function FinancePage() {
                                         <td className="p-4 text-right font-bold text-gray-900">
                                             Rp {Number(cost.amount).toLocaleString("id-ID")}
                                         </td>
-                                        <td className="p-4 text-center">
+                                        <td className="p-4 text-center flex items-center justify-center gap-2">
+                                            {cost.proofImage && (
+                                                <button
+                                                    onClick={() => setViewProofUrl(`${API_URL}${cost.proofImage}`)}
+                                                    className="text-blue-500 hover:text-blue-700"
+                                                    title="Lihat Bukti"
+                                                >
+                                                    <FontAwesomeIcon icon={faMoneyBill} />
+                                                </button>
+                                            )}
                                             <button onClick={() => handleDelete(cost.id)} className="text-red-400 hover:text-red-600">
                                                 <FontAwesomeIcon icon={faTrash} />
                                             </button>
@@ -232,6 +274,15 @@ export default function FinancePage() {
                                     onChange={e => setFormData({ ...formData, note: e.target.value })}
                                 />
                             </div>
+                            <div>
+                                <label className="block text-sm font-bold text-gray-700 mb-1">Bukti Pembayaran (Opsional)</label>
+                                <input
+                                    type="file"
+                                    accept="image/*"
+                                    className="w-full border rounded-lg p-2 text-sm"
+                                    onChange={e => setProofFile(e.target.files?.[0] || null)}
+                                />
+                            </div>
 
                             <div className="flex gap-3 pt-4">
                                 <button
@@ -252,6 +303,27 @@ export default function FinancePage() {
                     </div>
                 </div>
             )}
-        </div>
+
+
+            {/* PROOF MODAL */}
+            {
+                viewProofUrl && (
+                    <div
+                        className="fixed inset-0 bg-black/70 flex items-center justify-center z-[100] p-4"
+                        onClick={() => setViewProofUrl(null)}
+                    >
+                        <div className="max-w-3xl max-h-[90vh] overflow-auto bg-white rounded-2xl p-2" onClick={(e) => e.stopPropagation()}>
+                            <img src={viewProofUrl} alt="Bukti Pembayaran" className="w-full h-auto rounded-lg" />
+                            <button
+                                onClick={() => setViewProofUrl(null)}
+                                className="mt-2 w-full py-2 text-center text-gray-500 hover:text-gray-700 font-medium"
+                            >
+                                Tutup
+                            </button>
+                        </div>
+                    </div>
+                )
+            }
+        </div >
     );
 }

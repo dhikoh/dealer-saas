@@ -746,3 +746,51 @@ model AdminPaymentMethod {
 
   @@map("admin_payment_methods")
 }
+
+// ==================== OPERATING COSTS (v2.2) ====================
+
+model OperatingCost {
+  id          String   @id @default(uuid())
+  tenantId    String
+  tenant      Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  
+  name        String
+  amount      Decimal
+  category    String   // SALARY, UTILITY, RENT, MARKETING, OTHER
+  date        DateTime @default(now())
+  
+  note        String?
+  proofImage  String?  // URL to proof
+  
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([tenantId])
+  @@index([tenantId, date])
+  @@map("operating_costs")
+}
+
+
+// ==================== OPERATING COSTS (v2.2) ====================
+
+model OperatingCost {
+  id          String   @id @default(uuid())
+  tenantId    String
+  tenant      Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  
+  name        String
+  amount      Decimal
+  category    String   // SALARY, UTILITY, RENT, MARKETING, OTHER
+  date        DateTime @default(now())
+  
+  note        String?
+  proofImage  String?  // URL to proof
+  
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([tenantId])
+  @@index([tenantId, date])
+  @@map("operating_costs")
+}
+

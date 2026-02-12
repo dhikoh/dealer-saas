@@ -1,6 +1,7 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { existsSync, unlinkSync, mkdirSync } from 'fs';
+import * as path from 'path';
 import { join } from 'path';
 
 export interface UploadedFile {
@@ -42,12 +43,13 @@ export class UploadService {
     /**
      * Process uploaded file and return URL
      */
-    processUpload(file: UploadedFile, type: string = 'general'): UploadResult {
-        // Generate public URL
-        const relativePath = file.path.replace(this.uploadDir, '').replace(/\\/g, '/');
-        const url = `/uploads${relativePath}`;
+    processUpload(file: Express.Multer.File, type: string = 'general'): UploadResult {
+        // Fix: Use path.relative to get the path relative to the upload root
+        // This handles cross-platform path separators correctly
+        const relativePath = path.relative(this.uploadDir, file.path).replace(/\\/g, '/');
 
-        this.logger.log(`File uploaded: ${file.originalname} -> ${url}`);
+        // Ensure we don't duplicate the /uploads prefix if it's already in the path
+        const url = `/uploads/${relativePath}`;
 
         return {
             success: true,

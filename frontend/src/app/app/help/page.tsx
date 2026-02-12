@@ -63,8 +63,42 @@ const FAQ_CATEGORIES = [
     },
 ];
 
+
 export default function HelpCenterPage() {
     const [activeCategory, setActiveCategory] = useState(0);
+    const [tenant, setTenant] = useState<any>(null);
+
+    React.useEffect(() => {
+        const fetchTenant = async () => {
+            const token = localStorage.getItem('access_token');
+            if (!token) return;
+            try {
+                const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
+                const res = await fetch(`${API_URL}/tenant/profile`, {
+                    headers: { Authorization: `Bearer ${token}` }
+                });
+                if (res.ok) {
+                    const data = await res.json();
+                    setTenant(data);
+                }
+            } catch (e) {
+                console.error("Failed to fetch tenant profile", e);
+            }
+        };
+        fetchTenant();
+    }, []);
+
+    // Helper to format phone for WhatsApp (remove 0/62, add 62)
+    const getWaLink = (phone: string) => {
+        let p = phone.replace(/\D/g, '');
+        if (p.startsWith('0')) p = '62' + p.substring(1);
+        if (p.startsWith('8')) p = '62' + p;
+        return `https://wa.me/${p}`;
+    };
+
+    const contactPhone = tenant?.phone || '6281234567890';
+    const contactEmail = tenant?.email || 'support@otohub.id';
+    const waLink = tenant?.phone ? getWaLink(tenant.phone) : 'https://wa.me/6281234567890';
 
     return (
         <div className="max-w-4xl mx-auto space-y-6">
@@ -80,8 +114,8 @@ export default function HelpCenterPage() {
                         key={i}
                         onClick={() => setActiveCategory(i)}
                         className={`flex items-center gap-2 px-4 py-2.5 rounded-xl whitespace-nowrap transition-all ${activeCategory === i
-                                ? 'bg-[#00bfa5] text-white'
-                                : 'bg-[#ecf0f3] dark:bg-gray-800 text-gray-600 dark:text-gray-300 shadow-[3px_3px_6px_#cbced1,-3px_-3px_6px_#ffffff] dark:shadow-none hover:bg-gray-100 dark:hover:bg-gray-700'
+                            ? 'bg-[#00bfa5] text-white'
+                            : 'bg-[#ecf0f3] dark:bg-gray-800 text-gray-600 dark:text-gray-300 shadow-[3px_3px_6px_#cbced1,-3px_-3px_6px_#ffffff] dark:shadow-none hover:bg-gray-100 dark:hover:bg-gray-700'
                             }`}
                     >
                         {cat.icon}
@@ -118,7 +152,7 @@ export default function HelpCenterPage() {
                 <h3 className="text-lg font-semibold text-gray-800 dark:text-white mb-4">Masih Ada Pertanyaan?</h3>
                 <div className="grid md:grid-cols-2 gap-4">
                     <a
-                        href="https://wa.me/6281234567890"
+                        href={waLink}
                         target="_blank"
                         rel="noopener noreferrer"
                         className="flex items-center gap-3 p-4 rounded-xl bg-emerald-50 dark:bg-emerald-900/30 border border-emerald-200 dark:border-emerald-800 hover:bg-emerald-100 dark:hover:bg-emerald-900/50 transition-colors"
@@ -126,17 +160,19 @@ export default function HelpCenterPage() {
                         <MessageCircle className="w-5 h-5 text-emerald-600 dark:text-emerald-400" />
                         <div>
                             <p className="font-medium text-emerald-700 dark:text-emerald-300">WhatsApp</p>
-                            <p className="text-sm text-emerald-600 dark:text-emerald-400">Chat langsung dengan CS (respon cepat)</p>
+                            <p className="text-sm text-emerald-600 dark:text-emerald-400">
+                                {tenant?.phone ? `Hubungi Admin (${tenant.phone})` : 'Chat CS OTOHUB'}
+                            </p>
                         </div>
                     </a>
                     <a
-                        href="mailto:support@otohub.id"
+                        href={`mailto:${contactEmail}`}
                         className="flex items-center gap-3 p-4 rounded-xl bg-blue-50 dark:bg-blue-900/30 border border-blue-200 dark:border-blue-800 hover:bg-blue-100 dark:hover:bg-blue-900/50 transition-colors"
                     >
                         <Mail className="w-5 h-5 text-blue-600 dark:text-blue-400" />
                         <div>
                             <p className="font-medium text-blue-700 dark:text-blue-300">Email Support</p>
-                            <p className="text-sm text-blue-600 dark:text-blue-400">support@otohub.id</p>
+                            <p className="text-sm text-blue-600 dark:text-blue-400">{contactEmail}</p>
                         </div>
                     </a>
                 </div>
