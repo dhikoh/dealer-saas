@@ -18,8 +18,14 @@ export class DealerGroupController {
         return this.dealerGroupService.joinGroup(req.user.tenantId, code);
     }
 
-    @Get('my-group')
+    @Get('my')
     async getMyGroup(@Request() req) {
+        return this.dealerGroupService.getMyGroup(req.user.id);
+    }
+
+    // Alias for Mobile App compatibility
+    @Get('my-group')
+    async getMyGroupMobile(@Request() req) {
         return this.dealerGroupService.getMyGroup(req.user.id);
     }
 

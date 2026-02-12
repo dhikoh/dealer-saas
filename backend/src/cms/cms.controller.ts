@@ -16,6 +16,13 @@ export class CmsController {
         return this.cmsService.getPublicContent();
     }
 
+    @Get('superadmin/cms')
+    @UseGuards(JwtAuthGuard, RolesGuard)
+    @Roles('SUPERADMIN')
+    async getContentForAdmin() {
+        return this.cmsService.getPublicContent();
+    }
+
     @Patch('superadmin/cms')
     @UseGuards(JwtAuthGuard, RolesGuard)
     @Roles('SUPERADMIN')

@@ -1,13 +1,125 @@
-import { Injectable, BadRequestException, Logger } from '@nestjs/common';
-import { Cron, CronExpression } from '@nestjs/schedule';
-import { PrismaService } from '../prisma/prisma.service';
-import { PLAN_TIERS, getPlanById, canUpgrade, canDowngrade, calculateYearlyPrice } from '../config/plan-tiers.config';
+import { NotificationService } from '../notification/notification.service';
 
 @Injectable()
 export class BillingService {
     private readonly logger = new Logger(BillingService.name);
 
-    constructor(private prisma: PrismaService) { }
+    constructor(
+        private prisma: PrismaService,
+        private notificationService: NotificationService
+    ) { }
+
+    // ... (rest of the file until uploadPaymentProof)
+
+    async verifyPayment(invoiceId: string, approved: boolean, verifiedBy: string) {
+        const invoice = await (this.prisma as any).systemInvoice.findUnique({
+            where: { id: invoiceId },
+            include: { tenant: true } // Need tenant to find owner
+        });
+
+        if (!invoice) throw new BadRequestException('Invoice not found');
+
+        // Find Tenant Owner for notification
+        const owner = await this.prisma.user.findFirst({
+            where: { tenantId: invoice.tenantId, role: 'OWNER' }
+        });
+
+        if (approved) {
+            // Approve payment
+            await (this.prisma as any).systemInvoice.update({
+                where: { id: invoiceId },
+                data: { status: 'PAID' }
+            });
+
+            // Activate subscription
+            const now = new Date();
+            const subscriptionEndsAt = new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000);
+
+            await this.prisma.tenant.update({
+                where: { id: invoice.tenantId },
+                data: {
+                    subscriptionStatus: 'ACTIVE',
+                    subscriptionStartedAt: now,
+                    subscriptionEndsAt,
+                    nextBillingDate: subscriptionEndsAt,
+                    scheduledDeletionAt: null, // Cancel auto-deletion timer
+                }
+            });
+
+            // Notify Owner
+            if (owner) {
+                await this.notificationService.createNotification({
+                    userId: owner.id,
+                    title: 'Pembayaran Diterima ✅',
+                    message: `Pembayaran untuk Invoice #${invoice.invoiceNumber} telah diverifikasi. Langganan Anda aktif kembali.`,
+                    type: 'success',
+                    link: '/app/billing'
+                });
+            }
+
+            return { success: true, message: 'Payment verified and subscription activated' };
+        } else {
+            // Reject payment
+            await (this.prisma as any).systemInvoice.update({
+                where: { id: invoiceId },
+                data: { status: 'REJECTED' }
+            });
+
+            // Notify Owner
+            if (owner) {
+                await this.notificationService.createNotification({
+                    userId: owner.id,
+                    title: 'Pembayaran Ditolak ❌',
+                    message: `Pembayaran untuk Invoice #${invoice.invoiceNumber} ditolak. Silakan upload bukti yang valid.`,
+                    type: 'error',
+                    link: '/app/billing'
+                });
+            }
+
+            return { success: true, message: 'Payment rejected' };
+        }
+    }
+
+    // ... (rest of methods)
+
+    async uploadPaymentProof(invoiceId: string, tenantId: string, proofUrl: string) {
+        const invoice = await (this.prisma as any).systemInvoice.findUnique({
+            where: { id: invoiceId },
+            include: { tenant: true }
+        });
+
+        if (!invoice) throw new BadRequestException('Invoice not found');
+        if (invoice.tenantId !== tenantId) throw new BadRequestException('Access denied');
+        if (invoice.status !== 'PENDING' && invoice.status !== 'REJECTED') {
+            // Allow re-upload if rejected? Logic says PENDING only usually, but let's be flexible
+            if (invoice.status !== 'PENDING') throw new BadRequestException('Invoice is not pending');
+        }
+
+        const updated = await (this.prisma as any).systemInvoice.update({
+            where: { id: invoiceId },
+            data: {
+                status: 'VERIFYING',
+                paymentProof: proofUrl, // FIXED: paymentProofUrl -> paymentProof
+            },
+        });
+
+        // Notify Superadmins
+        const superadmins = await this.prisma.user.findMany({
+            where: { role: 'SUPERADMIN' }
+        });
+
+        for (const admin of superadmins) {
+            await this.notificationService.createNotification({
+                userId: admin.id,
+                title: 'New Payment Proof 💸',
+                message: `Tenant ${invoice.tenant?.name} uploaded proof for #${invoice.invoiceNumber}.`,
+                type: 'info',
+                link: '/superadmin/invoices'
+            });
+        }
+
+        return updated;
+    }
 
     // ==================== SUBSCRIPTION STATUS ====================
 

@@ -521,6 +521,19 @@ export default function CustomersPage() {
                                 />
                             </div>
 
+                            <div>
+                                <label className="block text-sm font-medium text-gray-600 mb-1">Foto KTP</label>
+                                <div className="relative">
+                                    <input
+                                        type="file"
+                                        accept="image/*"
+                                        onChange={(e) => setKtpFile(e.target.files?.[0] || null)}
+                                        className="w-full px-4 py-3 rounded-xl bg-[#ecf0f3] shadow-[inset_3px_3px_6px_#cbced1,inset_-3px_-3px_6px_#ffffff] focus:outline-none focus:ring-2 focus:ring-[#00bfa5] file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-[#00bfa5] file:text-white hover:file:bg-[#00a891]"
+                                    />
+                                </div>
+                                <p className="text-xs text-gray-400 mt-1">Format: JPG, PNG. Maks 5MB.</p>
+                            </div>
+
                             <div className="flex gap-3 pt-4">
                                 <button
                                     type="button"

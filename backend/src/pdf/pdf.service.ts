@@ -3,9 +3,14 @@ import { PrismaService } from '../prisma/prisma.service';
 // eslint-disable-next-line @typescript-eslint/no-var-requires
 const PDFDocument = require('pdfkit');
 
+import { UploadService } from '../upload/upload.service';
+
 @Injectable()
 export class PdfService {
-    constructor(private prisma: PrismaService) { }
+    constructor(
+        private prisma: PrismaService,
+        private uploadService: UploadService
+    ) { }
 
     // Format currency in Indonesian Rupiah
     private formatCurrency(value: number): string {
@@ -862,73 +867,166 @@ export class PdfService {
 
         doc.pipe(res);
 
+        // === WATERMARK ===
+        if (['PAID', 'REJECTED', 'OVERDUE', 'CANCELLED'].includes(invoice.status)) {
+            const watermarkText = invoice.status === 'PAID' ? 'LUNAS' :
+                invoice.status === 'REJECTED' ? 'DITOLAK' :
+                    invoice.status === 'OVERDUE' ? 'JATUH TEMPO' : 'BATAL';
+
+            const color = invoice.status === 'PAID' ? '#2ecc71' : '#e74c3c';
+
+            doc.save();
+            doc.rotate(-45, { origin: [300, 400] });
+            doc.opacity(0.15);
+            doc.fontSize(80).font('Helvetica-Bold').fillColor(color);
+            doc.text(watermarkText, 50, 400, { width: 500, align: 'center' });
+            doc.restore();
+        }
+
         // === HEADER ===
-        this.drawHeader(doc, invoice.tenant as any, 'INVOICE', invoice.invoiceNumber);
+        // We use OTOHUB as the issuer
+        const issuer = {
+            name: 'OTOHUB INDONESIA',
+            address: 'Jakarta, Indonesia',
+            phone: 'support@otohub.id',
+            email: 'billing@otohub.id'
+        };
+        this.drawHeader(doc, issuer, 'INVOICE', invoice.invoiceNumber);
 
         // === INVOICE INFO ===
         doc.fontSize(10).font('Helvetica');
-        doc.text(`No. Invoice: ${invoice.invoiceNumber}`);
-        doc.text(`Tanggal: ${this.formatDate(invoice.date || invoice.createdAt)}`);
-        doc.text(`Jatuh Tempo: ${this.formatDate(invoice.dueDate)}`);
-        doc.moveDown();
+        const rightColX = 350;
+        const topInfoY = 110;
+
+        doc.text(`No. Invoice`, rightColX, topInfoY);
+        doc.font('Helvetica-Bold').text(`: ${invoice.invoiceNumber}`, rightColX + 70, topInfoY);
+
+        doc.font('Helvetica').text(`Tanggal`, rightColX, topInfoY + 15);
+        doc.font('Helvetica-Bold').text(`: ${this.formatDate(invoice.date || invoice.createdAt)}`, rightColX + 70, topInfoY + 15);
+
+        doc.font('Helvetica').text(`Jatuh Tempo`, rightColX, topInfoY + 30);
+        doc.fillColor(invoice.status === 'OVERDUE' ? 'red' : 'black')
+            .font('Helvetica-Bold').text(`: ${this.formatDate(invoice.dueDate)}`, rightColX + 70, topInfoY + 30);
+        doc.fillColor('black'); // Reset
 
         // === BILL TO ===
-        doc.fontSize(12).font('Helvetica-Bold').text('Kepada:');
+        doc.y = topInfoY;
+        doc.fontSize(12).font('Helvetica-Bold').text('DITAGIHKAN KEPADA:');
+        doc.moveDown(0.5);
         doc.fontSize(10).font('Helvetica');
         doc.text(invoice.tenant?.name || '-');
-        doc.text(invoice.tenant?.address || '');
-        doc.text(`Email: ${invoice.tenant?.email || '-'}`);
-        doc.text(`Telp: ${invoice.tenant?.phone || '-'}`);
-        doc.moveDown();
+        if (invoice.tenant?.address) doc.text(invoice.tenant.address);
+        if (invoice.tenant?.phone) doc.text(`Telp: ${invoice.tenant.phone}`);
+        if (invoice.tenant?.email) doc.text(`Email: ${invoice.tenant.email}`);
 
-        doc.moveTo(50, doc.y).lineTo(550, doc.y).stroke('#ddd');
-        doc.moveDown();
+        doc.moveDown(2);
+        const tableTop = doc.y;
 
         // === ITEMS TABLE ===
-        doc.fontSize(12).font('Helvetica-Bold').text('Rincian:');
-        doc.moveDown(0.5);
-
-        // Table header
-        const tableTop = doc.y;
+        // Header
+        doc.rect(50, tableTop, 512, 25).fill('#f4f4f4');
+        doc.fillColor('#333');
         doc.fontSize(10).font('Helvetica-Bold');
-        doc.text('No', 50, tableTop, { width: 30 });
-        doc.text('Deskripsi', 80, tableTop, { width: 320 });
-        doc.text('Jumlah', 400, tableTop, { width: 150, align: 'right' });
-        doc.moveDown();
-        doc.moveTo(50, doc.y).lineTo(550, doc.y).stroke('#ddd');
+        doc.text('No', 60, tableTop + 7, { width: 30 });
+        doc.text('Deskripsi', 100, tableTop + 7, { width: 300 });
+        doc.text('Jumlah', 410, tableTop + 7, { width: 140, align: 'right' });
 
-        // Parse items
+        // Rows
         let items: any[] = [];
         try {
             items = typeof invoice.items === 'string' ? JSON.parse(invoice.items) : (invoice.items || []);
         } catch (e) {
-            items = [{ description: 'Langganan OTOHUB', amount: invoice.amount }];
+            items = [{ description: 'Biaya Langganan OTOHUB', amount: invoice.amount }];
         }
 
+        let y = tableTop + 35;
         doc.font('Helvetica').fontSize(10);
+
         items.forEach((item: any, i: number) => {
-            const y = doc.y + 5;
-            doc.text(`${i + 1}`, 50, y, { width: 30 });
-            doc.text(item.description || '-', 80, y, { width: 320 });
-            doc.text(this.formatCurrency(Number(item.amount || 0)), 400, y, { width: 150, align: 'right' });
-            doc.moveDown();
+            doc.text(`${i + 1}`, 60, y, { width: 30 });
+            doc.text(item.description || '-', 100, y, { width: 300 });
+            doc.text(this.formatCurrency(Number(item.amount || 0)), 410, y, { width: 140, align: 'right' });
+            y += 20;
         });
 
-        doc.moveDown();
-        doc.moveTo(50, doc.y).lineTo(550, doc.y).stroke('#00bfa5');
-        doc.moveDown();
+        // Line
+        doc.moveTo(50, y).lineTo(562, y).stroke('#ddd');
+        y += 10;
 
         // === TOTAL ===
-        doc.fontSize(14).font('Helvetica-Bold').text('TOTAL', { align: 'center' });
-        doc.fontSize(24).font('Helvetica-Bold')
-            .text(this.formatCurrency(Number(invoice.amount)), { align: 'center' });
+        const totalY = y;
+        doc.fontSize(12).font('Helvetica-Bold').text('TOTAL TAGIHAN', 300, totalY, { width: 100, align: 'right' });
+        doc.fontSize(14).font('Helvetica-Bold').fillColor('#00bfa5')
+            .text(this.formatCurrency(Number(invoice.amount)), 410, totalY - 2, { width: 140, align: 'right' });
 
-        doc.moveDown();
+        doc.fillColor('black'); // Reset
+        doc.moveDown(4);
+
+        // === TERBILANG ===
+        doc.fontSize(10).font('Helvetica-Oblique').fillColor('#555');
+        doc.text(`Terbilang: # ${this.terbilang(Number(invoice.amount))} Rupiah #`, 50, totalY + 30);
+
+        // === STATUS BADGE ===
+        const statusMap: Record<string, string> = {
+            'PENDING': 'MENUNGGU PEMBAYARAN',
+            'VERIFYING': 'SEDANG DIVERIFIKASI',
+            'PAID': 'LUNAS',
+            'REJECTED': 'DITOLAK / DATA TIDAK VALID',
+            'OVERDUE': 'JATUH TEMPO',
+            'CANCELLED': 'DIBATALKAN'
+        };
+
+        const statusLabel = statusMap[invoice.status] || invoice.status;
+
+        doc.moveDown(3);
+        doc.fontSize(11).font('Helvetica-Bold').fillColor('#333').text('Status Pembayaran:');
+        doc.fontSize(12).font('Helvetica-Bold').fillColor(
+            invoice.status === 'PAID' ? '#2ecc71' :
+                invoice.status === 'PENDING' ? '#f1c40f' :
+                    invoice.status === 'VERIFYING' ? '#3498db' : '#e74c3c'
+        ).text(statusLabel);
+
+        // === PAYMENT INSTRUCTIONS (If Pending) ===
+        if (invoice.status === 'PENDING' || invoice.status === 'OVERDUE') {
+            doc.moveDown(2);
+            doc.fontSize(11).font('Helvetica-Bold').fillColor('#333').text('Instruksi Pembayaran:');
+            doc.fontSize(10).font('Helvetica').text('Silakan transfer ke rekening berikut:');
+            doc.moveDown(0.5);
+            doc.rect(50, doc.y, 250, 60).stroke('#ddd');
+            doc.moveDown(0.5);
+            const bankY = doc.y;
+            doc.text('Bank BCA', 65, bankY);
+            doc.font('Helvetica-Bold').fontSize(12).text('123 456 7890', 65, bankY + 15);
+            doc.font('Helvetica').fontSize(9).text('a.n. PT OTOHUB INDONESIA', 65, bankY + 32);
+        }
 
         // === FOOTER ===
-        doc.fontSize(10).font('Helvetica');
-        doc.text('Thank you for your business.', { align: 'center' });
-        doc.moveDown();
+        const bottomY = 750;
+        doc.fontSize(8).font('Helvetica').fillColor('#999');
+        doc.text('Invoice ini sah dan diproses oleh komputer.', 50, bottomY, { align: 'center', width: 512 });
+        doc.text(`Dicetak pada: ${this.formatDate(new Date())}`, 50, bottomY + 12, { align: 'center', width: 512 });
+
+        // === ATTACHMENT: PAYMENT PROOF ===
+        if (invoice.paymentProof) {
+            doc.addPage();
+            doc.fontSize(16).font('Helvetica-Bold').fillColor('#333').text('LAMPIRAN: BUKTI PEMBAYARAN', { align: 'center' });
+            doc.moveDown(2);
+
+            try {
+                // Resolve file path using UploadService
+                const imagePath = this.uploadService.getFilePath(invoice.paymentProof);
+
+                // Embed image centered
+                doc.image(imagePath, {
+                    fit: [500, 600],
+                    align: 'center',
+                    valign: 'center'
+                });
+            } catch (err) {
+                doc.fontSize(12).fillColor('red').text('Gagal memuat gambar bukti pembayaran.', { align: 'center' });
+                console.error(`Error loading payment proof for PDF: ${err.message}`);
+            }
+        }
 
         doc.end();
     }

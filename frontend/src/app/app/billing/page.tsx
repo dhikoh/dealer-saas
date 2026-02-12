@@ -127,9 +127,9 @@ export default function BillingPage() {
             const baseUrl = API_URL;
 
             const [profileRes, plansRes, invoicesRes] = await Promise.all([
-                fetch(`${baseUrl}/tenant/profile`, { headers }),
-                fetch(`${baseUrl}/tenant/plans`, { headers }),
-                fetch(`${baseUrl}/tenant/invoices`, { headers }),
+                fetch(`${baseUrl}/billing/my-subscription`, { headers }),
+                fetch(`${baseUrl}/billing/plans`, { headers }),
+                fetch(`${baseUrl}/billing/my-invoices`, { headers }),
             ]);
 
             if (profileRes.ok) setProfile(await profileRes.json());
@@ -183,7 +183,7 @@ export default function BillingPage() {
 
         try {
             const token = localStorage.getItem('access_token');
-            const res = await fetch(`${API_URL}/tenant/invoices/${uploadInvoiceId}/proof`, {
+            const res = await fetch(`${API_URL}/billing/my-invoices/${uploadInvoiceId}/upload-proof`, {
                 method: 'POST',
                 headers: { 'Authorization': `Bearer ${token}` },
                 body: formData,
