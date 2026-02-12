@@ -301,48 +301,8 @@ export class BillingService {
     }
 
     // ==================== PAYMENT VERIFICATION ====================
-
-    async verifyPayment(invoiceId: string, approved: boolean, verifiedBy: string) {
-        const invoice = await (this.prisma as any).systemInvoice.findUnique({
-            where: { id: invoiceId },
-            include: { tenant: true }
-        });
-
-        if (!invoice) throw new BadRequestException('Invoice not found');
-
-        if (approved) {
-            // Approve payment
-            await (this.prisma as any).systemInvoice.update({
-                where: { id: invoiceId },
-                data: { status: 'PAID' }
-            });
-
-            // Activate subscription
-            const now = new Date();
-            const subscriptionEndsAt = new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000);
-
-            await this.prisma.tenant.update({
-                where: { id: invoice.tenantId },
-                data: {
-                    subscriptionStatus: 'ACTIVE',
-                    subscriptionStartedAt: now,
-                    subscriptionEndsAt,
-                    nextBillingDate: subscriptionEndsAt,
-                    scheduledDeletionAt: null, // Cancel auto-deletion timer
-                }
-            });
-
-            return { success: true, message: 'Payment verified and subscription activated' };
-        } else {
-            // Reject payment
-            await (this.prisma as any).systemInvoice.update({
-                where: { id: invoiceId },
-                data: { status: 'REJECTED' }
-            });
-
-            return { success: true, message: 'Payment rejected' };
-        }
-    }
+    // Methods verifyPayment and uploadPaymentProof are already defined above.
+    // access denied logic and notifications are handled there.
 
     // ==================== TRIAL MANAGEMENT ====================
 
@@ -430,24 +390,6 @@ export class BillingService {
             where: { tenantId },
             orderBy: { createdAt: 'desc' },
             take: 50,
-        });
-    }
-
-    async uploadPaymentProof(invoiceId: string, tenantId: string, proofUrl: string) {
-        const invoice = await (this.prisma as any).systemInvoice.findUnique({
-            where: { id: invoiceId },
-        });
-
-        if (!invoice) throw new BadRequestException('Invoice not found');
-        if (invoice.tenantId !== tenantId) throw new BadRequestException('Access denied');
-        if (invoice.status !== 'PENDING') throw new BadRequestException('Invoice is not pending');
-
-        return (this.prisma as any).systemInvoice.update({
-            where: { id: invoiceId },
-            data: {
-                status: 'VERIFYING',
-                paymentProofUrl: proofUrl,
-            },
         });
     }
 
