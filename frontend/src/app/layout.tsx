@@ -3,7 +3,7 @@ import { Poppins } from "next/font/google";
 import "./globals.css";
 import { Toaster } from "sonner";
 import ErrorBoundary from "@/components/ErrorBoundary";
-import { BranchProvider } from "@/context/BranchContext";
+
 
 const poppins = Poppins({
   weight: ['300', '400', '600', '700'],
@@ -28,11 +28,7 @@ export default function RootLayout({
         className={`${poppins.variable} antialiased font-sans`}
         suppressHydrationWarning
       >
-        <ErrorBoundary>
-          <BranchProvider>
-            {children}
-          </BranchProvider>
-        </ErrorBoundary>
+        {children}
         <Toaster position="top-center" richColors />
       </body>
     </html>

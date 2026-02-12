@@ -30,6 +30,7 @@ interface MenuItem {
     labelKey: keyof ReturnType<typeof useLanguage>['t'];
     href: string;
     premium?: boolean;
+    roles?: string[]; // Allowed roles
 }
 
 const MENU_ITEMS: MenuItem[] = [
@@ -44,12 +45,12 @@ const MENU_ITEMS: MenuItem[] = [
 ];
 
 const OTHER_MENU_ITEMS: MenuItem[] = [
-    { icon: faUserTie, labelKey: 'staff', href: '/app/staff' },
-    { icon: faBuilding, labelKey: 'branch', href: '/app/branches', premium: true },
-    { icon: faReceipt, labelKey: 'billing', href: '/app/billing' },
-    { icon: faBell, labelKey: 'activity', href: '/app/activity' },
-    { icon: faUsers, labelKey: 'dealerGroup', href: '/app/settings/dealer-group' },
-    { icon: faCog, labelKey: 'settings', href: '/app/settings' },
+    { icon: faUserTie, labelKey: 'staff', href: '/app/staff', roles: ['OWNER', 'ADMIN', 'SUPERADMIN'] },
+    { icon: faBuilding, labelKey: 'branch', href: '/app/branches', premium: true, roles: ['OWNER', 'ADMIN', 'SUPERADMIN'] },
+    { icon: faReceipt, labelKey: 'billing', href: '/app/billing', roles: ['OWNER', 'SUPERADMIN'] },
+    { icon: faBell, labelKey: 'activity', href: '/app/activity', roles: ['OWNER', 'ADMIN', 'SUPERADMIN'] },
+    { icon: faUsers, labelKey: 'dealerGroup', href: '/app/settings/dealer-group', roles: ['OWNER', 'SUPERADMIN'] },
+    { icon: faCog, labelKey: 'settings', href: '/app/settings', roles: ['OWNER', 'ADMIN', 'SUPERADMIN'] },
     { icon: faQuestionCircle, labelKey: 'helpCenter', href: '/app/help' },
 ];
 
@@ -189,7 +190,18 @@ export default function Sidebar({ isOpen, onToggle }: SidebarProps) {
                         {t.otherMenu}
                     </h3>
                     <nav>
-                        {OTHER_MENU_ITEMS.map((item) => (
+                        {OTHER_MENU_ITEMS.filter(item => {
+                            if (!item.roles) return true;
+                            // Retrieve role from localStorage safely
+                            try {
+                                const userStr = localStorage.getItem('user_info');
+                                if (!userStr) return false;
+                                const user = JSON.parse(userStr);
+                                return item.roles.includes(user.role);
+                            } catch {
+                                return false;
+                            }
+                        }).map((item) => (
                             <NavItem key={item.href} item={item} />
                         ))}
                     </nav>

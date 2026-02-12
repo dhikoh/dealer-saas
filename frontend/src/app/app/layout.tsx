@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import Sidebar from '@/components/Sidebar';
 import Header from '@/components/Header';
 import { Toaster } from 'sonner';
+import { BranchProvider } from '@/context/BranchContext';
 
 export default function DashboardLayout({
     children,
@@ -67,24 +68,26 @@ export default function DashboardLayout({
     }
 
     return (
-        <div className="flex min-h-screen bg-[#ecf0f3] font-poppins text-gray-700">
-            {/* SIDEBAR - Fixed Left, hidden on mobile */}
-            <Sidebar />
+        <BranchProvider>
+            <div className="flex min-h-screen bg-[#ecf0f3] font-poppins text-gray-700">
+                {/* SIDEBAR - Fixed Left, hidden on mobile */}
+                <Sidebar />
 
-            {/* Main content area - responsive margin */}
-            <div className="flex-1 flex flex-col lg:ml-64">
-                {/* HEADER - Fixed Top */}
-                <Header />
+                {/* Main content area - responsive margin */}
+                <div className="flex-1 flex flex-col lg:ml-64">
+                    {/* HEADER - Fixed Top */}
+                    <Header />
 
-                {/* MAIN CONTENT - Scrollable, responsive padding */}
-                <main className="flex-1 mt-20 p-4 md:p-6 lg:p-8 overflow-y-auto bg-[#ecf0f3]">
-                    {children}
-                </main>
+                    {/* MAIN CONTENT - Scrollable, responsive padding */}
+                    <main className="flex-1 mt-20 p-4 md:p-6 lg:p-8 overflow-y-auto bg-[#ecf0f3]">
+                        {children}
+                    </main>
+                </div>
+
+                {/* TOASTER FOR DASHBOARD ALERTS */}
+                <Toaster position="top-right" richColors />
             </div>
-
-            {/* TOASTER FOR DASHBOARD ALERTS */}
-            <Toaster position="top-right" richColors />
-        </div>
+        </BranchProvider>
     );
 }
 
