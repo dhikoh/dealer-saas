@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useEffect, useState } from 'react';
-import { Plus, Search, Filter, DollarSign, ShoppingCart, TrendingUp, TrendingDown, Eye, FileText, X, Check, ChevronLeft, ChevronRight } from 'lucide-react';
+import { Plus, Search, Filter, DollarSign, ShoppingCart, TrendingUp, TrendingDown, Eye, FileText, X, Check, ChevronLeft, ChevronRight, Printer, Calculator } from 'lucide-react';
 import { toast } from 'sonner';
 import { useLanguage } from '@/hooks/useLanguage';
 import { useCurrency } from '@/hooks/useCurrency';
@@ -58,7 +58,13 @@ export default function TransactionsPage() {
         finalPrice: '',
         date: new Date().toISOString().split('T')[0],
         notes: '',
+        // Credit Data
+        downPayment: '',
+        interestRate: '10', // Default 10%
+        tenorMonths: '12', // Default 1 year
+        leasingCompany: '',
     });
+    const [monthlyInstallment, setMonthlyInstallment] = useState(0);
     const [vehicles, setVehicles] = useState<VehicleOption[]>([]);
     const [customers, setCustomers] = useState<CustomerOption[]>([]);
     const [currentPage, setCurrentPage] = useState(1);
@@ -113,6 +119,33 @@ export default function TransactionsPage() {
         }
     };
 
+    // Calculate Installment
+    useEffect(() => {
+        if (txForm.paymentType === 'CREDIT' && txForm.finalPrice && txForm.downPayment && txForm.tenorMonths && txForm.interestRate) {
+            const price = parseFloat(txForm.finalPrice);
+            const dp = parseFloat(txForm.downPayment);
+            const rate = parseFloat(txForm.interestRate);
+            const tenor = parseInt(txForm.tenorMonths);
+
+            if (price > 0 && dp >= 0 && tenor > 0) {
+                const loanAmount = price - dp;
+                const monthlyInterest = (rate / 100) / 12;
+
+                let installment = 0;
+                if (monthlyInterest === 0) {
+                    installment = loanAmount / tenor;
+                } else {
+                    installment = loanAmount * (monthlyInterest * Math.pow(1 + monthlyInterest, tenor)) / (Math.pow(1 + monthlyInterest, tenor) - 1);
+                }
+                setMonthlyInstallment(Math.round(installment));
+            } else {
+                setMonthlyInstallment(0);
+            }
+        } else {
+            setMonthlyInstallment(0);
+        }
+    }, [txForm.finalPrice, txForm.downPayment, txForm.interestRate, txForm.tenorMonths, txForm.paymentType]);
+
     const handleCreateTransaction = async () => {
         const token = getToken();
         if (!token || !txForm.vehicleId || !txForm.finalPrice || !txForm.customerId) {
@@ -135,13 +168,32 @@ export default function TransactionsPage() {
                     paymentType: txForm.paymentType,
                     finalPrice: parseFloat(txForm.finalPrice),
                     notes: txForm.notes || undefined,
+                    creditData: txForm.paymentType === 'CREDIT' ? {
+                        creditType: txForm.leasingCompany ? 'LEASING' : 'DEALER_CREDIT', // Simple logic for now
+                        leasingCompany: txForm.leasingCompany || undefined,
+                        downPayment: parseFloat(txForm.downPayment),
+                        interestRate: parseFloat(txForm.interestRate),
+                        tenorMonths: parseInt(txForm.tenorMonths),
+                    } : undefined,
                 }),
             });
 
             if (res.ok) {
                 toast.success(t.success);
                 setShowModal(false);
-                setTxForm({ type: 'SALE', vehicleId: '', customerId: '', paymentType: 'CASH', finalPrice: '', date: new Date().toISOString().split('T')[0], notes: '' });
+                setTxForm({
+                    type: 'SALE',
+                    vehicleId: '',
+                    customerId: '',
+                    paymentType: 'CASH',
+                    finalPrice: '',
+                    date: new Date().toISOString().split('T')[0],
+                    notes: '',
+                    downPayment: '',
+                    interestRate: '10',
+                    tenorMonths: '12',
+                    leasingCompany: ''
+                });
                 fetchTransactions();
             } else {
                 const err = await res.json();
@@ -151,6 +203,42 @@ export default function TransactionsPage() {
             toast.error(t.error);
         } finally {
             setSubmitting(false);
+        }
+    };
+
+    const handlePrintInvoice = async (txId: string) => {
+        try {
+            const token = getToken();
+            const res = await fetch(`${API_URL}/pdf/transaction/${txId}/invoice`, {
+                headers: { 'Authorization': `Bearer ${token}` }
+            });
+
+            if (!res.ok) throw new Error('Failed to generate PDF');
+
+            const blob = await res.blob();
+            const url = window.URL.createObjectURL(blob);
+            window.open(url, '_blank');
+        } catch (err) {
+            toast.error('Gagal mencetak invoice');
+            console.error(err);
+        }
+    };
+
+    const handlePrintSPK = async (txId: string) => {
+        try {
+            const token = getToken();
+            const res = await fetch(`${API_URL}/pdf/transaction/${txId}/spk`, {
+                headers: { 'Authorization': `Bearer ${token}` }
+            });
+
+            if (!res.ok) throw new Error('Failed to generate SPK');
+
+            const blob = await res.blob();
+            const url = window.URL.createObjectURL(blob);
+            window.open(url, '_blank');
+        } catch (err) {
+            toast.error('Gagal mencetak SPK');
+            console.error(err);
         }
     };
 
@@ -270,6 +358,20 @@ export default function TransactionsPage() {
                                     {new Date(tx.date).toLocaleDateString(language === 'en' ? 'en-US' : language === 'id' ? 'id-ID' : 'en-US')}
                                 </td>
                                 <td className="px-6 py-4 text-right">
+                                    <button
+                                        onClick={() => handlePrintInvoice(tx.id)}
+                                        className="p-2 rounded-lg text-gray-500 hover:bg-gray-200 hover:text-blue-600 transition-colors mr-1"
+                                        title="Cetak Invoice"
+                                    >
+                                        <Printer className="w-4 h-4" />
+                                    </button>
+                                    <button
+                                        onClick={() => handlePrintSPK(tx.id)}
+                                        className="p-2 rounded-lg text-gray-500 hover:bg-gray-200 hover:text-purple-600 transition-colors mr-1"
+                                        title="Cetak SPK"
+                                    >
+                                        <FileText className="w-4 h-4" />
+                                    </button>
                                     <button
                                         onClick={() => setSelectedTx(tx)}
                                         className="p-2 rounded-lg text-gray-500 hover:bg-gray-200 hover:text-[#00bfa5] transition-colors"
@@ -431,6 +533,66 @@ export default function TransactionsPage() {
                                     ))}
                                 </div>
                             </div>
+
+                            {/* Credit Details */}
+                            {txForm.paymentType === 'CREDIT' && (
+                                <div className="space-y-4 p-4 bg-gray-50 rounded-xl border border-gray-200">
+                                    <h4 className="font-semibold text-gray-700 flex items-center gap-2">
+                                        <Calculator className="w-4 h-4 text-[#00bfa5]" /> Simulasi Kredit
+                                    </h4>
+
+                                    <div className="grid grid-cols-2 gap-4">
+                                        <div>
+                                            <label className="block text-xs font-medium text-gray-500 mb-1">Uang Muka (DP)</label>
+                                            <input
+                                                type="number"
+                                                value={txForm.downPayment}
+                                                onChange={(e) => setTxForm({ ...txForm, downPayment: e.target.value })}
+                                                placeholder="Contoh: 5000000"
+                                                className="w-full px-3 py-2 rounded-lg bg-white border border-gray-300 focus:ring-2 focus:ring-[#00bfa5] outline-none"
+                                            />
+                                        </div>
+                                        <div>
+                                            <label className="block text-xs font-medium text-gray-500 mb-1">Tenor (Bulan)</label>
+                                            <select
+                                                value={txForm.tenorMonths}
+                                                onChange={(e) => setTxForm({ ...txForm, tenorMonths: e.target.value })}
+                                                className="w-full px-3 py-2 rounded-lg bg-white border border-gray-300 focus:ring-2 focus:ring-[#00bfa5] outline-none"
+                                            >
+                                                {[6, 12, 18, 24, 30, 36, 48, 60].map(m => (
+                                                    <option key={m} value={m}>{m} Bulan</option>
+                                                ))}
+                                            </select>
+                                        </div>
+                                        <div>
+                                            <label className="block text-xs font-medium text-gray-500 mb-1">Bunga (%/Tahun)</label>
+                                            <input
+                                                type="number"
+                                                value={txForm.interestRate}
+                                                onChange={(e) => setTxForm({ ...txForm, interestRate: e.target.value })}
+                                                placeholder="Contoh: 10"
+                                                className="w-full px-3 py-2 rounded-lg bg-white border border-gray-300 focus:ring-2 focus:ring-[#00bfa5] outline-none"
+                                            />
+                                        </div>
+                                        <div>
+                                            <label className="block text-xs font-medium text-gray-500 mb-1">Leasing (Opsional)</label>
+                                            <input
+                                                type="text"
+                                                value={txForm.leasingCompany}
+                                                onChange={(e) => setTxForm({ ...txForm, leasingCompany: e.target.value })}
+                                                placeholder="Nama Leasing"
+                                                className="w-full px-3 py-2 rounded-lg bg-white border border-gray-300 focus:ring-2 focus:ring-[#00bfa5] outline-none"
+                                            />
+                                        </div>
+                                    </div>
+
+                                    {/* Simulation Result */}
+                                    <div className="bg-[#e0f7fa] p-3 rounded-lg flex justify-between items-center">
+                                        <span className="text-sm text-[#006064] font-medium">Estimasi Cicilan/Bulan:</span>
+                                        <span className="text-lg font-bold text-[#00bfa5]">{fmt(monthlyInstallment)}</span>
+                                    </div>
+                                </div>
+                            )}
 
                             {/* Price */}
                             <div>

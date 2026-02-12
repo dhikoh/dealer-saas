@@ -2,9 +2,10 @@
 
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faSearch, faBell, faMoon, faSun, faGlobe, faTimes, faCar, faUser, faCalendar, faMoneyBill } from '@fortawesome/free-solid-svg-icons';
-import { useLanguage, Language } from '@/hooks/useLanguage';
 import Link from 'next/link';
+import { usePathname } from 'next/navigation';
+import { useLanguage, Language } from '@/hooks/useLanguage';
+import { faSearch, faBell, faMoon, faSun, faGlobe, faTimes, faCar, faUser, faCalendar, faMoneyBill, faChartLine, faCheck, faBuilding } from '@fortawesome/free-solid-svg-icons';
 
 import { API_URL } from '@/lib/api';
 
@@ -33,6 +34,13 @@ export default function Header() {
     const [showNotifications, setShowNotifications] = useState(false);
     const [showSearch, setShowSearch] = useState(false);
     const [showLanguage, setShowLanguage] = useState(false);
+
+    // Group Context State
+    const [isGroupOwner, setIsGroupOwner] = useState(false);
+    const [showGroupSwitch, setShowGroupSwitch] = useState(false);
+    const pathname = usePathname(); // Need to import usePathname
+    const isGroupContext = pathname?.startsWith('/app/group');
+
     const [searchQuery, setSearchQuery] = useState('');
     const [searchResults, setSearchResults] = useState<SearchResult[]>([]);
     const [notifications, setNotifications] = useState<Notification[]>([]);
@@ -97,6 +105,26 @@ export default function Header() {
         // Initial fetch
         fetchNotifications();
 
+        // Check for Group Owner status
+        const checkGroupStatus = async () => {
+            const token = localStorage.getItem('access_token');
+            if (!token) return;
+            try {
+                const res = await fetch(`${API_URL}/dealer-groups/my`, {
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+                if (res.ok) {
+                    const data = await res.json();
+                    if (data && data.role === 'OWNER') {
+                        setIsGroupOwner(true);
+                    }
+                }
+            } catch (e) {
+                console.error('Failed to check group status', e);
+            }
+        };
+        checkGroupStatus();
+
         // Keyboard shortcut for search
         const handleKeyDown = (e: KeyboardEvent) => {
             if ((e.metaKey || e.ctrlKey) && e.key === 'k') {
@@ -108,6 +136,7 @@ export default function Header() {
                 setShowSearch(false);
                 setShowNotifications(false);
                 setShowLanguage(false);
+                setShowGroupSwitch(false);
             }
         };
         window.addEventListener('keydown', handleKeyDown);
@@ -223,22 +252,80 @@ export default function Header() {
         <>
             <header className={`fixed top-0 left-0 lg:left-64 right-0 h-20 flex items-center justify-between px-4 lg:px-8 z-40 backdrop-blur-sm transition-colors ${theme === 'dark' ? 'bg-gray-900/90' : 'bg-[#ecf0f3]/90'
                 }`}>
-                {/* SEARCH BAR */}
-                <div className="flex-1 max-w-xl">
-                    <button
-                        onClick={() => setShowSearch(true)}
-                        className={`w-full h-10 pl-12 pr-4 rounded-full text-sm text-left transition-all flex items-center ${theme === 'dark'
-                            ? 'bg-gray-800 text-gray-400 border border-gray-700 hover:border-[#00bfa5]'
-                            : 'bg-[#ecf0f3] text-gray-400 shadow-[inset_2px_2px_5px_#cbced1,inset_-2px_-2px_5px_#ffffff] hover:shadow-[inset_1px_1px_2px_#cbced1,inset_-1px_-1px_2px_#ffffff]'
-                            }`}
-                    >
-                        <FontAwesomeIcon icon={faSearch} className="absolute left-4 text-gray-400" />
-                        <span className="ml-8">{t.searchPlaceholder}</span>
-                        <div className={`ml-auto flex items-center gap-1 text-xs border rounded px-1.5 py-0.5 ${theme === 'dark' ? 'text-gray-500 border-gray-600' : 'text-gray-400 border-gray-300'
-                            }`}>
-                            <span>⌘</span><span>K</span>
+                {/* LEFT: GROUP CONTEXT SWITCHER OR SEARCH */}
+                <div className="flex-1 max-w-3xl flex items-center gap-4">
+                    {/* GROUP SWITCHER (Only for Owners) */}
+                    {isGroupOwner && (
+                        <div className="relative">
+                            <button
+                                onClick={() => setShowGroupSwitch(!showGroupSwitch)}
+                                className={`h-10 px-4 rounded-xl flex items-center gap-3 transition-all ${isGroupContext
+                                    ? 'bg-orange-100 text-orange-700 border border-orange-200'
+                                    : theme === 'dark' ? 'bg-gray-800 text-gray-300 border border-gray-700' : 'bg-white text-gray-700 border border-gray-200 shadow-sm'
+                                    }`}
+                            >
+                                <FontAwesomeIcon icon={isGroupContext ? faChartLine : faBuilding} />
+                                <span className="font-bold text-sm hidden md:inline">
+                                    {isGroupContext ? 'Group Overview' : 'My Dealer'}
+                                </span>
+                                <FontAwesomeIcon icon={faSearch} className={`text-xs opacity-50 rotate-90 ml-1`} /> {/* Chevron substitute */}
+                            </button>
+
+                            {showGroupSwitch && (
+                                <div className={`absolute top-12 left-0 w-56 rounded-xl shadow-xl overflow-hidden z-50 ${theme === 'dark' ? 'bg-gray-800 border border-gray-700' : 'bg-white border border-gray-100'}`}>
+                                    <div className={`p-3 text-xs font-bold uppercase ${theme === 'dark' ? 'text-gray-500' : 'text-gray-400'}`}>
+                                        Switch Context
+                                    </div>
+                                    <Link
+                                        href="/app"
+                                        onClick={() => setShowGroupSwitch(false)}
+                                        className={`flex items-center gap-3 px-4 py-3 hover:bg-gray-50 ${theme === 'dark' ? 'hover:bg-gray-700' : ''}`}
+                                    >
+                                        <div className="w-8 h-8 rounded-lg bg-blue-100 text-blue-600 flex items-center justify-center">
+                                            <FontAwesomeIcon icon={faBuilding} />
+                                        </div>
+                                        <div>
+                                            <div className={`font-bold text-sm ${theme === 'dark' ? 'text-white' : 'text-gray-800'}`}>My Dealer</div>
+                                            <div className="text-xs text-gray-500">Kelola unit sendiri</div>
+                                        </div>
+                                        {!isGroupContext && <FontAwesomeIcon icon={faCheck} className="ml-auto text-green-500" />}
+                                    </Link>
+                                    <Link
+                                        href="/app/group"
+                                        onClick={() => setShowGroupSwitch(false)}
+                                        className={`flex items-center gap-3 px-4 py-3 hover:bg-gray-50 ${theme === 'dark' ? 'hover:bg-gray-700' : ''}`}
+                                    >
+                                        <div className="w-8 h-8 rounded-lg bg-orange-100 text-orange-600 flex items-center justify-center">
+                                            <FontAwesomeIcon icon={faChartLine} />
+                                        </div>
+                                        <div>
+                                            <div className={`font-bold text-sm ${theme === 'dark' ? 'text-white' : 'text-gray-800'}`}>Group Overview</div>
+                                            <div className="text-xs text-gray-500">Statistik Gabungan</div>
+                                        </div>
+                                        {isGroupContext && <FontAwesomeIcon icon={faCheck} className="ml-auto text-green-500" />}
+                                    </Link>
+                                </div>
+                            )}
                         </div>
-                    </button>
+                    )}
+
+                    {/* SEARCH BAR (Existing) */}
+                    <div className="flex-1">
+                        <button
+                            onClick={() => setShowSearch(true)}
+                            className={`w-full h-10 pl-12 pr-4 rounded-full text-sm text-left transition-all flex items-center ${theme === 'dark'
+                                ? 'bg-gray-800 text-gray-400 border border-gray-700 hover:border-[#00bfa5]'
+                                : 'bg-[#ecf0f3] text-gray-400 shadow-[inset_2px_2px_5px_#cbced1,inset_-2px_-2px_5px_#ffffff] hover:shadow-[inset_1px_1px_2px_#cbced1,inset_-1px_-1px_2px_#ffffff]'
+                                }`}
+                        >
+                            <FontAwesomeIcon icon={faSearch} className="absolute left-4 text-gray-400" />
+                            <span className="ml-8">{t.searchPlaceholder}</span>
+                            <div className={`ml-auto flex items-center gap-1 text-xs border rounded px-1.5 py-0.5 ${theme === 'dark' ? 'text-gray-500 border-gray-600' : 'text-gray-400 border-gray-300'
+                                }`}>
+                                <span>⌘</span><span>K</span>
+                            </div>
+                        </button>
+                    </div>
                 </div>
 
                 {/* RIGHT ACTIONS */}

@@ -504,6 +504,133 @@ export class PdfService {
     }
 
     /**
+     * Generate SPK (Surat Pemesanan Kendaraan) PDF
+     * Official order confirmation document
+     */
+    async generateTransactionSPK(
+        transactionId: string,
+        tenantId: string,
+        res: any,
+    ) {
+        const transaction = await this.prisma.transaction.findFirst({
+            where: { id: transactionId, tenantId },
+            include: {
+                vehicle: true,
+                customer: true,
+                salesPerson: true,
+                credit: true,
+            },
+        }) as any;
+
+        if (!transaction) {
+            throw new Error('Transaction not found');
+        }
+
+        const tenant = await this.prisma.tenant.findUnique({
+            where: { id: tenantId },
+        }) as any;
+
+        const doc = new PDFDocument({ margin: 50 });
+
+        res.setHeader('Content-Type', 'application/pdf');
+        res.setHeader(
+            'Content-Disposition',
+            `attachment; filename=SPK_${transactionId.slice(0, 8)}.pdf`,
+        );
+
+        doc.pipe(res);
+
+        // === HEADER ===
+        this.drawHeader(doc, tenant, 'SURAT PESANAN', `SPK-${transactionId.slice(0, 8).toUpperCase()}`);
+
+        doc.fontSize(10).font('Helvetica');
+        doc.text(`No. SPK: SPK-${transactionId.slice(0, 8).toUpperCase()}`);
+        doc.text(`Tanggal: ${this.formatDate(transaction.date)}`);
+        doc.moveDown();
+        doc.moveTo(50, doc.y).lineTo(550, doc.y).stroke();
+        doc.moveDown();
+
+        // === PIHAK PERTAMA (DEALER) ===
+        // Implicitly the header, but strictly speaking usually SPK mentions "Kami yang bertanda tangan dibawah ini..."
+
+        // === PIHAK KEDUA (PEMESAN) ===
+        doc.fontSize(12).font('Helvetica-Bold').text('DATA PEMESAN (KONSUMEN)');
+        doc.moveDown(0.5);
+        doc.fontSize(10).font('Helvetica');
+        doc.text(`Nama: ${transaction.customer?.name || '-'}`);
+        doc.text(`Alamat: ${transaction.customer?.address || '-'}`);
+        doc.text(`No. Telp/HP: ${transaction.customer?.phone || '-'}`);
+        doc.text(`No. KTP: ${transaction.customer?.ktpNumber || '-'}`);
+        doc.moveDown();
+
+        doc.moveTo(50, doc.y).lineTo(550, doc.y).stroke();
+        doc.moveDown();
+
+        // === DATA KENDARAAN ===
+        doc.fontSize(12).font('Helvetica-Bold').text('DATA KENDARAAN');
+        doc.moveDown(0.5);
+        const v = transaction.vehicle;
+        const vehicleInfo = [
+            ['Merk/Type', `${v?.make || ''} ${v?.model || ''} ${v?.variant || ''}`],
+            ['Tahun', v?.year?.toString() || '-'],
+            ['Warna', v?.color || '-'],
+            ['No. Polisi', v?.licensePlate || '-'],
+            ['No. Rangka', v?.chassisNumber || '-'],
+            ['No. Mesin', v?.engineNumber || '-'],
+        ];
+        doc.fontSize(10).font('Helvetica');
+        vehicleInfo.forEach(([label, value]) => {
+            doc.text(`${label}: ${value}`);
+        });
+        doc.moveDown();
+
+        doc.moveTo(50, doc.y).lineTo(550, doc.y).stroke();
+        doc.moveDown();
+
+        // === RINCIAN PEMBAYARAN ===
+        doc.fontSize(12).font('Helvetica-Bold').text('RINCIAN PEMBAYARAN');
+        doc.moveDown(0.5);
+        doc.fontSize(10).font('Helvetica');
+
+        doc.text(`Harga Kesepakatan: ${this.formatCurrency(Number(transaction.finalPrice))}`);
+        doc.text(`Metode Pembayaran: ${transaction.paymentType === 'CASH' ? 'TUNAI' : 'KREDIT'}`);
+
+        if (transaction.paymentType === 'CREDIT' && transaction.credit) {
+            doc.moveDown(0.5);
+            doc.text('Rincian Kredit:', { underline: true });
+            doc.text(`- Uang Muka (DP): ${this.formatCurrency(Number(transaction.credit.downPayment))}`);
+            doc.text(`- Tenor: ${transaction.credit.tenorMonths} Bulan`);
+            doc.text(`- Angsuran: ${this.formatCurrency(Number(transaction.credit.monthlyPayment))} / bulan`);
+            if (transaction.credit.leasingCompany) {
+                doc.text(`- Leasing: ${transaction.credit.leasingCompany}`);
+            }
+        }
+
+        doc.moveDown(2);
+
+        // === SIGNATURES ===
+        const ySign = doc.y;
+        doc.fontSize(10).font('Helvetica-Bold');
+
+        doc.text('Pemesani / Pembeli', 50, ySign, { width: 200, align: 'center' });
+        doc.text('Mengetahui Sales', 350, ySign, { width: 200, align: 'center' });
+
+        doc.moveDown(4);
+
+        doc.font('Helvetica');
+        doc.text(`( ${transaction.customer?.name || '....................'} )`, 50, doc.y, { width: 200, align: 'center' });
+        doc.text(`( ${transaction.salesPerson?.name || '....................'} )`, 350, doc.y - 12, { width: 200, align: 'center' }); // Adjust y - height matches
+
+        // Legal Footer
+        doc.moveDown(2);
+        doc.fontSize(8).font('Helvetica-Oblique').fillColor('#555');
+        doc.text('* Barang yang sudah dibeli tidak dapat ditukar/dikembalikan kecuali ada perjanjian khusus.', { align: 'center' });
+        doc.text('* SPK ini sah jika ditandatangani kedua belah pihak.', { align: 'center' });
+
+        doc.end();
+    }
+
+    /**
      * Generate Sales Report PDF
      * Monthly sales, top brands, revenue, and performance metrics
      */

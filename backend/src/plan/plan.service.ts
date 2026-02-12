@@ -23,4 +23,11 @@ export class PlanService {
             where: { slug },
         });
     }
+
+    async update(id: string, data: any) {
+        return this.prisma.plan.update({
+            where: { id },
+            data,
+        });
+    }
 }

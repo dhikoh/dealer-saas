@@ -163,59 +163,64 @@ export class TransactionService {
             }
         }
 
-        // Create transaction
-        const transaction = await this.prisma.transaction.create({
-            data: {
-                tenantId,
-                vehicleId: data.vehicleId,
-                customerId: data.customerId,
-                salesPersonId,
-                type: data.type,
-                paymentType: data.paymentType,
-                finalPrice: new Decimal(data.finalPrice),
-                basePrice: new Decimal(data.finalPrice), // Default for now
-                taxPercentage: new Decimal(0),
-                taxAmount: new Decimal(0),
-                paymentStatus: 'UNPAID', // Will be updated by Payment Logic
-                notes: data.notes,
-                status: 'PENDING',
-            },
-            include: {
-                vehicle: { select: { id: true, make: true, model: true } },
-                customer: { select: { id: true, name: true } },
-            },
-        });
-
-        // If credit payment, create credit record
-        if (data.paymentType === 'CREDIT' && data.creditData) {
-            const cd = data.creditData;
-            const totalCredit = data.finalPrice - cd.downPayment;
-            const monthlyPayment = (totalCredit * (1 + cd.interestRate / 100)) / cd.tenorMonths;
-
-            await this.prisma.credit.create({
+        // Use Interactive Transaction to ensure atomicity
+        return this.prisma.$transaction(async (tx) => {
+            // 1. Create Transaction
+            const transaction = await tx.transaction.create({
                 data: {
-                    transactionId: transaction.id,
-                    creditType: cd.creditType,
-                    leasingCompany: cd.leasingCompany,
-                    downPayment: new Decimal(cd.downPayment),
-                    totalAmount: new Decimal(totalCredit),
-                    interestRate: new Decimal(cd.interestRate),
-                    tenorMonths: cd.tenorMonths,
-                    monthlyPayment: new Decimal(monthlyPayment),
-                    nextDueDate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000), // 30 days from now
+                    tenantId,
+                    vehicleId: data.vehicleId,
+                    customerId: data.customerId,
+                    salesPersonId,
+                    type: data.type,
+                    paymentType: data.paymentType,
+                    finalPrice: new Decimal(data.finalPrice),
+                    basePrice: new Decimal(data.finalPrice), // Default for now
+                    taxPercentage: new Decimal(0),
+                    taxAmount: new Decimal(0),
+                    paymentStatus: 'UNPAID',
+                    notes: data.notes,
+                    status: 'PENDING',
+                    date: new Date(), // Set current date
+                },
+                include: {
+                    vehicle: { select: { id: true, make: true, model: true } },
+                    customer: { select: { id: true, name: true } },
                 },
             });
-        }
 
-        // Update vehicle status to BOOKED for sales
-        if (data.type === 'SALE') {
-            await this.prisma.vehicle.update({
-                where: { id: data.vehicleId },
-                data: { status: 'BOOKED' },
-            });
-        }
+            // 2. Create Credit Record (if applicable)
+            if (data.paymentType === 'CREDIT' && data.creditData) {
+                const cd = data.creditData;
+                const totalCredit = data.finalPrice - cd.downPayment;
+                const monthlyPayment = (totalCredit * (1 + cd.interestRate / 100)) / cd.tenorMonths;
 
-        return transaction;
+                await tx.credit.create({
+                    data: {
+                        transactionId: transaction.id,
+                        creditType: cd.creditType,
+                        leasingCompany: cd.leasingCompany,
+                        downPayment: new Decimal(cd.downPayment),
+                        totalAmount: new Decimal(totalCredit),
+                        interestRate: new Decimal(cd.interestRate),
+                        tenorMonths: cd.tenorMonths,
+                        monthlyPayment: new Decimal(monthlyPayment),
+                        nextDueDate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000), // 30 days from now
+                        status: 'ACTIVE',
+                    },
+                });
+            }
+
+            // 3. Update Vehicle Status
+            if (data.type === 'SALE') {
+                await tx.vehicle.update({
+                    where: { id: data.vehicleId },
+                    data: { status: 'BOOKED' },
+                });
+            }
+
+            return transaction;
+        });
     }
 
     async updateStatus(id: string, tenantId: string, status: string) {

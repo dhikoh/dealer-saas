@@ -94,7 +94,7 @@ export default function PlansPage() {
 
     const fetchPlans = async () => {
         try {
-            const res = await fetch(`${API_URL}/superadmin/plans`, {
+            const res = await fetch(`${API_URL}/plans`, {
                 headers: { 'Authorization': `Bearer ${getToken()}` },
             });
             if (!res.ok) throw new Error('Failed');

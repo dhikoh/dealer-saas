@@ -65,6 +65,22 @@ export class PdfController {
     }
 
     /**
+     * Generate Transaction SPK PDF
+     */
+    @Get('transaction/:transactionId/spk')
+    async getTransactionSPK(
+        @Param('transactionId') transactionId: string,
+        @Request() req: any,
+        @Res() res: any,
+    ) {
+        return this.pdfService.generateTransactionSPK(
+            transactionId,
+            req.user.tenantId,
+            res,
+        );
+    }
+
+    /**
      * Generate Sales Report PDF
      * Monthly summary with top brands and recent transactions
      */

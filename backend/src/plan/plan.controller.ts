@@ -29,4 +29,11 @@ export class PlanController {
     async findOne(@Param('id') id: string) {
         return this.planService.findOne(id);
     }
+
+    @Patch(':id')
+    @UseGuards(JwtAuthGuard, RolesGuard)
+    @Roles('SUPERADMIN')
+    async update(@Param('id') id: string, @Body() updatePlanDto: any) {
+        return this.planService.update(id, updatePlanDto);
+    }
 }
