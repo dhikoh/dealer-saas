@@ -140,3 +140,62 @@ export class ReminderService {
         };
     }
 }
+
+    // ==================== AUTOMATED REMINDERS (CRON) ====================
+    // Runs every day at 09:00 AM
+    // @Cron('0 9 * * *') 
+    async checkDailyReminders() {
+    // Get all tenants
+    const tenants = await this.prisma.tenant.findMany({ select: { id: true } });
+
+    for (const tenant of tenants) {
+        await this.processTenantReminders(tenant.id);
+    }
+}
+
+    private async processTenantReminders(tenantId: string) {
+    // 1. Tax Expiry (30 days and 7 days)
+    const expiring7 = await this.getTaxExpiringVehicles(tenantId, 7);
+
+    // Get owners to notify
+    const users = await this.prisma.user.findMany({
+        where: { tenantId, role: { in: ['OWNER', 'ADMIN'] } },
+        select: { id: true }
+    });
+
+    // NOTIFY: Tax Expiring Soon (< 7 days)
+    if (expiring7.length > 0) {
+        const count = expiring7.length;
+        for (const user of users) {
+            await this.prisma.notification.create({
+                data: {
+                    userId: user.id,
+                    type: 'warning',
+                    title: 'Peringatan Pajak Kendaraan',
+                    message: `Terdapat ${count} kendaraan dengan masa aktif pajak < 7 hari.`,
+                    link: '/app/inventory',
+                    read: false,
+                }
+            });
+        }
+    }
+
+    // 2. Credit Due (3 days)
+    const dueCredits = await this.getCreditDueReminders(tenantId, 3);
+    if (dueCredits.length > 0) {
+        const count = dueCredits.length;
+        for (const user of users) {
+            await this.prisma.notification.create({
+                data: {
+                    userId: user.id,
+                    type: 'info',
+                    title: 'Jatuh Tempo Kredit',
+                    message: `Ada ${count} pembayaran kredit pelanggan yang akan jatuh tempo dalam 3 hari.`,
+                    link: '/app/credit',
+                    read: false,
+                }
+            });
+        }
+    }
+}
+}

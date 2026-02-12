@@ -317,11 +317,24 @@ export class BillingService {
         });
     }
 
-    // ==================== CRON: AUTO SUSPEND (Daily at 01:00 AM) ====================
+    // ==================== CRON: AUTO BILLING & SUSPEND (Daily at 01:00 AM) ====================
 
     @Cron(CronExpression.EVERY_DAY_AT_1AM)
-    async autoSuspendOverdue() {
-        this.logger.log('🕵️ Running auto-suspend cron job...');
+    async handleDailyBilling() {
+        this.logger.log('🔄 Running daily billing job...');
+
+        // 1. Generate Invoices for Renewals
+        const { generated } = await this.generateMonthlyInvoices();
+        if (generated > 0) {
+            this.logger.log(`✅ Generated ${generated} new invoices.`);
+        }
+
+        // 2. Suspend Overdue
+        await this.autoSuspendOverdue();
+    }
+
+    private async autoSuspendOverdue() {
+        this.logger.log('🕵️ Checking for overdue suspensions...');
         const overdueThreshold = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000); // 30 days overdue
 
         const overdueTenants = await this.prisma.tenant.findMany({
@@ -340,7 +353,6 @@ export class BillingService {
         });
 
         if (overdueTenants.length === 0) {
-            this.logger.log('✅ No overdue tenants found.');
             return { suspended: 0, tenants: [] };
         }
 
