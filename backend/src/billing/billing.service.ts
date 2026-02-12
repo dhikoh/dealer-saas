@@ -1,4 +1,26 @@
+import { Injectable, Logger, BadRequestException } from '@nestjs/common';
+import { PrismaService } from '../prisma/prisma.service';
 import { NotificationService } from '../notification/notification.service';
+import { Cron, CronExpression } from '@nestjs/schedule';
+
+const PLAN_TIERS = {
+    DEMO: { name: 'Demo', price: 0, maxVehicles: 5, maxUsers: 1 },
+    BASIC: { name: 'Basic', price: 150000, maxVehicles: 20, maxUsers: 2 },
+    PRO: { name: 'Pro', price: 350000, maxVehicles: 100, maxUsers: 5 },
+    UNLIMITED: { name: 'Unlimited', price: 999000, maxVehicles: -1, maxUsers: -1 }
+};
+
+const getPlanById = (id: string) => PLAN_TIERS[id] || null;
+
+const canUpgrade = (currentId: string, newId: string) => {
+    const levels = ['DEMO', 'BASIC', 'PRO', 'UNLIMITED'];
+    return levels.indexOf(newId) > levels.indexOf(currentId);
+};
+
+const canDowngrade = (currentId: string, newId: string) => {
+    const levels = ['DEMO', 'BASIC', 'PRO', 'UNLIMITED'];
+    return levels.indexOf(newId) < levels.indexOf(currentId);
+};
 
 @Injectable()
 export class BillingService {
