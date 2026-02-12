@@ -32,7 +32,7 @@ export class ReportService {
             },
         });
 
-        // Biaya operasional kendaraan pada periode
+        // Biaya Perbaikan (Vehicle Cost)
         const vehicleCosts = await this.prisma.vehicleCost.findMany({
             where: {
                 tenantId,
@@ -40,15 +40,25 @@ export class ReportService {
             },
         });
 
+        // Biaya Operasional (Gaji, Listrik, Sewa, dll)
+        const operatingCosts = await this.prisma.operatingCost.findMany({
+            where: {
+                tenantId,
+                date: { gte: startDate, lte: endDate }
+            }
+        });
+
         // Hitung
         const totalRevenue = sales.reduce((sum, t) => sum + Number(t.finalPrice), 0);
         const totalCostOfGoods = sales.reduce((sum, t) => sum + Number(t.vehicle.purchasePrice || 0), 0);
         const grossProfit = totalRevenue - totalCostOfGoods;
 
-        const totalOperationalCosts = vehicleCosts.reduce((sum, c) => sum + Number(c.amount), 0);
+        const totalVehicleCosts = vehicleCosts.reduce((sum, c) => sum + Number(c.amount), 0);
+        const totalOperatingCosts = operatingCosts.reduce((sum, c) => sum + Number(c.amount), 0);
+
         const totalPurchases = purchases.reduce((sum, t) => sum + Number(t.finalPrice), 0);
 
-        const netProfit = grossProfit - totalOperationalCosts;
+        const netProfit = grossProfit - totalVehicleCosts - totalOperatingCosts;
 
         return {
             periode: {
@@ -61,13 +71,13 @@ export class ReportService {
             },
             biaya: {
                 hargaPokokPenjualan: totalCostOfGoods,
-                biayaOperasional: totalOperationalCosts,
+                biayaPerbaikan: totalVehicleCosts,
+                biayaOperasional: totalOperatingCosts, // NEW
                 totalPembelianStok: totalPurchases,
-                jumlahTransaksiPembelian: purchases.length,
             },
             laba: {
-                labaKotor: grossProfit,
-                labaBersih: netProfit,
+                labaKotor: grossProfit, // Revenue - HPP
+                labaBersih: netProfit,  // Gross - (Perbaikan + Ops)
                 marginLabaKotor: totalRevenue > 0 ? ((grossProfit / totalRevenue) * 100).toFixed(1) + '%' : '0%',
                 marginLabaBersih: totalRevenue > 0 ? ((netProfit / totalRevenue) * 100).toFixed(1) + '%' : '0%',
             },

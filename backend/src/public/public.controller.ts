@@ -4,7 +4,7 @@ import { PublicService } from './public.service';
 import { ApiKeyGuard } from '../auth/api-key.guard';
 
 @Controller('api/public')
-@UseGuards(ApiKeyGuard)
+// @UseGuards(ApiKeyGuard) -- Disabled for Public Access
 export class PublicController {
     constructor(private readonly publicService: PublicService) { }
 

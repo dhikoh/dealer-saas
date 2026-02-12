@@ -18,7 +18,9 @@ import {
     faQuestionCircle,
     faSignOutAlt,
     faReceipt,
-    faCalendarAlt,
+    faWallet,
+    faTachometerAlt,
+
     faBars,
     faTimes,
     faBell,
@@ -41,6 +43,7 @@ const MENU_ITEMS: MenuItem[] = [
     { icon: faUsers, labelKey: 'customer', href: '/app/customers' },
     { icon: faCalendarAlt, labelKey: 'calendar', href: '/app/calendar' },
     { icon: faDatabase, labelKey: 'masterData', href: '/app/master' },
+    { icon: faWallet, labelKey: 'finance', href: '/app/finance' }, // Added Keuangan menu item
     { icon: faChartBar, labelKey: 'reports', href: '/app/reports' },
 ];
 

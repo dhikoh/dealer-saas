@@ -407,11 +407,12 @@ export class PdfService {
         doc.pipe(res);
 
         // === PROFESSIONAL HEADER ===
-        this.drawHeader(doc, tenant, 'INVOICE', `INV-${transactionId.slice(0, 8).toUpperCase()}`);
+        const invNum = transaction.invoiceNumber || `INV-${transactionId.slice(0, 8).toUpperCase()}`;
+        this.drawHeader(doc, tenant, 'INVOICE', invNum);
 
         // Invoice number and date
         doc.fontSize(10).font('Helvetica');
-        doc.text(`No. Invoice: INV-${transactionId.slice(0, 8).toUpperCase()}`);
+        doc.text(`No. Invoice: ${invNum}`);
         doc.text(`Tanggal: ${this.formatDate(transaction.date)}`);
         doc.text(`Tipe Transaksi: ${transaction.type === 'SALE' ? 'Penjualan' : 'Pembelian'}`);
         doc.moveDown();
@@ -473,9 +474,22 @@ export class PdfService {
         doc.moveTo(50, doc.y).lineTo(550, doc.y).stroke();
         doc.moveDown();
 
-        doc.fontSize(14).font('Helvetica-Bold').text('TOTAL', { align: 'center' });
+        const taxAmount = Number(transaction.taxAmount || 0);
+        const basePrice = Number(transaction.basePrice || transaction.finalPrice);
+
+        if (taxAmount > 0) {
+            doc.fontSize(10).font('Helvetica');
+            doc.text('Subtotal:', 350, doc.y, { width: 100, align: 'right' });
+            doc.text(this.formatCurrency(basePrice), 460, doc.y - 12, { width: 140, align: 'right' }); // Adjust Y manually slightly if needed or rely on flow
+
+            doc.text(`PPN (${transaction.taxPercentage}%):`, 350, doc.y, { width: 100, align: 'right' });
+            doc.text(this.formatCurrency(taxAmount), 460, doc.y - 12, { width: 140, align: 'right' });
+            doc.moveDown();
+        }
+
+        doc.fontSize(14).font('Helvetica-Bold').text('TOTAL', 350, doc.y, { width: 100, align: 'right' });
         doc.fontSize(24).font('Helvetica-Bold')
-            .text(this.formatCurrency(Number(transaction.finalPrice)), { align: 'center' });
+            .text(this.formatCurrency(Number(transaction.finalPrice)), 300, doc.y - 18, { width: 300, align: 'right' });
 
         doc.moveDown();
 
@@ -546,10 +560,11 @@ export class PdfService {
         doc.pipe(res);
 
         // === HEADER ===
-        this.drawHeader(doc, tenant, 'SURAT PESANAN', `SPK-${transactionId.slice(0, 8).toUpperCase()}`);
+        const spkNum = transaction.invoiceNumber ? `SPK-${transaction.invoiceNumber}` : `SPK-${transactionId.slice(0, 8).toUpperCase()}`;
+        this.drawHeader(doc, tenant, 'SURAT PESANAN', spkNum);
 
         doc.fontSize(10).font('Helvetica');
-        doc.text(`No. SPK: SPK-${transactionId.slice(0, 8).toUpperCase()}`);
+        doc.text(`No. SPK: ${spkNum}`);
         doc.text(`Tanggal: ${this.formatDate(transaction.date)}`);
         doc.moveDown();
         doc.moveTo(50, doc.y).lineTo(550, doc.y).stroke();
@@ -1099,10 +1114,11 @@ export class PdfService {
         doc.pipe(res);
 
         // === HEADER ===
-        this.drawHeader(doc, tenant, 'KWITANSI', `KWT-${transactionId.slice(0, 8).toUpperCase()}`);
+        const kwtNum = transaction.invoiceNumber ? `KWT-${transaction.invoiceNumber}` : `KWT-${transactionId.slice(0, 8).toUpperCase()}`;
+        this.drawHeader(doc, tenant, 'KWITANSI', kwtNum);
 
         doc.fontSize(10).font('Helvetica');
-        doc.text(`No: KWT-${transactionId.slice(0, 8).toUpperCase()}`);
+        doc.text(`No: ${kwtNum}`);
         doc.text(`Tanggal: ${this.formatDate(new Date())}`);
         doc.moveDown();
         doc.moveTo(50, doc.y).lineTo(550, doc.y).stroke({ width: 2 });

@@ -24,6 +24,7 @@ export interface TranslationKeys {
     staff: string;
     branch: string;
     stockTransfer: string;
+    finance: string;
     billing: string;
     activity: string;
     dealerGroup: string;
@@ -278,6 +279,7 @@ const translations: Record<Language, TranslationKeys> = {
         staff: 'Tim Sales',
         branch: 'Cabang',
         stockTransfer: 'Transfer Stok',
+        finance: 'Keuangan',
         billing: 'Tagihan',
         activity: 'Aktivitas',
         dealerGroup: 'Dealer Group',
@@ -520,6 +522,7 @@ const translations: Record<Language, TranslationKeys> = {
         staff: 'Sales Team',
         branch: 'Branch',
         stockTransfer: 'Stock Transfer',
+        finance: 'Finance',
         billing: 'Billing',
         activity: 'Activity',
         dealerGroup: 'Dealer Group',
@@ -751,6 +754,7 @@ const translations: Record<Language, TranslationKeys> = {
         staff: 'ทีมขาย',
         branch: 'สาขา',
         stockTransfer: 'โอนย้ายสต็อก',
+        finance: 'การเงิน',
         billing: 'การเรียกเก็บเงิน',
         activity: 'กิจกรรม',
         dealerGroup: 'Dealer Group',

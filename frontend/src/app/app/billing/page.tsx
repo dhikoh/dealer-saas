@@ -33,7 +33,12 @@ interface Plan {
     name: string;
     price: number;
     priceLabel: string;
-    features: any;
+    features: {
+        maxVehicles: number;
+        maxUsers: number;
+        maxCustomers: number;
+        maxBranches: number;
+    };
     recommended: boolean;
     isCurrent: boolean;
     canUpgrade: boolean;

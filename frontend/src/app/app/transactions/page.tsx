@@ -1,7 +1,8 @@
 'use client';
 
 import React, { useEffect, useState } from 'react';
-import { Plus, Search, Filter, DollarSign, ShoppingCart, TrendingUp, TrendingDown, Eye, FileText, X, Check, ChevronLeft, ChevronRight, Printer, Calculator, Banknote } from 'lucide-react';
+import { Building2, Calculator, Calendar, Check, ChevronDown, ChevronLeft, ChevronRight, Filter, Plus, Printer, Search, X } from "lucide-react";
+import CreditSimulator from "@/components/calculator/CreditSimulator";
 import { toast } from 'sonner';
 import { useLanguage } from '@/hooks/useLanguage';
 import { useCurrency } from '@/hooks/useCurrency';
@@ -581,60 +582,29 @@ export default function TransactionsPage() {
 
                             {/* Credit Details */}
                             {txForm.paymentType === 'CREDIT' && (
-                                <div className="space-y-4 p-4 bg-gray-50 rounded-xl border border-gray-200">
-                                    <h4 className="font-semibold text-gray-700 flex items-center gap-2">
-                                        <Calculator className="w-4 h-4 text-[#00bfa5]" /> Simulasi Kredit
-                                    </h4>
+                                <div className="space-y-4">
+                                    <CreditSimulator
+                                        vehiclePrice={parseFloat(txForm.finalPrice) || 0}
+                                        dpAmount={parseFloat(txForm.downPayment) || 0}
+                                        setDpAmount={(val) => setTxForm(prev => ({ ...prev, downPayment: val.toString() }))}
+                                        tenor={parseInt(txForm.tenorMonths) || 12}
+                                        setTenor={(val) => setTxForm(prev => ({ ...prev, tenorMonths: val.toString() }))}
+                                        interestRate={parseFloat(txForm.interestRate) || 0}
+                                        setInterestRate={(val) => setTxForm(prev => ({ ...prev, interestRate: val.toString() }))}
+                                    />
 
-                                    <div className="grid grid-cols-2 gap-4">
-                                        <div>
-                                            <label className="block text-xs font-medium text-gray-500 mb-1">Uang Muka (DP)</label>
-                                            <input
-                                                type="number"
-                                                value={txForm.downPayment}
-                                                onChange={(e) => setTxForm({ ...txForm, downPayment: e.target.value })}
-                                                placeholder="Contoh: 5000000"
-                                                className="w-full px-3 py-2 rounded-lg bg-white border border-gray-300 focus:ring-2 focus:ring-[#00bfa5] outline-none"
-                                            />
-                                        </div>
-                                        <div>
-                                            <label className="block text-xs font-medium text-gray-500 mb-1">Tenor (Bulan)</label>
-                                            <select
-                                                value={txForm.tenorMonths}
-                                                onChange={(e) => setTxForm({ ...txForm, tenorMonths: e.target.value })}
-                                                className="w-full px-3 py-2 rounded-lg bg-white border border-gray-300 focus:ring-2 focus:ring-[#00bfa5] outline-none"
-                                            >
-                                                {[6, 12, 18, 24, 30, 36, 48, 60].map(m => (
-                                                    <option key={m} value={m}>{m} Bulan</option>
-                                                ))}
-                                            </select>
-                                        </div>
-                                        <div>
-                                            <label className="block text-xs font-medium text-gray-500 mb-1">Bunga (%/Tahun)</label>
-                                            <input
-                                                type="number"
-                                                value={txForm.interestRate}
-                                                onChange={(e) => setTxForm({ ...txForm, interestRate: e.target.value })}
-                                                placeholder="Contoh: 10"
-                                                className="w-full px-3 py-2 rounded-lg bg-white border border-gray-300 focus:ring-2 focus:ring-[#00bfa5] outline-none"
-                                            />
-                                        </div>
-                                        <div>
-                                            <label className="block text-xs font-medium text-gray-500 mb-1">Leasing (Opsional)</label>
+                                    <div className="bg-gray-50 p-4 rounded-xl border border-gray-200">
+                                        <label className="block text-sm font-medium text-gray-700 mb-1">Perusahaan Leasing (Opsional)</label>
+                                        <div className="relative">
+                                            <Building2 className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 w-4 h-4" />
                                             <input
                                                 type="text"
                                                 value={txForm.leasingCompany}
                                                 onChange={(e) => setTxForm({ ...txForm, leasingCompany: e.target.value })}
-                                                placeholder="Nama Leasing"
-                                                className="w-full px-3 py-2 rounded-lg bg-white border border-gray-300 focus:ring-2 focus:ring-[#00bfa5] outline-none"
+                                                placeholder="Contoh: Adira Finance, BCA Finance"
+                                                className="w-full pl-10 pr-4 py-2 rounded-lg bg-white border border-gray-300 focus:ring-2 focus:ring-[#00bfa5] outline-none"
                                             />
                                         </div>
-                                    </div>
-
-                                    {/* Simulation Result */}
-                                    <div className="bg-[#e0f7fa] p-3 rounded-lg flex justify-between items-center">
-                                        <span className="text-sm text-[#006064] font-medium">Estimasi Cicilan/Bulan:</span>
-                                        <span className="text-lg font-bold text-[#00bfa5]">{fmt(monthlyInstallment)}</span>
                                     </div>
                                 </div>
                             )}

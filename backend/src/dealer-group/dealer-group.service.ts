@@ -73,10 +73,9 @@ export class DealerGroupService {
                     code: groupOwned.code,
                     adminTenant: groupOwned.owner?.tenant,
                     members: groupOwned.members.map(m => {
-                        const revenue = m.transactions.reduce((acc, tx) => acc + Number(tx.finalPrice), 0);
-                        const txCount = m.transactions.length; // Actually we want Total Count regardless of status? Or just Sales? 
-                        // Let's get total count separately or assume we want just Paid Sales performance.
-                        // For MVP, let's use the fetched transactions count which is Paid Sales.
+                        const transactions = m.transactions || [];
+                        const revenue = transactions.reduce((acc, tx) => acc + Number(tx.finalPrice || 0), 0);
+                        const txCount = transactions.length;
 
                         return {
                             id: m.id,
@@ -85,9 +84,9 @@ export class DealerGroupService {
                             phone: m.phone,
                             subscriptionStatus: m.subscriptionStatus,
                             nextBillingDate: m.nextBillingDate,
-                            planName: m.plan?.name || m.planTier,
+                            planName: m.plan?.name || m.planTier || 'Unknown',
                             stats: {
-                                vehicles: m._count.vehicles,
+                                vehicles: m._count?.vehicles || 0,
                                 transactions: txCount,
                                 revenue: revenue
                             }

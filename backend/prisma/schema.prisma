@@ -59,6 +59,7 @@ model Tenant {
   invoices     SystemInvoice[]
   activityLogs ActivityLog[]
   vehicleCosts VehicleCost[]
+  operatingCosts OperatingCost[]
 
   // Stock Transfers
   outgoingTransfers StockTransfer[] @relation("SourceTenantTransfer")
@@ -418,12 +419,15 @@ model Transaction {
   credit Credit?
   payments TransactionPayment[] // v2.0 Split Payments
 
+  invoiceNumber String? // INV-202401-001 (Unique per Tenant)
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
   @@index([tenantId])
   @@index([tenantId, date])
   @@index([tenantId, status])
+  @@unique([tenantId, invoiceNumber])
   @@map("transactions")
 }
 
@@ -443,6 +447,28 @@ model TransactionPayment {
 
   @@index([transactionId])
   @@map("transaction_payments")
+}
+
+// ==================== OPERATING COSTS (v2.3 Financials) ====================
+
+model OperatingCost {
+  id        String   @id @default(uuid())
+  tenantId  String
+  tenant    Tenant   @relation(fields: [tenantId], references: [id])
+
+  name      String   // e.g. "Listrik Bulan Ini", "Gaji Admin"
+  amount    Decimal
+  category  String   // SALARY, UTILITY, RENT, MARKETING, OTHER
+  date      DateTime @default(now())
+  note      String?
+  proofImage String? // URL bukti kwitansi/transfer
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([tenantId])
+  @@index([date])
+  @@map("operating_costs")
 }
 
 // ==================== CREDIT / LEASING ====================
