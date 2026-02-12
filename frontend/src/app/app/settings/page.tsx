@@ -41,6 +41,7 @@ export default function SettingsPage() {
         address: '',
         phone: '',
         email: '',
+        currency: 'IDR',
     });
 
     const [passwordForm, setPasswordForm] = useState({
@@ -81,7 +82,9 @@ export default function SettingsPage() {
                 address: data.address || '',
                 phone: data.phone || '',
                 email: data.email || '',
+                currency: data.currency || 'IDR',
             });
+            if (data.currency) setCurrency(data.currency);
         } catch (err) {
             console.error('Error fetching profile:', err);
         } finally {
@@ -276,8 +279,11 @@ export default function SettingsPage() {
                             <div className="relative">
                                 <DollarSign className="w-5 h-5 absolute left-4 top-1/2 transform -translate-y-1/2 text-gray-400" />
                                 <select
-                                    value={currency}
-                                    onChange={(e) => setCurrency(e.target.value as any)}
+                                    value={formData.currency}
+                                    onChange={(e) => {
+                                        setCurrency(e.target.value as any);
+                                        setFormData({ ...formData, currency: e.target.value });
+                                    }}
                                     className="w-full pl-12 pr-4 py-3 rounded-xl bg-[#ecf0f3] border-none shadow-[3px_3px_6px_#cbced1,-3px_-3px_6px_#ffffff] focus:outline-none focus:ring-2 focus:ring-[#00bfa5] text-gray-700"
                                 >
                                     {currencyList.map((c) => (

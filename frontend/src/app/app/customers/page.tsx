@@ -31,6 +31,7 @@ interface Customer {
     email?: string;
     address?: string;
     createdAt: string;
+    ktpImage?: string;
 }
 
 interface BlacklistEntry {
@@ -38,6 +39,7 @@ interface BlacklistEntry {
     dealerAddress: string;
     reason: string;
     createdAt: string;
+    ktpImage?: string;
 }
 
 interface BlacklistCheck {
@@ -106,6 +108,8 @@ export default function CustomersPage() {
         }
     };
 
+    const [ktpFile, setKtpFile] = useState<File | null>(null);
+
     const handleAddCustomer = async (e: React.FormEvent) => {
         e.preventDefault();
         const token = getToken();
@@ -118,6 +122,7 @@ export default function CustomersPage() {
         }
 
         try {
+            // 1. Create Customer
             const res = await fetch(`${API_URL}/customers`, {
                 method: 'POST',
                 headers: {
@@ -128,9 +133,43 @@ export default function CustomersPage() {
             });
 
             if (res.ok) {
+                const newCustomer = await res.json();
+
+                // 2. Upload KTP if exists
+                if (ktpFile) {
+                    try {
+                        const formData = new FormData();
+                        formData.append('document', ktpFile);
+
+                        const uploadRes = await fetch(`${API_URL}/upload/customer/${newCustomer.id}/ktp`, {
+                            method: 'POST',
+                            headers: { Authorization: `Bearer ${token}` },
+                            body: formData,
+                        });
+
+                        if (uploadRes.ok) {
+                            const uploadData = await uploadRes.json();
+
+                            // 3. Update Customer with KTP Image URL
+                            await fetch(`${API_URL}/customers/${newCustomer.id}`, {
+                                method: 'PUT',
+                                headers: {
+                                    'Content-Type': 'application/json',
+                                    Authorization: `Bearer ${token}`,
+                                },
+                                body: JSON.stringify({ ktpImage: uploadData.url }),
+                            });
+                        }
+                    } catch (uploadError) {
+                        console.error('Failed to upload KTP:', uploadError);
+                        toast.error('Customer dibuat tapi gagal upload KTP');
+                    }
+                }
+
                 toast.success('Customer berhasil ditambahkan');
                 setShowAddModal(false);
                 setForm({ ktpNumber: '', name: '', phone: '', email: '', address: '' });
+                setKtpFile(null);
                 fetchCustomers();
             } else {
                 toast.error('Gagal menambahkan customer');
@@ -309,6 +348,11 @@ export default function CustomersPage() {
                                     <div className="text-xs text-gray-400 flex items-center gap-1">
                                         <FontAwesomeIcon icon={faIdCard} />
                                         {customer.ktpNumber}
+                                        {customer.ktpImage && (
+                                            <a href={`${API_URL}${customer.ktpImage}`} target="_blank" rel="noopener noreferrer" className="ml-2 text-[#00bfa5] hover:underline text-xs">
+                                                Lihat Foto
+                                            </a>
+                                        )}
                                     </div>
                                 </div>
                             </div>

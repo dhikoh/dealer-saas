@@ -21,4 +21,8 @@ export class CreateCustomerDto {
     @IsOptional()
     @IsString({ message: 'Alamat harus berupa teks' })
     address?: string;
+
+    @IsOptional()
+    @IsString()
+    ktpImage?: string;
 }

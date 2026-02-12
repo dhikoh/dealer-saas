@@ -299,6 +299,15 @@ export default function InvoicesPage() {
                                                 >
                                                     <CheckCircle className="w-4 h-4" />
                                                 </button>
+                                                <a
+                                                    href={`${API_URL}/pdf/invoice/${inv.id}`}
+                                                    target="_blank"
+                                                    rel="noopener noreferrer"
+                                                    className="text-indigo-600 hover:bg-indigo-50 p-1.5 rounded-lg border border-indigo-200 transition-colors inline-flex items-center justify-center"
+                                                    title="Download PDF"
+                                                >
+                                                    <Download className="w-4 h-4" />
+                                                </a>
                                                 <button
                                                     onClick={() => setConfirmVerify({ id: inv.id, approved: false })}
                                                     className="text-rose-600 hover:bg-rose-50 p-1.5 rounded-lg border border-rose-200 transition-colors"

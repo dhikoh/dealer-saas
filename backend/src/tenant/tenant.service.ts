@@ -76,6 +76,7 @@ export class TenantService {
     address?: string;
     phone?: string;
     email?: string;
+    currency?: string;
   }) {
     const tenant = await this.prisma.tenant.findUnique({
       where: { id: tenantId },
@@ -92,6 +93,7 @@ export class TenantService {
         address: data.address,
         phone: data.phone,
         email: data.email,
+        currency: data.currency,
       },
     });
   }

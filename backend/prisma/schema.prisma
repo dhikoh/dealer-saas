@@ -162,6 +162,7 @@ model User {
   birthDate DateTime?
   address   String?
   language  String   @default("id")
+  avatar    String?
 
   // VERIFICATION & ONBOARDING
   isVerified              Boolean   @default(false)
