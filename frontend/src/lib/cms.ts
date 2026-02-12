@@ -39,11 +39,10 @@ export interface PublicPlan {
 
 export async function getLandingContent(): Promise<LandingContent | null> {
     try {
-        // Add cache: 'no-store' for dynamic, or 'force-cache' for SSG
-        // For now, next: { revalidate: 60 } is a good balance
         const res = await fetch(`${API_URL}/public/content`, { next: { revalidate: 60 } });
         if (!res.ok) return null;
-        return res.json();
+        const text = await res.text();
+        return text ? JSON.parse(text) : null;
     } catch (error) {
         console.error("Failed to fetch landing content:", error);
         return null;
@@ -54,7 +53,8 @@ export async function getPublicPlans(): Promise<PublicPlan[]> {
     try {
         const res = await fetch(`${API_URL}/plans/public`, { next: { revalidate: 60 } });
         if (!res.ok) return [];
-        return res.json();
+        const text = await res.text();
+        return text ? JSON.parse(text) : [];
     } catch (error) {
         console.error("Failed to fetch public plans:", error);
         return [];
