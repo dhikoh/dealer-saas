@@ -196,7 +196,7 @@ export default function Sidebar({ isOpen, onToggle }: SidebarProps) {
                             try {
                                 const userStr = localStorage.getItem('user_info');
                                 if (!userStr) return false;
-                                const user = JSON.parse(userStr);
+                                const user = JSON.parse(userStr || '{}');
                                 return item.roles.includes(user.role?.toUpperCase());
                             } catch {
                                 return false;

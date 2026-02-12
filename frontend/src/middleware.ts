@@ -70,7 +70,9 @@ export function middleware(request: NextRequest) {
         }
 
         // Decode payload
-        payload = JSON.parse(atob(parts[1]));
+        const decoded = atob(parts[1]);
+        if (!decoded) throw new Error('Empty payload');
+        payload = JSON.parse(decoded);
 
         // Check expiration
         if (payload.exp && Date.now() >= payload.exp * 1000) {
