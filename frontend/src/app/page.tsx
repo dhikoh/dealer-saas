@@ -122,7 +122,7 @@ export default async function Home() {
             <p className="text-slate-400 max-w-xl mx-auto">Fitur lengkap untuk mengelola bisnis dealer mobil bekas Anda dengan efisien</p>
           </div>
           <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {content.features.map((feature, idx) => {
+            {(content.features || []).map((feature, idx) => {
               const Icon = IconMap[feature.icon] || Car;
               return (
                 <FeatureCard
@@ -146,7 +146,7 @@ export default async function Home() {
             <p className="text-slate-400">Pilih paket yang sesuai dengan skala bisnis Anda</p>
           </div>
           <div className="grid md:grid-cols-1 md:grid-cols-3 gap-6 max-w-6xl mx-auto">
-            {plans.map((plan) => {
+            {(plans || []).map((plan) => {
               // Parse features from JSON or use defaults from Plan object if structured differently
               // Assumption: plan.features is an object like { maxVehicles: 50, ... }
               // We need to convert it to a list of strings for display
@@ -230,10 +230,10 @@ export default async function Home() {
             <span className="text-xl font-bold">OTOHUB</span>
           </div>
           <p className="text-slate-500 text-sm">
-            {content.footer.copyright}
+            {content.footer?.copyright}
           </p>
           <div className="flex gap-6 text-slate-400 text-sm">
-            {content.footer.links.map((link, i) => (
+            {(content.footer?.links || []).map((link, i) => (
               <a key={i} href={link.url} className="hover:text-white transition-colors">{link.label}</a>
             ))}
           </div>
