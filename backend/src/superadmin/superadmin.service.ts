@@ -326,9 +326,18 @@ export class SuperadminService {
 
         // If approved, activate tenant subscription
         if (approved) {
+            // Parse items to check for plan upgrade info
+            let toPlan: string | null = null;
+            try {
+                const items = JSON.parse(invoice.items || '{}');
+                // items can be { toPlan: 'PRO' } or [{ toPlan: 'PRO' }]
+                toPlan = items.toPlan || (Array.isArray(items) ? items[0]?.toPlan : null);
+            } catch { /* ignore parse errors */ }
+
             await this.prisma.tenant.update({
                 where: { id: invoice.tenantId },
                 data: {
+                    ...(toPlan ? { planTier: toPlan } : {}),
                     subscriptionStatus: 'ACTIVE',
                     subscriptionStartedAt: new Date(),
                     subscriptionEndsAt: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),

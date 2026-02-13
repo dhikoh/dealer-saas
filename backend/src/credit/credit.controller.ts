@@ -6,6 +6,7 @@ import {
     Param,
     Query,
     Request,
+    ForbiddenException,
 } from '@nestjs/common';
 import { CreditService } from './credit.service';
 import { CreateCreditDto } from './dto/create-credit.dto';
@@ -49,21 +50,25 @@ export class CreditController {
 
     @Get()
     findAll(@Request() req) {
+        if (!req.user.tenantId) throw new ForbiddenException('No tenant associated');
         return this.creditService.findAllByTenant(req.user.tenantId);
     }
 
     @Get('overdue')
     getOverdue(@Request() req) {
+        if (!req.user.tenantId) throw new ForbiddenException('No tenant associated');
         return this.creditService.getOverdueCredits(req.user.tenantId);
     }
 
     @Get(':id')
     findOne(@Param('id') id: string, @Request() req) {
+        if (!req.user.tenantId) throw new ForbiddenException('No tenant associated');
         return this.creditService.findOne(id, req.user.tenantId);
     }
 
     @Post()
     create(@Body() data: CreateCreditDto, @Request() req) {
+        if (!req.user.tenantId) throw new ForbiddenException('No tenant associated');
         return this.creditService.create(data.transactionId, data, req.user.tenantId);
     }
 
@@ -73,6 +78,7 @@ export class CreditController {
         @Body() data: AddPaymentDto,
         @Request() req,
     ) {
+        if (!req.user.tenantId) throw new ForbiddenException('No tenant associated');
         return this.creditService.addPayment(
             creditId,
             req.user.tenantId,

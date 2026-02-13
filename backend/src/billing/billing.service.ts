@@ -36,13 +36,21 @@ export class BillingService {
                 data: { status: 'PAID' }
             });
 
-            // Activate subscription
+            // Parse items to check for plan upgrade info
+            let toPlan: string | null = null;
+            try {
+                const items = JSON.parse(invoice.items || '{}');
+                toPlan = items.toPlan || (Array.isArray(items) ? items[0]?.toPlan : null);
+            } catch { /* ignore parse errors */ }
+
+            // Activate subscription and upgrade planTier if applicable
             const now = new Date();
             const subscriptionEndsAt = new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000);
 
             await this.prisma.tenant.update({
                 where: { id: invoice.tenantId },
                 data: {
+                    ...(toPlan ? { planTier: toPlan } : {}),
                     subscriptionStatus: 'ACTIVE',
                     subscriptionStartedAt: now,
                     subscriptionEndsAt,
@@ -96,8 +104,7 @@ export class BillingService {
         if (!invoice) throw new BadRequestException('Invoice not found');
         if (invoice.tenantId !== tenantId) throw new BadRequestException('Access denied');
         if (invoice.status !== 'PENDING' && invoice.status !== 'REJECTED') {
-            // Allow re-upload if rejected? Logic says PENDING only usually, but let's be flexible
-            if (invoice.status !== 'PENDING') throw new BadRequestException('Invoice is not pending');
+            throw new BadRequestException('Invoice sudah diproses dan tidak bisa diupload ulang');
         }
 
         const updated = await (this.prisma as any).systemInvoice.update({
@@ -193,14 +200,23 @@ export class BillingService {
         const now = new Date();
         const subscriptionEndsAt = new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000); // 30 days
 
-        // Generate invoice for upgrade
-        const invoice = await this.generateInvoice(tenantId, newPlan.price, `Upgrade to ${newPlan.name}`);
+        // Generate invoice for upgrade — store toPlan so verifyPayment can upgrade planTier
+        const invoice = await (this.prisma as any).systemInvoice.create({
+            data: {
+                tenantId,
+                invoiceNumber: `INV-${Date.now()}`,
+                amount: newPlan.price,
+                status: 'PENDING',
+                dueDate: subscriptionEndsAt,
+                items: JSON.stringify({ toPlan: newPlanId, description: `Upgrade to ${newPlan.name}` }),
+            }
+        });
 
-        // Update tenant
+        // DON'T change planTier yet — only switch status to PENDING_PAYMENT
+        // planTier will be upgraded by verifyPayment() after admin approves
         await this.prisma.tenant.update({
             where: { id: tenantId },
             data: {
-                planTier: newPlanId,
                 subscriptionStatus: 'PENDING_PAYMENT',
                 monthlyBill: newPlan.price,
                 nextBillingDate: subscriptionEndsAt,

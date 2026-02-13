@@ -1,5 +1,5 @@
 
-import { Controller, Post, Body, Get, UseGuards, Request } from '@nestjs/common';
+import { Controller, Post, Body, Get, UseGuards, Request, ForbiddenException } from '@nestjs/common';
 import { DealerGroupService } from './dealer-group.service';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 
@@ -15,18 +15,21 @@ export class DealerGroupController {
 
     @Post('join')
     async join(@Request() req, @Body('code') code: string) {
+        if (!req.user.tenantId) throw new ForbiddenException('No tenant associated');
         return this.dealerGroupService.joinGroup(req.user.tenantId, code);
     }
 
     @Get('my')
     async getMyGroup(@Request() req) {
-        return this.dealerGroupService.getMyGroup(req.user.id);
+        const group = await this.dealerGroupService.getMyGroup(req.user.id);
+        return { group };
     }
 
     // Alias for Mobile App compatibility
     @Get('my-group')
     async getMyGroupMobile(@Request() req) {
-        return this.dealerGroupService.getMyGroup(req.user.id);
+        const group = await this.dealerGroupService.getMyGroup(req.user.id);
+        return { group };
     }
 
     @Post('kick')

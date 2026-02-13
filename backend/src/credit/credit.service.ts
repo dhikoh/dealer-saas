@@ -135,12 +135,16 @@ export class CreditService {
         // SECURITY: Verify credit → transaction → tenant chain
         const credit = await this.prisma.credit.findUnique({
             where: { id: creditId },
-            include: { transaction: { select: { tenantId: true } } },
+            include: {
+                transaction: { select: { tenantId: true, id: true } },
+                payments: { select: { id: true } },
+            },
         });
         if (!credit || credit.transaction.tenantId !== tenantId) {
             throw new NotFoundException('Data kredit tidak ditemukan');
         }
-        return this.prisma.creditPayment.create({
+
+        const payment = await this.prisma.creditPayment.create({
             data: {
                 creditId,
                 month,
@@ -149,14 +153,44 @@ export class CreditService {
                 status,
             },
         });
+
+        // Update credit: advance nextDueDate and check completion
+        const paidCount = credit.payments.length + 1; // +1 for the payment we just created
+        const isCompleted = paidCount >= credit.tenorMonths;
+
+        await this.prisma.credit.update({
+            where: { id: creditId },
+            data: {
+                nextDueDate: isCompleted
+                    ? null
+                    : new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
+                status: isCompleted ? 'COMPLETED' : 'ACTIVE',
+            },
+        });
+
+        // If completed, also update parent transaction paymentStatus
+        if (isCompleted) {
+            await this.prisma.transaction.update({
+                where: { id: credit.transaction.id },
+                data: { paymentStatus: 'PAID', status: 'COMPLETED' },
+            });
+        }
+
+        return payment;
     }
 
     // Get overdue payments (cicilan yang belum dibayar)
     async getOverdueCredits(tenantId: string) {
+        const now = new Date();
         const credits = await this.prisma.credit.findMany({
             where: {
                 status: 'ACTIVE',
                 transaction: { tenantId },
+                // Use nextDueDate for accurate overdue detection
+                OR: [
+                    { nextDueDate: { lt: now } },
+                    { nextDueDate: null }, // fallback: check manually for old data
+                ],
             },
             include: {
                 transaction: {
@@ -166,9 +200,11 @@ export class CreditService {
             },
         });
 
-        // Filter credits that have missed payments
-        const now = new Date();
+        // For credits with nextDueDate, they're already overdue (filtered above).
+        // For credits without, use fallback logic.
         return credits.filter(credit => {
+            if (credit.nextDueDate) return true; // Already filtered by query
+            // Fallback: approximate check for old data missing nextDueDate
             const paidMonths = credit.payments.length;
             const monthsSinceStart = Math.floor(
                 (now.getTime() - credit.createdAt.getTime()) / (30 * 24 * 60 * 60 * 1000)

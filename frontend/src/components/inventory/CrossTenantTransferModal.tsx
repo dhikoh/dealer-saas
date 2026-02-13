@@ -46,11 +46,8 @@ export default function CrossTenantTransferModal({ isOpen, onClose, vehicleId, v
             });
             if (res.ok) {
                 const data = await res.json();
-                if (data && data.members) {
-                    // Filter out myself? Logic needs current tenant ID. 
-                    // Backend filter is better, or just show all and let backend reject same tenant.
-                    // For now, list all. Backend will catch if selecting self.
-                    setMembers(data.members);
+                if (data?.group && data.group.members) {
+                    setMembers(data.group.members);
                 }
             } else {
                 toast.error('Gagal memuat daftar dealer group');

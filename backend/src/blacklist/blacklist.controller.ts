@@ -6,6 +6,7 @@ import {
     Body,
     Param,
     Request,
+    ForbiddenException,
 } from '@nestjs/common';
 import { BlacklistService } from './blacklist.service';
 
@@ -18,6 +19,7 @@ export class BlacklistController {
 
     @Get()
     findAll(@Request() req) {
+        if (!req.user.tenantId) throw new ForbiddenException('No tenant associated');
         return this.blacklistService.findAllByTenant(req.user.tenantId);
     }
 
@@ -31,11 +33,13 @@ export class BlacklistController {
             reason: string;
         },
     ) {
+        if (!req.user.tenantId) throw new ForbiddenException('No tenant associated');
         return this.blacklistService.create(req.user.tenantId, data);
     }
 
     @Delete(':ktp')
     delete(@Param('ktp') ktpNumber: string, @Request() req) {
+        if (!req.user.tenantId) throw new ForbiddenException('No tenant associated');
         return this.blacklistService.delete(ktpNumber, req.user.tenantId);
     }
 

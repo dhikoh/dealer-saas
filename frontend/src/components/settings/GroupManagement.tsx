@@ -61,7 +61,7 @@ export default function GroupManagement() {
             const res = await fetchApi('/dealer-groups/my-group');
             if (res.ok) {
                 const json = await res.json();
-                setData(json); // json can be null if no group
+                setData(json?.group || null); // unwrap { group } wrapper
             }
         } catch (err) {
             console.error(err);

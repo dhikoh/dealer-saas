@@ -140,32 +140,12 @@ export class StockTransferService {
                 },
             });
 
-            // 2. Move Vehicle Logic
             const isCrossTenant = !!transfer.targetTenantId;
-            const newTenantId = isCrossTenant ? transfer.targetTenantId : transfer.tenantId; // If internal, stays same
-            const newBranchId = transfer.targetBranchId || null; // Reset branch if not specified
 
-            const updateData: any = {
-                branchId: newBranchId,
-                tenantId: newTenantId,
-                status: 'AVAILABLE', // Reset status in new place (was BOOKED)
-            };
-
-            // If SALE, update purchase price for the new owner
-            if (transfer.type === 'SALE' && transfer.price && isCrossTenant) {
-                updateData.purchasePrice = transfer.price;
-            }
-
-            await tx.vehicle.update({
-                where: { id: transfer.vehicleId },
-                data: updateData,
-            });
-
-            // 3. Financial Logic (If SALE and Cross-Tenant)
+            // 2. Financial Logic FIRST (before vehicle ownership changes)
+            // Must happen while vehicle still belongs to source tenant
             if (transfer.type === 'SALE' && isCrossTenant && transfer.price) {
                 // A. SOURCE TENANT: Record SALE
-                // We need a customer record for the Target Tenant.
-                // Try to find existing "Dealer: TargetName" customer or create one.
                 let partnerCustomer = await tx.customer.findFirst({
                     where: {
                         tenantId: transfer.tenantId,
@@ -189,17 +169,18 @@ export class StockTransferService {
                     data: {
                         tenantId: transfer.tenantId,
                         customerId: partnerCustomer.id,
-                        vehicleId: transfer.vehicleId, // It was theirs at time of sale logic, theoretically
-                        salesPersonId: transfer.requestedById, // Requester gets credit?
+                        vehicleId: transfer.vehicleId,
+                        salesPersonId: transfer.requestedById,
                         type: 'SALE',
                         basePrice: transfer.price,
                         finalPrice: transfer.price,
-                        paymentStatus: 'PAID', // Assumed paid or debt? Let's assume PAID/DEBT settled elsewhere for MVP
+                        paymentStatus: 'PAID',
                         status: 'COMPLETED',
                         notes: `Sold to Dealer Group Member via Transfer #${id.substring(0, 6)}`
                     }
                 });
 
+                // B. TARGET TENANT: Record purchase cost
                 await tx.vehicleCost.create({
                     data: {
                         tenantId: transfer.targetTenantId!,
@@ -211,6 +192,25 @@ export class StockTransferService {
                     }
                 });
             }
+
+            // 3. Move Vehicle AFTER financial records are created
+            const newTenantId = isCrossTenant ? transfer.targetTenantId : transfer.tenantId;
+            const newBranchId = transfer.targetBranchId || null;
+
+            const updateData: any = {
+                branchId: newBranchId,
+                tenantId: newTenantId,
+                status: 'AVAILABLE',
+            };
+
+            if (transfer.type === 'SALE' && transfer.price && isCrossTenant) {
+                updateData.purchasePrice = transfer.price;
+            }
+
+            await tx.vehicle.update({
+                where: { id: transfer.vehicleId },
+                data: updateData,
+            });
 
             return updatedTransfer;
         });

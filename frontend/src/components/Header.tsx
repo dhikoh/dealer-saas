@@ -115,7 +115,7 @@ export default function Header() {
                 });
                 if (res.ok) {
                     const data = await res.json();
-                    if (data && data.role === 'OWNER') {
+                    if (data?.group && data.group.role === 'OWNER') {
                         setIsGroupOwner(true);
                     }
                 }

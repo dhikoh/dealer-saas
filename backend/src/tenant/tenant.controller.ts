@@ -1,4 +1,4 @@
-import { Controller, Get, Patch, Post, Put, Delete, Body, Request, Param } from '@nestjs/common';
+import { Controller, Get, Patch, Post, Put, Delete, Body, Request, Param, ForbiddenException } from '@nestjs/common';
 import { TenantService } from './tenant.service';
 
 // Protected by global JwtAuthGuard
@@ -9,6 +9,7 @@ export class TenantController {
   // Get current tenant profile (for logged-in user)
   @Get('profile')
   async getProfile(@Request() req: any) {
+    if (!req.user.tenantId) throw new ForbiddenException('SuperAdmin tidak memiliki tenant profile');
     return this.tenantService.getProfile(req.user.tenantId);
   }
 
@@ -18,12 +19,14 @@ export class TenantController {
     @Request() req: any,
     @Body() data: { name?: string; address?: string; phone?: string; email?: string }
   ) {
+    if (!req.user.tenantId) throw new ForbiddenException('SuperAdmin tidak memiliki tenant profile');
     return this.tenantService.updateProfile(req.user.tenantId, data);
   }
 
   // Get available plans for upgrade
   @Get('plans')
   async getAvailablePlans(@Request() req: any) {
+    if (!req.user.tenantId) throw new ForbiddenException('No tenant associated');
     return this.tenantService.getAvailablePlans(req.user.tenantId);
   }
 
@@ -33,6 +36,7 @@ export class TenantController {
     @Request() req: any,
     @Body('planTier') planTier: string
   ) {
+    if (!req.user.tenantId) throw new ForbiddenException('No tenant associated');
     return this.tenantService.requestUpgrade(req.user.tenantId, planTier);
   }
 
@@ -43,12 +47,14 @@ export class TenantController {
     @Param('invoiceId') invoiceId: string,
     @Body('proofUrl') proofUrl: string
   ) {
+    if (!req.user.tenantId) throw new ForbiddenException('No tenant associated');
     return this.tenantService.uploadPaymentProof(req.user.tenantId, invoiceId, proofUrl);
   }
 
   // Get tenant's invoices
   @Get('invoices')
   async getInvoices(@Request() req: any) {
+    if (!req.user.tenantId) throw new ForbiddenException('No tenant associated');
     return this.tenantService.getInvoices(req.user.tenantId);
   }
 
@@ -57,6 +63,7 @@ export class TenantController {
   // Get all staff
   @Get('staff')
   async getStaff(@Request() req: any) {
+    if (!req.user.tenantId) throw new ForbiddenException('No tenant associated');
     return this.tenantService.getStaff(req.user.tenantId);
   }
 
@@ -73,6 +80,7 @@ export class TenantController {
       branchId?: string;
     }
   ) {
+    if (!req.user.tenantId) throw new ForbiddenException('No tenant associated');
     return this.tenantService.createStaff(req.user.tenantId, data);
   }
 
@@ -88,6 +96,7 @@ export class TenantController {
       branchId?: string | null;
     }
   ) {
+    if (!req.user.tenantId) throw new ForbiddenException('No tenant associated');
     return this.tenantService.updateStaff(req.user.tenantId, staffId, data);
   }
 
@@ -97,6 +106,7 @@ export class TenantController {
     @Request() req: any,
     @Param('id') staffId: string
   ) {
+    if (!req.user.tenantId) throw new ForbiddenException('No tenant associated');
     return this.tenantService.deleteStaff(req.user.tenantId, staffId);
   }
 
@@ -107,6 +117,7 @@ export class TenantController {
     @Param('id') staffId: string,
     @Body('branchId') branchId: string | null
   ) {
+    if (!req.user.tenantId) throw new ForbiddenException('No tenant associated');
     return this.tenantService.assignBranch(req.user.tenantId, staffId, branchId);
   }
 
@@ -115,6 +126,7 @@ export class TenantController {
   // Get all branches
   @Get('branches')
   async getBranches(@Request() req: any) {
+    if (!req.user.tenantId) throw new ForbiddenException('No tenant associated');
     return this.tenantService.getBranches(req.user.tenantId);
   }
 
@@ -124,6 +136,7 @@ export class TenantController {
     @Request() req: any,
     @Body() data: { name: string; address: string; phone?: string }
   ) {
+    if (!req.user.tenantId) throw new ForbiddenException('No tenant associated');
     return this.tenantService.createBranch(req.user.tenantId, data);
   }
 
@@ -134,6 +147,7 @@ export class TenantController {
     @Param('id') branchId: string,
     @Body() data: { name?: string; address?: string; phone?: string }
   ) {
+    if (!req.user.tenantId) throw new ForbiddenException('No tenant associated');
     return this.tenantService.updateBranch(req.user.tenantId, branchId, data);
   }
 
@@ -143,6 +157,7 @@ export class TenantController {
     @Request() req: any,
     @Param('id') branchId: string
   ) {
+    if (!req.user.tenantId) throw new ForbiddenException('No tenant associated');
     return this.tenantService.deleteBranch(req.user.tenantId, branchId);
   }
 }

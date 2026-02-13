@@ -1,4 +1,4 @@
-import { Controller, Get, Query, Request } from '@nestjs/common';
+import { Controller, Get, Query, Request, ForbiddenException } from '@nestjs/common';
 import { ActivityLogService } from './activity-log.service';
 
 // Protected by global JwtAuthGuard
@@ -14,6 +14,7 @@ export class ActivityLogController {
         @Query('userId') userId: string,
         @Request() req,
     ) {
+        if (!req.user.tenantId) throw new ForbiddenException('No tenant associated');
         return this.activityLogService.findAll(req.user.tenantId, {
             page: page ? parseInt(page) : 1,
             limit: limit ? parseInt(limit) : 50,

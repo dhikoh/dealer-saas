@@ -9,6 +9,7 @@ import {
     Query,
     Request,
     Res,
+    ForbiddenException,
 } from '@nestjs/common';
 import type { Response } from 'express';
 import { CustomerService } from './customer.service';
@@ -21,11 +22,13 @@ export class CustomerController {
 
     @Get()
     findAll(@Request() req, @Query('search') search?: string) {
+        if (!req.user.tenantId) throw new ForbiddenException('No tenant associated');
         return this.customerService.findAll(req.user.tenantId, search);
     }
 
     @Get(':id')
     findOne(@Param('id') id: string, @Request() req) {
+        if (!req.user.tenantId) throw new ForbiddenException('No tenant associated');
         return this.customerService.findOne(id, req.user.tenantId);
     }
 
@@ -44,21 +47,25 @@ export class CustomerController {
 
     @Get(':id/documents')
     getDocumentStatus(@Param('id') id: string, @Request() req) {
+        if (!req.user.tenantId) throw new ForbiddenException('No tenant associated');
         return this.customerService.getDocumentStatus(id, req.user.tenantId);
     }
 
     @Post()
     create(@Body() data: CreateCustomerDto, @Request() req) {
+        if (!req.user.tenantId) throw new ForbiddenException('No tenant associated');
         return this.customerService.create(req.user.tenantId, data);
     }
 
     @Put(':id')
     update(@Param('id') id: string, @Body() data: UpdateCustomerDto, @Request() req) {
+        if (!req.user.tenantId) throw new ForbiddenException('No tenant associated');
         return this.customerService.update(id, req.user.tenantId, data);
     }
 
     @Delete(':id')
     delete(@Param('id') id: string, @Request() req) {
+        if (!req.user.tenantId) throw new ForbiddenException('No tenant associated');
         return this.customerService.delete(id, req.user.tenantId);
     }
 }

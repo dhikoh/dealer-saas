@@ -1,4 +1,4 @@
-import { Controller, Get, Query, Request } from '@nestjs/common';
+import { Controller, Get, Query, Request, ForbiddenException } from '@nestjs/common';
 import { SearchService } from './search.service';
 
 // Protected by global JwtAuthGuard
@@ -12,6 +12,7 @@ export class SearchController {
         @Query('limit') limit: string,
         @Request() req,
     ) {
+        if (!req.user.tenantId) throw new ForbiddenException('No tenant associated');
         return this.searchService.search(
             req.user.tenantId,
             query,

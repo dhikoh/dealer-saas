@@ -108,6 +108,13 @@ export class VehicleService {
 
         // PRE-PROCESSING: Ensure Dates are Dates
         const updateData = { ...data };
+
+        // SECURITY: Sanitize — prevent overwriting protected fields via data spread
+        delete updateData.id;
+        delete updateData.tenantId;
+        delete updateData.createdAt;
+        delete updateData.updatedAt;
+
         if (updateData.stnkExpiry) updateData.stnkExpiry = new Date(updateData.stnkExpiry);
         if (updateData.taxExpiry) updateData.taxExpiry = new Date(updateData.taxExpiry);
         if (updateData.purchaseDate) updateData.purchaseDate = new Date(updateData.purchaseDate);

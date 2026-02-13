@@ -128,7 +128,7 @@ export class AuthService {
       const newTenant = await this.prisma.tenant.create({
         data: {
           name: `${normalizedUsername}'s Dealership`,
-          slug: normalizedUsername.replace(/ /g, '-') + '-' + Math.floor(Math.random() * 1000),
+          slug: normalizedUsername.replace(/ /g, '-') + '-' + randomBytes(4).toString('hex'),
           planTier: 'DEMO',
           subscriptionStatus: 'TRIAL',
           trialEndsAt,

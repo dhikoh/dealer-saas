@@ -36,6 +36,7 @@ import { DealerGroupModule } from './dealer-group/dealer-group.module';
 import { PlanModule } from './plan/plan.module';
 import { CmsModule } from './cms/cms.module';
 import { PaymentMethodModule } from './payment-method/payment-method.module';
+import { FinanceModule } from './finance/finance.module';
 
 @Module({
   imports: [
@@ -80,6 +81,7 @@ import { PaymentMethodModule } from './payment-method/payment-method.module';
     PlanModule,
     CmsModule,
     PaymentMethodModule,
+    FinanceModule,
     ScheduleModule.forRoot(), // Cron job support
     CleanupModule, // Auto-delete inactive tenants
   ],

@@ -10,6 +10,7 @@ import {
     Request,
     BadRequestException,
     NotFoundException,
+    ForbiddenException,
 } from '@nestjs/common';
 import { FileInterceptor, FilesInterceptor } from '@nestjs/platform-express';
 import { UploadService } from './upload.service';
@@ -50,6 +51,7 @@ export class UploadController {
         }
 
         // SECURITY: Verify vehicle belongs to tenant
+        if (!req.user.tenantId) throw new ForbiddenException('No tenant associated');
         const vehicle = await this.prisma.vehicle.findFirst({
             where: { id: vehicleId, tenantId: req.user.tenantId },
         });
@@ -81,6 +83,7 @@ export class UploadController {
         }
 
         // SECURITY: Verify vehicle belongs to tenant
+        if (!req.user.tenantId) throw new ForbiddenException('No tenant associated');
         const vehicle = await this.prisma.vehicle.findFirst({
             where: { id: vehicleId, tenantId: req.user.tenantId },
         });
@@ -115,6 +118,7 @@ export class UploadController {
         // Customer docs allow PDF, so module-level filter is sufficient
 
         // SECURITY: Verify customer belongs to tenant
+        if (!req.user.tenantId) throw new ForbiddenException('No tenant associated');
         const customer = await this.prisma.customer.findFirst({
             where: { id: customerId, tenantId: req.user.tenantId },
         });

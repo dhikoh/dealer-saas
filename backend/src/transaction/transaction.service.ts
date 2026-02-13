@@ -325,8 +325,9 @@ export class TransactionService {
             });
         }
 
-        // If cancelled, revert vehicle to AVAILABLE
-        if (status === 'CANCELLED') {
+        // If cancelled, revert vehicle to AVAILABLE only for SALE type
+        // (PURCHASE cancellation doesn't change vehicle status — it was never BOOKED)
+        if (status === 'CANCELLED' && transaction.type === 'SALE') {
             await this.prisma.vehicle.update({
                 where: { id: transaction.vehicleId },
                 data: { status: 'AVAILABLE' },
