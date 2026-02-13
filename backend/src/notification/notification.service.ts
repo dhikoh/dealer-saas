@@ -1,9 +1,13 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, Inject, Optional } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
+import { NotificationGateway } from './notification.gateway';
 
 @Injectable()
 export class NotificationService {
-    constructor(private prisma: PrismaService) { }
+    constructor(
+        private prisma: PrismaService,
+        @Optional() @Inject(NotificationGateway) private gateway?: NotificationGateway,
+    ) { }
 
     // Get notifications for a user
     async getNotifications(userId: string, limit: number = 20) {
@@ -37,7 +41,7 @@ export class NotificationService {
         });
     }
 
-    // Create notification (for internal use)
+    // Create notification (for internal use) + push via WebSocket
     async createNotification(data: {
         userId: string;
         title: string;
@@ -45,7 +49,7 @@ export class NotificationService {
         type: string;
         link?: string;
     }) {
-        return this.prisma.notification.create({
+        const notification = await this.prisma.notification.create({
             data: {
                 userId: data.userId,
                 title: data.title,
@@ -55,7 +59,26 @@ export class NotificationService {
                 read: false,
             },
         });
+
+        // Push real-time via WebSocket (if gateway is available and user is connected)
+        if (this.gateway) {
+            try {
+                this.gateway.sendToUser(data.userId, {
+                    id: notification.id,
+                    title: notification.title,
+                    message: notification.message,
+                    type: notification.type,
+                    link: notification.link ?? undefined,
+                    createdAt: notification.createdAt,
+                });
+            } catch {
+                // Silently ignore WebSocket push failures — DB record still created
+            }
+        }
+
+        return notification;
     }
+
 
     // Delete old notifications (cleanup)
     async deleteOldNotifications(userId: string, daysOld: number = 30) {

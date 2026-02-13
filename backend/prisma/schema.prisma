@@ -324,6 +324,9 @@ model Vehicle {
   bpkbImage        String? // Foto BPKB
   taxImage         String? // Foto bukti pajak terakhir
 
+  // SOFT DELETE
+  deletedAt     DateTime?
+
   transactions Transaction[]
   costs        VehicleCost[]
   stockTransfers StockTransfer[]
@@ -368,6 +371,9 @@ model Customer {
   salarySlipImage      String?
   bankStatementImage   String? // Rekening koran 3 bulan
   businessLicenseImage String? // SIUP/NIB
+
+  // SOFT DELETE
+  deletedAt     DateTime?
 
   transactions Transaction[]
 
@@ -420,6 +426,9 @@ model Transaction {
   payments TransactionPayment[] // v2.0 Split Payments
 
   invoiceNumber String? // INV-202401-001 (Unique per Tenant)
+
+  // SOFT DELETE
+  deletedAt     DateTime?
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt

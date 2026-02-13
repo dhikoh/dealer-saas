@@ -1,16 +1,48 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, Logger } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 // eslint-disable-next-line @typescript-eslint/no-var-requires
 const PDFDocument = require('pdfkit');
+import * as path from 'path';
+import { Worker } from 'worker_threads';
 
 import { UploadService } from '../upload/upload.service';
 
 @Injectable()
 export class PdfService {
+    private readonly logger = new Logger(PdfService.name);
+
     constructor(
         private prisma: PrismaService,
         private uploadService: UploadService
     ) { }
+
+    /**
+     * Run a PDF generation job in a worker thread to avoid blocking the event loop.
+     * Used for heavy PDF operations like invoices and sales reports.
+     */
+    private runInWorker(jobType: string, data: any): Promise<Buffer> {
+        return new Promise((resolve, reject) => {
+            const workerPath = path.join(__dirname, 'pdf.worker.js');
+            const worker = new Worker(workerPath);
+
+            worker.on('message', (result: { success: boolean; buffer?: Buffer; error?: string }) => {
+                if (result.success && result.buffer) {
+                    resolve(Buffer.from(result.buffer));
+                } else {
+                    reject(new Error(result.error || 'Worker failed'));
+                }
+                worker.terminate();
+            });
+
+            worker.on('error', (err) => {
+                this.logger.error(`PDF worker error: ${err.message}`);
+                reject(err);
+                worker.terminate();
+            });
+
+            worker.postMessage({ type: jobType, data });
+        });
+    }
 
     // Format currency in Indonesian Rupiah
     private formatCurrency(value: number): string {

@@ -50,6 +50,7 @@ export default function DealerGroupPage() {
     const [formName, setFormName] = useState('');
     const [formCode, setFormCode] = useState('');
     const [submitting, setSubmitting] = useState(false);
+    const [error, setError] = useState<string | null>(null);
 
     useEffect(() => {
         initData();
@@ -59,6 +60,7 @@ export default function DealerGroupPage() {
 
     const initData = async () => {
         setLoading(true);
+        setError(null);
         try {
             const token = getToken();
             const headers = { Authorization: `Bearer ${token}` };
@@ -76,6 +78,7 @@ export default function DealerGroupPage() {
             }
         } catch (error) {
             console.error('Failed to load data:', error);
+            setError('Gagal memuat data dealer group. Silakan coba lagi.');
             toast.error('Gagal memuat data dealer group');
         } finally {
             setLoading(false);
@@ -177,7 +180,52 @@ export default function DealerGroupPage() {
         toast.success('Kode disalin');
     };
 
-    if (loading) return <div className="p-12 text-center text-gray-500">Memuat data grup...</div>;
+    // --- SKELETON LOADING STATE ---
+    if (loading) return (
+        <div className="max-w-5xl mx-auto p-6 space-y-6">
+            <div className="bg-white rounded-2xl p-6 shadow-sm border border-gray-100 animate-pulse">
+                <div className="flex justify-between items-start">
+                    <div className="space-y-3 flex-1">
+                        <div className="h-4 bg-gray-200 rounded w-24" />
+                        <div className="h-6 bg-gray-200 rounded w-48" />
+                        <div className="h-3 bg-gray-100 rounded w-72" />
+                    </div>
+                    <div className="h-16 w-40 bg-gray-100 rounded-xl" />
+                </div>
+            </div>
+            <div className="bg-white rounded-2xl shadow-sm border border-gray-100 animate-pulse">
+                <div className="p-6 border-b border-gray-100">
+                    <div className="h-5 bg-gray-200 rounded w-40" />
+                </div>
+                {[1, 2, 3].map(i => (
+                    <div key={i} className="p-4 flex items-center gap-4 border-b border-gray-50">
+                        <div className="w-10 h-10 rounded-full bg-gray-200" />
+                        <div className="space-y-2 flex-1">
+                            <div className="h-4 bg-gray-200 rounded w-32" />
+                            <div className="h-3 bg-gray-100 rounded w-56" />
+                        </div>
+                    </div>
+                ))}
+            </div>
+        </div>
+    );
+
+    // --- ERROR STATE ---
+    if (error) return (
+        <div className="max-w-lg mx-auto p-6 text-center space-y-4 mt-12">
+            <div className="w-16 h-16 bg-red-50 rounded-full flex items-center justify-center mx-auto text-red-400 text-2xl">
+                <FontAwesomeIcon icon={faInfoCircle} />
+            </div>
+            <h2 className="text-lg font-bold text-gray-800">Gagal Memuat</h2>
+            <p className="text-gray-500 text-sm">{error}</p>
+            <button
+                onClick={initData}
+                className="px-6 py-2 bg-indigo-600 text-white rounded-xl font-bold hover:bg-indigo-700 transition-colors"
+            >
+                Coba Lagi
+            </button>
+        </div>
+    );
 
     // --- DETERMINE STATE ---
     const isOwner = groupData?.role === 'OWNER';

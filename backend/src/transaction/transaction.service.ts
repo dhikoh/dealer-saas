@@ -38,7 +38,7 @@ export class TransactionService {
     }
 
     async findAll(tenantId: string, filters?: { type?: string; status?: string; startDate?: Date; endDate?: Date }) {
-        const where: any = { tenantId };
+        const where: any = { tenantId, deletedAt: null };
 
         if (filters?.type) where.type = filters.type;
         if (filters?.status) where.status = filters.status;
@@ -68,7 +68,7 @@ export class TransactionService {
 
     async findOne(id: string, tenantId: string) {
         const transaction = await this.prisma.transaction.findFirst({
-            where: { id, tenantId },
+            where: { id, tenantId, deletedAt: null },
             include: {
                 vehicle: true,
                 customer: true,
@@ -361,21 +361,17 @@ export class TransactionService {
 
     async delete(id: string, tenantId: string) {
         const transaction = await this.prisma.transaction.findFirst({
-            where: { id, tenantId },
+            where: { id, tenantId, deletedAt: null },
         });
 
         if (!transaction) {
             throw new NotFoundException('Transaksi tidak ditemukan');
         }
 
-        // Delete associated credit first if exists
-        await this.prisma.credit.deleteMany({
-            where: { transactionId: id },
-        });
-
-        // Delete transaction
-        await this.prisma.transaction.delete({
+        // Soft delete: set deletedAt timestamp
+        await this.prisma.transaction.update({
             where: { id },
+            data: { deletedAt: new Date() },
         });
 
         // Revert vehicle status

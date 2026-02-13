@@ -10,6 +10,7 @@ export class CustomerService {
         return this.prisma.customer.findMany({
             where: {
                 tenantId,
+                deletedAt: null,
                 ...(search && {
                     OR: [
                         { name: { contains: search } },
@@ -30,7 +31,7 @@ export class CustomerService {
 
     async findOne(id: string, tenantId: string) {
         return this.prisma.customer.findFirst({
-            where: { id, tenantId },
+            where: { id, tenantId, deletedAt: null },
             include: {
                 transactions: {
                     include: { vehicle: true, credit: true },
@@ -93,13 +94,15 @@ export class CustomerService {
     async delete(id: string, tenantId: string) {
         // SECURITY: Verify ownership before delete
         const customer = await this.prisma.customer.findFirst({
-            where: { id, tenantId },
+            where: { id, tenantId, deletedAt: null },
         });
         if (!customer) {
             throw new NotFoundException('Customer tidak ditemukan');
         }
-        return this.prisma.customer.delete({
+        // Soft delete: set deletedAt timestamp
+        return this.prisma.customer.update({
             where: { id },
+            data: { deletedAt: new Date() },
         });
     }
 

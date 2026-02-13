@@ -21,6 +21,7 @@ export class VehicleService {
         return this.prisma.vehicle.findMany({
             where: {
                 tenantId,
+                deletedAt: null,
                 ...(filters?.category && { category: filters.category }),
                 ...(filters?.status && { status: filters.status }),
                 ...(filters?.condition && { condition: filters.condition }),
@@ -32,7 +33,7 @@ export class VehicleService {
 
     async findOne(id: string, tenantId: string) {
         return this.prisma.vehicle.findFirst({
-            where: { id, tenantId },
+            where: { id, tenantId, deletedAt: null },
         });
     }
 
@@ -128,20 +129,16 @@ export class VehicleService {
     async delete(id: string, tenantId: string) {
         // SECURITY: Verify ownership before delete
         const vehicle = await this.prisma.vehicle.findFirst({
-            where: { id, tenantId },
+            where: { id, tenantId, deletedAt: null },
             include: { _count: { select: { transactions: true } } },
         });
         if (!vehicle) {
             throw new NotFoundException('Kendaraan tidak ditemukan');
         }
-        // Prevent deleting vehicles with existing transactions
-        if (vehicle._count.transactions > 0) {
-            throw new BadRequestException(
-                `Kendaraan ini memiliki ${vehicle._count.transactions} transaksi dan tidak dapat dihapus. Ubah status menjadi SOLD sebagai gantinya.`
-            );
-        }
-        return this.prisma.vehicle.delete({
+        // Soft delete: set deletedAt timestamp
+        return this.prisma.vehicle.update({
             where: { id },
+            data: { deletedAt: new Date() },
         });
     }
 
