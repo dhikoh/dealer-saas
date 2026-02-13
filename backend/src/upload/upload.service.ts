@@ -65,7 +65,7 @@ export class UploadService {
      * Process multiple uploaded files
      */
     processMultipleUploads(files: UploadedFile[], type: string = 'general'): UploadResult[] {
-        return files.map(file => this.processUpload(file, type));
+        return files.map(file => this.processUpload(file as any, type));
     }
 
     /**
