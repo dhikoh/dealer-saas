@@ -17,7 +17,7 @@ export class AuthController {
   @Public()
   @HttpCode(HttpStatus.OK)
   @Post('login')
-  login(@Body() loginDto: Record<string, any>) {
+  login(@Body() loginDto: { email: string; password: string }) {
     return this.authService.login(loginDto);
   }
 

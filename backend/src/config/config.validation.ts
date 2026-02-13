@@ -74,4 +74,12 @@ export const configValidationSchema = Joi.object({
         then: Joi.required(),
         otherwise: Joi.optional(),
     }),
+
+    // ==================== GOOGLE OAUTH (Optional) ====================
+    GOOGLE_CLIENT_ID: Joi.string().optional()
+        .description('Google OAuth Client ID for login'),
+
+    // ==================== FRONTEND (Optional) ====================
+    FRONTEND_URL: Joi.string().uri().default('http://localhost:3000')
+        .description('Frontend URL for reset password links and redirects'),
 });

@@ -86,7 +86,7 @@ export default function DealerGroupPage() {
         e.preventDefault();
         setSubmitting(true);
         try {
-            const res = await fetch(`${API_URL}/dealer-groups/create`, {
+            const res = await fetch(`${API_URL}/dealer-groups`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${getToken()}` },
                 body: JSON.stringify({ name: formName })
@@ -136,7 +136,7 @@ export default function DealerGroupPage() {
         if (!confirm('Apakah Anda yakin ingin keluar dari grup ini? Akses data akan terputus.')) return;
         try {
             const res = await fetch(`${API_URL}/dealer-groups/leave`, {
-                method: 'DELETE',
+                method: 'POST',
                 headers: { Authorization: `Bearer ${getToken()}` }
             });
 
@@ -155,9 +155,10 @@ export default function DealerGroupPage() {
     const handleKick = async (memberTenantId: string) => {
         if (!confirm('Keluarkan member ini dari grup?')) return;
         try {
-            const res = await fetch(`${API_URL}/dealer-groups/members/${memberTenantId}`, {
-                method: 'DELETE',
-                headers: { Authorization: `Bearer ${getToken()}` }
+            const res = await fetch(`${API_URL}/dealer-groups/kick`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${getToken()}` },
+                body: JSON.stringify({ memberTenantId })
             });
 
             if (res.ok) {
@@ -315,8 +316,8 @@ export default function DealerGroupPage() {
             <div className="grid md:grid-cols-2 gap-6">
                 {/* OPTION A: CREATE GROUP (Only if capable) */}
                 <div className={`rounded-2xl p-8 border-2 transition-all ${canCreateGroup
-                        ? 'border-indigo-100 bg-white hover:border-indigo-300 shadow-sm'
-                        : 'border-dashed border-gray-200 bg-gray-50 opacity-70'
+                    ? 'border-indigo-100 bg-white hover:border-indigo-300 shadow-sm'
+                    : 'border-dashed border-gray-200 bg-gray-50 opacity-70'
                     }`}>
                     <div className="w-12 h-12 rounded-xl bg-indigo-100 text-indigo-600 flex items-center justify-center mb-4">
                         <FontAwesomeIcon icon={faCrown} className="text-xl" />

@@ -3,6 +3,7 @@ import { Controller, Get, Post, Body, Patch, Param, UseGuards, Request, Query, F
 import { StockTransferService } from './stock-transfer.service';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { ApiTags, ApiOperation, ApiBearerAuth, ApiQuery } from '@nestjs/swagger';
+import { CreateStockTransferDto } from './dto/create-stock-transfer.dto';
 
 @ApiTags('Stock Transfer')
 @ApiBearerAuth()
@@ -13,7 +14,7 @@ export class StockTransferController {
 
     @Post()
     @ApiOperation({ summary: 'Request a stock transfer' })
-    create(@Request() req, @Body() createDto: any) {
+    create(@Request() req, @Body() createDto: CreateStockTransferDto) {
         if (!req.user.tenantId) throw new ForbiddenException('No tenant associated');
         return this.stockTransferService.create(createDto, req.user.tenantId, req.user.id);
     }

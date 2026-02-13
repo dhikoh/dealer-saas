@@ -51,6 +51,13 @@ import { FinanceModule } from './finance/finance.module';
       },
     }),
     // Rate Limiting: 100 requests per 60 seconds per IP
+    // NOTE (L4): This uses in-memory storage by default (@nestjs/throttler).
+    // Limitations:
+    //   - Resets on server restart
+    //   - Not shared across multiple instances (clustered deployments)
+    // For production multi-instance deployments, consider:
+    //   ThrottlerModule.forRoot({ storage: new ThrottlerStorageRedisService(redisClient) })
+    //   via @nest-lab/throttler-storage-redis
     ThrottlerModule.forRoot([{
       ttl: 60000,
       limit: 100,

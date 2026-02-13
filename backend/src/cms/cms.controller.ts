@@ -5,6 +5,7 @@ import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { RolesGuard } from '../auth/roles.guard';
 import { Roles } from '../auth/roles.decorator';
 import { Public } from '../auth/public.decorator';
+import { UpdateCmsContentDto } from './dto/update-cms.dto';
 
 @Controller()
 export class CmsController {
@@ -26,7 +27,7 @@ export class CmsController {
     @Patch('superadmin/cms')
     @UseGuards(JwtAuthGuard, RolesGuard)
     @Roles('SUPERADMIN')
-    async updateContent(@Body() data: any) {
+    async updateContent(@Body() data: UpdateCmsContentDto) {
         return this.cmsService.updateContent(data);
     }
 }

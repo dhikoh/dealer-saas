@@ -3,6 +3,7 @@ import { PaymentMethodService } from './payment-method.service';
 import { RolesGuard } from '../auth/roles.guard';
 import { Roles } from '../auth/roles.decorator';
 import { Public } from '../auth/public.decorator';
+import { CreatePaymentMethodDto, UpdatePaymentMethodDto } from './dto/payment-method.dto';
 
 @Controller('payment-methods')
 export class PaymentMethodController {
@@ -28,14 +29,14 @@ export class PaymentMethodController {
     @Post('admin')
     @UseGuards(RolesGuard)
     @Roles('SUPERADMIN')
-    async create(@Body() body: any) {
+    async create(@Body() body: CreatePaymentMethodDto) {
         return this.service.createMethod(body);
     }
 
     @Patch('admin/:id')
     @UseGuards(RolesGuard)
     @Roles('SUPERADMIN')
-    async update(@Param('id') id: string, @Body() body: any) {
+    async update(@Param('id') id: string, @Body() body: UpdatePaymentMethodDto) {
         return this.service.updateMethod(id, body);
     }
 

@@ -32,6 +32,12 @@ export class DealerGroupController {
         return { group };
     }
 
+    @Post('leave')
+    async leave(@Request() req) {
+        if (!req.user.tenantId) throw new ForbiddenException('No tenant associated');
+        return this.dealerGroupService.leaveGroup(req.user.tenantId);
+    }
+
     @Post('kick')
     async kickMember(@Request() req, @Body('memberTenantId') memberTenantId: string) {
         return this.dealerGroupService.removeMember(req.user.id, memberTenantId);

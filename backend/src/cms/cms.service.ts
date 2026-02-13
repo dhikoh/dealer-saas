@@ -23,13 +23,31 @@ export class CmsService {
     }
 
     async updateContent(data: any) {
+        // Validate and whitelist allowed fields to prevent injection
+        const allowedFields = ['hero', 'features', 'pricing', 'faq', 'footer', 'testimonials', 'partners'];
+        const sanitizedData: Record<string, any> = {};
+        for (const key of allowedFields) {
+            if (data[key] !== undefined) {
+                sanitizedData[key] = data[key];
+            }
+        }
+
+        if (Object.keys(sanitizedData).length === 0) {
+            throw new Error('No valid content fields provided');
+        }
+
         return this.prisma.landingPageContent.upsert({
             where: { id: 'default' },
-            update: data,
+            update: sanitizedData,
             create: {
                 id: 'default',
-                ...data,
-            },
+                hero: {},
+                features: [],
+                pricing: [],
+                faq: [],
+                footer: {},
+                ...sanitizedData,
+            } as any,
         });
     }
 }

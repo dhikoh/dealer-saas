@@ -140,6 +140,30 @@ export class DealerGroupService {
         }
     }
 
+    async leaveGroup(tenantId: string) {
+        const tenant = await this.prisma.tenant.findUnique({
+            where: { id: tenantId },
+            include: { dealerGroup: true },
+        });
+
+        if (!tenant || !tenant.dealerGroupId) {
+            throw new BadRequestException('Anda tidak tergabung dalam grup dealer manapun');
+        }
+
+        // Check if tenant is the group owner — owners cannot leave, they must transfer or delete
+        const ownedGroup = await this.prisma.dealerGroup.findFirst({
+            where: { ownerId: tenantId },
+        });
+        if (ownedGroup && ownedGroup.id === tenant.dealerGroupId) {
+            throw new BadRequestException('Pemilik grup tidak bisa meninggalkan grup. Hapus grup atau transfer kepemilikan terlebih dahulu.');
+        }
+
+        return this.prisma.tenant.update({
+            where: { id: tenantId },
+            data: { dealerGroupId: null },
+        });
+    }
+
     async removeMember(ownerId: string, memberTenantId: string) {
         const group = await this.prisma.dealerGroup.findUnique({
             where: { ownerId },

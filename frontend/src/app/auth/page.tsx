@@ -5,7 +5,7 @@ import styles from './auth.module.css';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faChevronDown, faLock, faCheck, faEye, faEyeSlash } from '@fortawesome/free-solid-svg-icons';
 import { faEnvelope as faEnvelopeReg, faUser as faUserReg } from '@fortawesome/free-regular-svg-icons';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { toast } from 'sonner';
 import Script from 'next/script';
 import { API_URL } from '@/lib/api';
@@ -76,6 +76,15 @@ export default function AuthPage() {
         const savedRemember = localStorage.getItem('remember_me') === 'true';
         if (savedToken && savedRemember) {
             router.push('/app');
+        }
+
+        // M7: Support ?form=forgot redirect
+        const params = new URLSearchParams(window.location.search);
+        const formParam = params.get('form');
+        if (formParam === 'forgot') {
+            setActiveForm('forgot');
+        } else if (formParam === 'signup') {
+            setActiveForm('signup');
         }
     }, [router]);
 

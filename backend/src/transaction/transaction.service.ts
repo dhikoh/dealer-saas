@@ -1,5 +1,6 @@
-import { Injectable, NotFoundException, BadRequestException, Logger } from '@nestjs/common';
+﻿import { Injectable, NotFoundException, BadRequestException, Logger } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
+import { NotificationService } from '../notification/notification.service';
 import { Decimal } from '@prisma/client/runtime/library';
 import * as path from 'path';
 import * as fs from 'fs';
@@ -8,7 +9,10 @@ import * as fs from 'fs';
 export class TransactionService {
     private readonly logger = new Logger(TransactionService.name);
 
-    constructor(private prisma: PrismaService) { }
+    constructor(
+        private prisma: PrismaService,
+        private notificationService: NotificationService,
+    ) { }
 
     /**
      * Generate invoice number: INV-YYYYMM-NNN
@@ -191,7 +195,7 @@ export class TransactionService {
 
 
         // Use Interactive Transaction to ensure atomicity
-        return this.prisma.$transaction(async (tx) => {
+        const result = await this.prisma.$transaction(async (tx) => {
             // Determine Statuses based on Payment Type
             let paymentStatus = 'UNPAID';
             let transactionStatus = 'PENDING';
@@ -301,6 +305,24 @@ export class TransactionService {
 
             return transaction;
         });
+
+        // M2: Notify tenant owner about new transaction (fire-and-forget)
+        try {
+            const owner = await this.prisma.user.findFirst({
+                where: { tenantId, role: 'OWNER' },
+            });
+            if (owner && owner.id !== salesPersonId) {
+                await this.notificationService.createNotification({
+                    userId: owner.id,
+                    title: data.type === 'SALE' ? 'Penjualan Baru 🎉' : 'Pembelian Baru',
+                    message: `Transaksi ${data.type === 'SALE' ? 'penjualan' : 'pembelian'} baru telah dibuat.`,
+                    type: 'TRANSACTION',
+                    link: '/app/transactions',
+                });
+            }
+        } catch (e) { /* non-blocking */ }
+
+        return result;
     }
 
     async updateStatus(id: string, tenantId: string, status: string) {
@@ -396,145 +418,8 @@ export class TransactionService {
     }
 
     // ==================== PDF GENERATION ====================
-
-    async generateInvoicePdf(transactionId: string, tenantId: string): Promise<Buffer> {
-        const tx = await this.prisma.transaction.findFirst({
-            where: { id: transactionId, tenantId },
-            include: {
-                tenant: true,
-                customer: true,
-                vehicle: true,
-                salesPerson: true,
-            },
-        });
-
-        if (!tx) throw new NotFoundException('Transaksi tidak ditemukan');
-
-        const PDFDocument = require('pdfkit');
-
-        return new Promise((resolve, reject) => {
-            const doc = new PDFDocument({ margin: 50, size: 'A4' });
-            const buffers: Buffer[] = [];
-
-            doc.on('data', buffers.push.bind(buffers));
-            doc.on('end', () => resolve(Buffer.concat(buffers)));
-            doc.on('error', reject);
-
-            // --- HEADER ---
-            doc.fontSize(24).text('INVOICE', { align: 'right' });
-            doc.fontSize(10).text(`NO: ${tx.invoiceNumber || tx.id.slice(0, 8)}`, { align: 'right' });
-            doc.text(`TANGGAL: ${new Date(tx.date).toLocaleDateString('id-ID')}`, { align: 'right' });
-
-            // Dealer Info
-            doc.moveDown();
-            doc.fontSize(14).text(tx.tenant.name, 50, 50);
-            doc.fontSize(10)
-                .text(tx.tenant.address || 'Alamat Dealer', 50, 70, { width: 200 })
-                .text(`Telp: ${tx.tenant.phone || '-'}`, 50, 85);
-
-            doc.moveDown(4);
-
-            // --- CUSTOMER INFO ---
-            const customerY = 150;
-            doc.fontSize(12).font('Helvetica-Bold').text('TAGIHAN KEPADA:', 50, customerY);
-            doc.font('Helvetica').fontSize(10)
-                .text(tx.customer.name, 50, customerY + 20)
-                .text(tx.customer.phone, 50, customerY + 35)
-                .text(tx.customer.address || '', 50, customerY + 50);
-
-            // --- ITEM TABLE ---
-            const tableTop = 250;
-
-            // Header
-            doc.font('Helvetica-Bold');
-            doc.text('KETERANGAN', 50, tableTop);
-            doc.text('HARGA UTAMA', 350, tableTop, { width: 90, align: 'right' });
-            doc.text('TOTAL', 450, tableTop, { width: 90, align: 'right' });
-            doc.moveTo(50, tableTop + 15).lineTo(550, tableTop + 15).stroke();
-
-            // Row 1: Vehicle
-            const itemY = tableTop + 25;
-            doc.font('Helvetica');
-            doc.text(`${tx.vehicle.make} ${tx.vehicle.model} ${tx.vehicle.year}`, 50, itemY);
-            doc.text(`Nopol: ${tx.vehicle.licensePlate || '-'}`, 50, itemY + 15, { color: 'gray', size: 8 });
-            doc.fillColor('black').fontSize(10);
-
-            doc.text(Number(tx.basePrice).toLocaleString('id-ID'), 350, itemY, { width: 90, align: 'right' });
-            doc.text(Number(tx.basePrice).toLocaleString('id-ID'), 450, itemY, { width: 90, align: 'right' });
-
-            // Row 2: Tax (if any)
-            let currentY = itemY + 40;
-            if (Number(tx.taxAmount) > 0) {
-                doc.text(`PPN (${tx.taxPercentage}%)`, 50, currentY);
-                doc.text(Number(tx.taxAmount).toLocaleString('id-ID'), 450, currentY, { width: 90, align: 'right' });
-                currentY += 20;
-            }
-
-            doc.moveTo(350, currentY).lineTo(550, currentY).stroke();
-            currentY += 10;
-
-            // Total
-            doc.font('Helvetica-Bold').fontSize(12);
-            doc.text('TOTAL TAGIHAN:', 300, currentY, { align: 'right', width: 140 });
-            doc.text(`Rp ${Number(tx.finalPrice).toLocaleString('id-ID')}`, 450, currentY, { width: 90, align: 'right' });
-
-            // --- FOOTER ---
-            const footerY = 700;
-            doc.fontSize(10).font('Helvetica').text('Pembayaran dapat ditransfer ke:', 50, footerY);
-            doc.font('Helvetica-Bold').text('BCA 1234567890 a.n PT OTOHUB', 50, footerY + 15);
-
-            doc.text('(TERIMAKASIH ATAS KEPERCAYAAN ANDA)', 50, footerY + 100, { align: 'center', width: 500 });
-
-            doc.end();
-        });
-    }
-
-    async generateReceiptPdf(transactionId: string, tenantId: string): Promise<Buffer> {
-        // Kuitansi logic (similar structure, simpler content)
-        const tx = await this.prisma.transaction.findFirst({
-            where: { id: transactionId, tenantId },
-            include: { tenant: true, customer: true, vehicle: true },
-        });
-        if (!tx) throw new NotFoundException('Transaksi tidak ditemukan');
-
-        const PDFDocument = require('pdfkit');
-
-        return new Promise((resolve, reject) => {
-            const doc = new PDFDocument({ margin: 50, size: 'A5', layout: 'landscape' }); // Kuitansi usually small
-            const buffers: Buffer[] = [];
-
-            doc.on('data', buffers.push.bind(buffers));
-            doc.on('end', () => resolve(Buffer.concat(buffers)));
-            doc.on('error', reject);
-
-            // Title
-            doc.fontSize(20).font('Helvetica-Bold').text('KUITANSI PEMBAYARAN', { align: 'center' });
-            doc.moveDown();
-
-            // Content
-            const startX = 50;
-            let y = 100;
-
-            doc.fontSize(12).font('Helvetica');
-            doc.text(`No: ${tx.invoiceNumber || '-'}/REC`, 400, 50);
-
-            doc.font('Helvetica').text('Telah terima dari:', startX, y);
-            doc.font('Helvetica-Bold').text(tx.customer.name, startX + 100, y);
-            y += 25;
-
-            doc.font('Helvetica').text('Untuk Pembayaran:', startX, y);
-            doc.text(`Pembelian Unit ${tx.vehicle.make} ${tx.vehicle.model} (${tx.vehicle.licensePlate || 'Unit Baru'})`, startX + 100, y, { width: 350 });
-            y += 40;
-
-            doc.font('Helvetica').text('Terbilang:', startX, y);
-            doc.font('Helvetica-Bold').text(`# Rp ${Number(tx.finalPrice).toLocaleString('id-ID')} #`, startX + 100, y);
-
-            // Signature
-            doc.fontSize(10).font('Helvetica').text(`${tx.tenant.address?.split(',')[0] || 'Jakarta'}, ${new Date().toLocaleDateString('id-ID')}`, 400, 300);
-            doc.text('Hormat Kami,', 400, 315);
-            doc.font('Helvetica-Bold').text(tx.tenant.name, 400, 370);
-
-            doc.end();
-        });
-    }
+    // NOTE (L2): PDF generation has been consolidated into PdfService.
+    // Use PdfService.generateTransactionInvoice() and PdfService.generateTransactionReceipt()
+    // instead of duplicating PDF logic here.
+    // See: src/pdf/pdf.service.ts
 }

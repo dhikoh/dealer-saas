@@ -1,5 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
+import { Cron } from '@nestjs/schedule';
 
 @Injectable()
 export class ReminderService {
@@ -142,8 +143,8 @@ export class ReminderService {
 
 
     // ==================== AUTOMATED REMINDERS (CRON) ====================
-    // Runs every day at 09:00 AM
-    // @Cron('0 9 * * *') 
+    // Runs every day at 09:00 AM WIB (UTC+7 = 02:00 UTC)
+    @Cron('0 2 * * *')
     async checkDailyReminders() {
         // Get all tenants
         const tenants = await this.prisma.tenant.findMany({ select: { id: true } });

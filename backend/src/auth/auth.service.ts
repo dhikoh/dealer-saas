@@ -320,7 +320,7 @@ export class AuthService {
     return await this.createToken(user);
   }
 
-  async login(loginDto: any) {
+  async login(loginDto: { email: string; password: string }) {
     const { email, password } = loginDto;
     const normalizedIdentifier = email.toLowerCase();
 
@@ -467,17 +467,31 @@ export class AuthService {
   // ==================== GOOGLE OAUTH ====================
 
   async googleLogin(credential: string) {
-    // Verify Google ID token
+    // Verify Google ID token using official library
     let googlePayload: any;
+    const googleClientId = process.env.GOOGLE_CLIENT_ID;
+
     try {
-      const response = await this.httpService.axiosRef.get(
-        `https://oauth2.googleapis.com/tokeninfo?id_token=${credential}`
-      );
-      googlePayload = response.data;
+      if (googleClientId) {
+        // SECURE: Use official google-auth-library with audience validation
+        const { OAuth2Client } = require('google-auth-library');
+        const client = new OAuth2Client(googleClientId);
+        const ticket = await client.verifyIdToken({
+          idToken: credential,
+          audience: googleClientId, // Only accept tokens for OUR app
+        });
+        googlePayload = ticket.getPayload();
+      } else {
+        // FALLBACK: Legacy method (log warning — should set GOOGLE_CLIENT_ID)
+        console.warn('[AUTH] GOOGLE_CLIENT_ID not set — using legacy tokeninfo without audience validation');
+        const response = await this.httpService.axiosRef.get(
+          `https://oauth2.googleapis.com/tokeninfo?id_token=${credential}`
+        );
+        googlePayload = response.data;
+      }
     } catch (error) {
       throw new UnauthorizedException('Token Google tidak valid');
     }
-
     const { email, name, sub: googleId, email_verified } = googlePayload;
 
     if (!email_verified) {

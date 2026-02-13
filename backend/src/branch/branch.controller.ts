@@ -3,6 +3,7 @@ import { Controller, Get, Post, Body, Patch, Param, Delete, UseGuards, Request }
 import { BranchService } from './branch.service';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { ApiTags, ApiOperation, ApiBearerAuth } from '@nestjs/swagger';
+import { CreateBranchDto, UpdateBranchDto } from './dto/branch.dto';
 
 @ApiTags('Branches')
 @ApiBearerAuth()
@@ -13,7 +14,7 @@ export class BranchController {
 
     @Post()
     @ApiOperation({ summary: 'Create a new branch' })
-    create(@Request() req, @Body() createBranchDto: any) {
+    create(@Request() req, @Body() createBranchDto: CreateBranchDto) {
         return this.branchService.create(createBranchDto, req.user.tenantId);
     }
 
@@ -31,7 +32,7 @@ export class BranchController {
 
     @Patch(':id')
     @ApiOperation({ summary: 'Update branch details' })
-    update(@Request() req, @Param('id') id: string, @Body() updateBranchDto: any) {
+    update(@Request() req, @Param('id') id: string, @Body() updateBranchDto: UpdateBranchDto) {
         return this.branchService.update(id, updateBranchDto, req.user.tenantId);
     }
 

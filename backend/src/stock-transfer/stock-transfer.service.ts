@@ -1,9 +1,13 @@
-import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
+import { Injectable, NotFoundException, BadRequestException, ForbiddenException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
+import { NotificationService } from '../notification/notification.service';
 
 @Injectable()
 export class StockTransferService {
-    constructor(private prisma: PrismaService) { }
+    constructor(
+        private prisma: PrismaService,
+        private notificationService: NotificationService,
+    ) { }
 
     async create(data: any, tenantId: string, userId: string) {
         const { vehicleId, sourceBranchId, targetBranchId, targetTenantId, type, price, notes } = data;
@@ -35,7 +39,7 @@ export class StockTransferService {
             throw new BadRequestException('Vehicle already has a pending transfer');
         }
 
-        return this.prisma.$transaction(async (tx) => {
+        const result = await this.prisma.$transaction(async (tx) => {
             // 1. Create Transfer
             const transfer = await tx.stockTransfer.create({
                 data: {
@@ -60,6 +64,28 @@ export class StockTransferService {
 
             return transfer;
         });
+
+        // Notify target tenant owner about incoming transfer (fire-and-forget)
+        if (targetTenantId) {
+            try {
+                const targetOwner = await this.prisma.user.findFirst({
+                    where: { tenantId: targetTenantId, role: 'OWNER' },
+                });
+                if (targetOwner) {
+                    await this.notificationService.createNotification({
+                        userId: targetOwner.id,
+                        title: 'Transfer Masuk Baru',
+                        message: `Permintaan transfer kendaraan dari dealer lain. Silakan cek dan setujui/tolak.`,
+                        type: 'STOCK_TRANSFER',
+                        link: '/app/inventory?tab=transfers',
+                    });
+                }
+            } catch (e) {
+                // Don't fail the transfer if notification fails
+            }
+        }
+
+        return result;
     }
 
     async findAll(tenantId: string, status?: string) {
@@ -214,6 +240,17 @@ export class StockTransferService {
 
             return updatedTransfer;
         });
+
+        // Notify requester that transfer was approved (fire-and-forget)
+        try {
+            await this.notificationService.createNotification({
+                userId: transfer.requestedById,
+                title: 'Transfer Disetujui ✅',
+                message: `Transfer kendaraan Anda telah disetujui oleh dealer tujuan.`,
+                type: 'STOCK_TRANSFER',
+                link: '/app/inventory?tab=transfers',
+            });
+        } catch (e) { /* non-blocking */ }
     }
 
     async reject(id: string, tenantId: string, userId: string, notes?: string) {
@@ -243,6 +280,17 @@ export class StockTransferService {
 
             return updatedTransfer;
         });
+
+        // Notify requester that transfer was rejected (fire-and-forget)
+        try {
+            await this.notificationService.createNotification({
+                userId: transfer.requestedById,
+                title: 'Transfer Ditolak ❌',
+                message: `Transfer kendaraan Anda telah ditolak oleh dealer tujuan.`,
+                type: 'STOCK_TRANSFER',
+                link: '/app/inventory?tab=transfers',
+            });
+        } catch (e) { /* non-blocking */ }
     }
 
     async cancel(id: string, tenantId: string, userId: string) {
@@ -252,9 +300,9 @@ export class StockTransferService {
             throw new BadRequestException('Cannot cancel processed transfer');
         }
 
-        // Only requester or admin can cancel
+        // Only requester can cancel
         if (transfer.requestedById !== userId) {
-            // allow if admin? 
+            throw new ForbiddenException('Hanya pembuat permintaan yang bisa membatalkan transfer ini');
         }
 
         return this.prisma.$transaction(async (tx) => {
