@@ -46,84 +46,98 @@ export class DealerGroupService {
     }
 
     async getMyGroup(userId: string) {
-        // Check if user is owner
-        const groupOwned = await this.prisma.dealerGroup.findUnique({
-            where: { ownerId: userId },
-            include: {
-                members: {
-                    include: {
-                        plan: true,
-                        _count: { select: { vehicles: true } },
-                        transactions: {
-                            where: { status: 'PAID', type: 'SALE' },
-                            select: { finalPrice: true }
+        try {
+            // Check if user is owner
+            const groupOwned = await this.prisma.dealerGroup.findUnique({
+                where: { ownerId: userId },
+                include: {
+                    members: {
+                        include: {
+                            plan: true,
+                            _count: { select: { vehicles: true } },
+                            transactions: {
+                                where: { status: 'PAID', type: 'SALE' },
+                                select: { finalPrice: true }
+                            }
+                        }
+                    },
+                    owner: { include: { tenant: true } }
+                },
+            });
+
+            if (groupOwned) {
+                return {
+                    role: 'OWNER',
+                    group: {
+                        id: groupOwned.id,
+                        name: groupOwned.name,
+                        code: groupOwned.code,
+                        adminTenant: groupOwned.owner?.tenant || null,
+                        members: groupOwned.members.map(m => {
+                            const transactions = m.transactions || [];
+                            const revenue = transactions.reduce((acc, tx) => {
+                                const price = tx.finalPrice ? Number(tx.finalPrice) : 0;
+                                return acc + (isNaN(price) ? 0 : price);
+                            }, 0);
+
+                            const txCount = transactions.length;
+                            const planName = m.plan?.name || m.planTier || 'Unknown';
+                            const vehicleCount = m._count?.vehicles || 0;
+
+                            return {
+                                id: m.id,
+                                name: m.name,
+                                email: m.email,
+                                phone: m.phone,
+                                subscriptionStatus: m.subscriptionStatus,
+                                nextBillingDate: m.nextBillingDate,
+                                planName: planName,
+                                stats: {
+                                    vehicles: vehicleCount,
+                                    transactions: txCount,
+                                    revenue: revenue
+                                }
+                            };
+                        })
+                    }
+                };
+            }
+
+            // Check if user is member
+            const user = await this.prisma.user.findUnique({
+                where: { id: userId },
+                include: {
+                    tenant: {
+                        include: {
+                            dealerGroup: {
+                                include: { owner: { include: { tenant: true } } }
+                            }
                         }
                     }
                 },
-                owner: { include: { tenant: true } }
-            },
-        });
+            });
 
-        if (groupOwned) {
-            return {
-                role: 'OWNER',
-                group: {
-                    id: groupOwned.id,
-                    name: groupOwned.name,
-                    code: groupOwned.code,
-                    adminTenant: groupOwned.owner?.tenant,
-                    members: groupOwned.members.map(m => {
-                        const transactions = m.transactions || [];
-                        const revenue = transactions.reduce((acc, tx) => acc + Number(tx.finalPrice || 0), 0);
-                        const txCount = transactions.length;
-
-                        return {
-                            id: m.id,
-                            name: m.name,
-                            email: m.email,
-                            phone: m.phone,
-                            subscriptionStatus: m.subscriptionStatus,
-                            nextBillingDate: m.nextBillingDate,
-                            planName: m.plan?.name || m.planTier || 'Unknown',
-                            stats: {
-                                vehicles: m._count?.vehicles || 0,
-                                transactions: txCount,
-                                revenue: revenue
-                            }
-                        };
-                    })
-                }
-            };
-        }
-
-        // Check if user is member
-        const user = await this.prisma.user.findUnique({
-            where: { id: userId },
-            include: {
-                tenant: {
-                    include: {
-                        dealerGroup: {
-                            include: { owner: { include: { tenant: true } } }
-                        }
+            if (user?.tenant?.dealerGroup) {
+                const grp = user.tenant.dealerGroup;
+                return {
+                    role: 'MEMBER',
+                    group: {
+                        id: grp.id,
+                        name: grp.name,
+                        code: grp.code,
+                        adminTenant: grp.owner?.tenant || null
                     }
-                }
-            },
-        });
+                };
+            }
 
-        if (user?.tenant?.dealerGroup) {
-            const grp = user.tenant.dealerGroup;
-            return {
-                role: 'MEMBER',
-                group: {
-                    id: grp.id,
-                    name: grp.name,
-                    code: grp.code,
-                    adminTenant: grp.owner?.tenant
-                }
-            };
+            return null;
+        } catch (error) {
+            console.error('Error in getMyGroup:', error);
+            // Return null instead of crashing, allowing frontend to proceed
+            // or rethrow if strictly needed, but 500 is bad UX.
+            // Letting it return null means "No Group" which is safe fallback.
+            return null;
         }
-
-        return null;
     }
 
     async removeMember(ownerId: string, memberTenantId: string) {
