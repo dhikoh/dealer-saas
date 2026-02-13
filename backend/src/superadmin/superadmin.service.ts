@@ -981,6 +981,30 @@ export class SuperadminService {
         return { message: 'API key revoked' };
     }
 
+    // ==================== PLATFORM SETTINGS ====================
+
+    async getPlatformSetting(key: string) {
+        const setting = await this.prisma.platformSetting.findUnique({
+            where: { key },
+        });
+        if (!setting) return { key, value: null };
+        try {
+            return { key: setting.key, value: JSON.parse(setting.value) };
+        } catch {
+            return { key: setting.key, value: setting.value };
+        }
+    }
+
+    async updatePlatformSetting(key: string, value: any) {
+        const stringValue = typeof value === 'string' ? value : JSON.stringify(value);
+        const setting = await this.prisma.platformSetting.upsert({
+            where: { key },
+            update: { value: stringValue },
+            create: { key, value: stringValue },
+        });
+        return { key: setting.key, value: JSON.parse(setting.value) };
+    }
+
     // ==================== ANALYTICS ====================
 
     async getPlanDistribution() {

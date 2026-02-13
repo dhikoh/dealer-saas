@@ -245,6 +245,22 @@ export class SuperadminController {
         return this.superadminService.revokeApiKey(id);
     }
 
+    // ==================== PLATFORM SETTINGS ====================
+
+    @Get('platform-settings/:key')
+    async getPlatformSetting(@Param('key') key: string) {
+        return this.superadminService.getPlatformSetting(key);
+    }
+
+    @Patch('platform-settings/:key')
+    @Roles('SUPERADMIN')
+    async updatePlatformSetting(
+        @Param('key') key: string,
+        @Body('value') value: any
+    ) {
+        return this.superadminService.updatePlatformSetting(key, value);
+    }
+
     // ==================== ACTIVITY LOG ====================
 
     @Get('activity')

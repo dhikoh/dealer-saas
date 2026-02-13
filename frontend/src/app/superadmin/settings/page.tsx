@@ -615,20 +615,62 @@ function ApiConfigTab() {
 // ================== TAB 5: BILLING INTEGRATION ==================
 
 function BillingIntegrationTab() {
+    const getToken = () => localStorage.getItem('access_token') || '';
     const [gateway, setGateway] = useState('manual');
-    const [bankInfo, setBankInfo] = useState({ bankName: 'BCA', accountNumber: '1234567890', accountHolder: 'PT OTOHUB Indonesia' });
+    const [bankInfo, setBankInfo] = useState({ bankName: 'BCA', accountNumber: '', accountHolder: '' });
     const [autoInvoice, setAutoInvoice] = useState(true);
     const [toast, setToast] = useState<string | null>(null);
+    const [saving, setSaving] = useState(false);
+    const [loading, setLoading] = useState(true);
+
+    // Load saved config on mount
+    useEffect(() => {
+        (async () => {
+            try {
+                const res = await fetch(`${API_URL}/superadmin/platform-settings/billing_config`, {
+                    headers: { 'Authorization': `Bearer ${getToken()}` },
+                });
+                if (res.ok) {
+                    const data = await res.json();
+                    if (data.value) {
+                        setGateway(data.value.gateway || 'manual');
+                        setBankInfo(data.value.bankInfo || { bankName: 'BCA', accountNumber: '', accountHolder: '' });
+                        setAutoInvoice(data.value.autoInvoice ?? true);
+                    }
+                }
+            } catch { /* ignore - use defaults */ }
+            setLoading(false);
+        })();
+    }, []);
 
     useEffect(() => {
         if (toast) { const t = setTimeout(() => setToast(null), 3000); return () => clearTimeout(t); }
     }, [toast]);
 
+    const handleSave = async () => {
+        setSaving(true);
+        try {
+            const res = await fetch(`${API_URL}/superadmin/platform-settings/billing_config`, {
+                method: 'PATCH',
+                headers: { 'Authorization': `Bearer ${getToken()}`, 'Content-Type': 'application/json' },
+                body: JSON.stringify({ value: { gateway, bankInfo, autoInvoice } }),
+            });
+            if (!res.ok) throw new Error('Failed to save');
+            setToast('Konfigurasi billing berhasil disimpan!');
+        } catch {
+            setToast('Gagal menyimpan konfigurasi');
+        } finally {
+            setSaving(false);
+        }
+    };
+
+    if (loading) return <div className="text-center py-12 text-slate-500">Memuat konfigurasi...</div>;
+
     return (
         <div className="space-y-6">
             {toast && (
-                <div className="bg-emerald-50 border border-emerald-200 text-emerald-700 px-4 py-2 rounded-lg text-sm">
-                    ✅ {toast}
+                <div className={`${toast.includes('Gagal') ? 'bg-red-50 border-red-200 text-red-700' : 'bg-emerald-50 border-emerald-200 text-emerald-700'} border px-4 py-2 rounded-lg text-sm`}>
+                    {toast.includes('Gagal') ? '❌' : '✅'} {toast}
                 </div>
             )}
             <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-6 space-y-5">
@@ -702,9 +744,9 @@ function BillingIntegrationTab() {
             </div>
 
             <div className="flex justify-end">
-                <button onClick={() => setToast('Konfigurasi billing disimpan')}
-                    className="px-5 py-2 bg-indigo-600 text-white rounded-lg text-sm font-medium hover:bg-indigo-700 flex items-center gap-2">
-                    <Save className="w-4 h-4" /> Simpan Konfigurasi
+                <button onClick={handleSave} disabled={saving}
+                    className="px-5 py-2 bg-indigo-600 text-white rounded-lg text-sm font-medium hover:bg-indigo-700 disabled:opacity-50 flex items-center gap-2">
+                    <Save className="w-4 h-4" /> {saving ? 'Menyimpan...' : 'Simpan Konfigurasi'}
                 </button>
             </div>
         </div>
