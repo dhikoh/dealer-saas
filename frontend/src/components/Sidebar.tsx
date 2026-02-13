@@ -24,6 +24,7 @@ import {
     faBars,
     faTimes,
     faBell,
+    faCalendarAlt,
 } from '@fortawesome/free-solid-svg-icons';
 import { useLanguage } from '@/hooks/useLanguage';
 

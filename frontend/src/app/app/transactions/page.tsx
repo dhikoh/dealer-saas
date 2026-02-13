@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useEffect, useState } from 'react';
-import { Building2, Calculator, Calendar, Check, ChevronDown, ChevronLeft, ChevronRight, Filter, Plus, Printer, Search, X } from "lucide-react";
+import { Building2, Calculator, Calendar, Check, ChevronDown, ChevronLeft, ChevronRight, Filter, Plus, Printer, Search, X, TrendingUp, ShoppingCart, DollarSign, FileText, Banknote, Eye } from "lucide-react";
 import CreditSimulator from "@/components/calculator/CreditSimulator";
 import { toast } from 'sonner';
 import { useLanguage } from '@/hooks/useLanguage';
