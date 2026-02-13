@@ -815,46 +815,46 @@ export default function CustomersPage() {
                                 />
                             </div>
 
-                    </div>
 
-                    <button type="button" onClick={() => handleExportPdf(editTarget.id, editTarget.name)} className="w-full py-3 rounded-xl bg-gray-200 text-gray-700 font-medium hover:bg-gray-300 flex items-center justify-center gap-2 transition-all">
-                        <FontAwesomeIcon icon={faFilePdf} /> Export PDF
-                    </button>
 
-                    <div className="flex gap-3 pt-2">
-                        <button type="button" onClick={() => { setShowEditModal(false); setEditTarget(null); setKtpFile(null); }} className="flex-1 py-3 rounded-xl bg-[#ecf0f3] text-gray-600 font-medium shadow-[3px_3px_6px_#cbced1,-3px_-3px_6px_#ffffff]">Batal</button>
-                        <button type="submit" disabled={submitting} className="flex-1 py-3 rounded-xl bg-[#00bfa5] text-white font-medium shadow-lg hover:bg-[#00a891] disabled:opacity-50">
-                            {submitting ? <FontAwesomeIcon icon={faSpinner} className="animate-spin" /> : 'Simpan Perubahan'}
-                        </button>
-                    </div>
-                </form>
+                            <button type="button" onClick={() => handleExportPdf(editTarget.id, editTarget.name)} className="w-full py-3 rounded-xl bg-gray-200 text-gray-700 font-medium hover:bg-gray-300 flex items-center justify-center gap-2 transition-all">
+                                <FontAwesomeIcon icon={faFilePdf} /> Export PDF
+                            </button>
+
+                            <div className="flex gap-3 pt-2">
+                                <button type="button" onClick={() => { setShowEditModal(false); setEditTarget(null); setKtpFile(null); }} className="flex-1 py-3 rounded-xl bg-[#ecf0f3] text-gray-600 font-medium shadow-[3px_3px_6px_#cbced1,-3px_-3px_6px_#ffffff]">Batal</button>
+                                <button type="submit" disabled={submitting} className="flex-1 py-3 rounded-xl bg-[#00bfa5] text-white font-medium shadow-lg hover:bg-[#00a891] disabled:opacity-50">
+                                    {submitting ? <FontAwesomeIcon icon={faSpinner} className="animate-spin" /> : 'Simpan Perubahan'}
+                                </button>
+                            </div>
+                        </form>
                     </div >
                 </div >
             )
-}
+            }
 
-{/* DELETE CONFIRMATION */ }
-{
-    showDeleteConfirm && deleteTarget && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-            <div className="bg-[#ecf0f3] rounded-2xl shadow-xl max-w-sm w-full p-6">
-                <div className="text-center">
-                    <div className="w-16 h-16 rounded-full bg-red-100 flex items-center justify-center mx-auto mb-4">
-                        <FontAwesomeIcon icon={faTrash} className="text-red-500 text-2xl" />
+            {/* DELETE CONFIRMATION */}
+            {
+                showDeleteConfirm && deleteTarget && (
+                    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+                        <div className="bg-[#ecf0f3] rounded-2xl shadow-xl max-w-sm w-full p-6">
+                            <div className="text-center">
+                                <div className="w-16 h-16 rounded-full bg-red-100 flex items-center justify-center mx-auto mb-4">
+                                    <FontAwesomeIcon icon={faTrash} className="text-red-500 text-2xl" />
+                                </div>
+                                <h3 className="text-lg font-bold text-gray-800 mb-2">Hapus Customer?</h3>
+                                <p className="text-gray-500 mb-6">
+                                    Apakah Anda yakin ingin menghapus <strong>{deleteTarget.name}</strong>? Tindakan ini tidak dapat dibatalkan.
+                                </p>
+                                <div className="flex gap-3">
+                                    <button onClick={() => { setShowDeleteConfirm(false); setDeleteTarget(null); }} className="flex-1 py-3 rounded-xl bg-[#ecf0f3] text-gray-600 font-medium shadow-[3px_3px_6px_#cbced1,-3px_-3px_6px_#ffffff]">Batal</button>
+                                    <button onClick={handleDeleteCustomer} className="flex-1 py-3 rounded-xl bg-red-500 text-white font-medium shadow-lg hover:bg-red-600 transition-all">Ya, Hapus</button>
+                                </div>
+                            </div>
+                        </div>
                     </div>
-                    <h3 className="text-lg font-bold text-gray-800 mb-2">Hapus Customer?</h3>
-                    <p className="text-gray-500 mb-6">
-                        Apakah Anda yakin ingin menghapus <strong>{deleteTarget.name}</strong>? Tindakan ini tidak dapat dibatalkan.
-                    </p>
-                    <div className="flex gap-3">
-                        <button onClick={() => { setShowDeleteConfirm(false); setDeleteTarget(null); }} className="flex-1 py-3 rounded-xl bg-[#ecf0f3] text-gray-600 font-medium shadow-[3px_3px_6px_#cbced1,-3px_-3px_6px_#ffffff]">Batal</button>
-                        <button onClick={handleDeleteCustomer} className="flex-1 py-3 rounded-xl bg-red-500 text-white font-medium shadow-lg hover:bg-red-600 transition-all">Ya, Hapus</button>
-                    </div>
-                </div>
-            </div>
-        </div>
-    )
-}
+                )
+            }
         </div >
     );
 }
