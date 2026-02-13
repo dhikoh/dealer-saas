@@ -1,25 +1,25 @@
-import { IsString, IsNotEmpty, IsOptional, IsBoolean, IsEnum } from 'class-validator';
+import { IsString, IsNotEmpty, IsOptional, IsBoolean } from 'class-validator';
 
 export class CreatePaymentMethodDto {
     @IsString()
     @IsNotEmpty()
-    name: string;
+    provider: string; // BCA, MANDIRI, BRI, BNI, QRIS, EWALLET
 
     @IsString()
     @IsNotEmpty()
-    type: string; // 'bank_transfer' | 'ewallet' | 'qris' | 'cash'
+    accountName: string; // a.n PT OTOHUB INDONESIA
+
+    @IsString()
+    @IsNotEmpty()
+    accountNumber: string; // 1234567890
 
     @IsString()
     @IsOptional()
-    bankName?: string;
+    description?: string;
 
     @IsString()
     @IsOptional()
-    accountNumber?: string;
-
-    @IsString()
-    @IsOptional()
-    accountName?: string;
+    logo?: string;
 
     @IsString()
     @IsOptional()
@@ -33,15 +33,11 @@ export class CreatePaymentMethodDto {
 export class UpdatePaymentMethodDto {
     @IsString()
     @IsOptional()
-    name?: string;
+    provider?: string;
 
     @IsString()
     @IsOptional()
-    type?: string;
-
-    @IsString()
-    @IsOptional()
-    bankName?: string;
+    accountName?: string;
 
     @IsString()
     @IsOptional()
@@ -49,7 +45,11 @@ export class UpdatePaymentMethodDto {
 
     @IsString()
     @IsOptional()
-    accountName?: string;
+    description?: string;
+
+    @IsString()
+    @IsOptional()
+    logo?: string;
 
     @IsString()
     @IsOptional()

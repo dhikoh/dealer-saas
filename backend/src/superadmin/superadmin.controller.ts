@@ -134,12 +134,12 @@ export class SuperadminController {
     // ==================== PLAN TIERS ====================
 
     @Get('plans')
-    getPlans() {
+    async getPlans() {
         return this.superadminService.getPlans();
     }
 
     @Patch('plans/:planId')
-    updatePlan(
+    async updatePlan(
         @Param('planId') planId: string,
         @Body() data: any
     ) {

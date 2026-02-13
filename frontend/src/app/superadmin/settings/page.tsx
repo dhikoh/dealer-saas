@@ -171,12 +171,14 @@ function SecurityTab() {
     const fetchLoginHistory = async () => {
         try {
             const token = localStorage.getItem('access_token');
-            const res = await fetch(`${API_URL}/superadmin/analytics/activity?limit=10&action=LOGIN`, {
+            const res = await fetch(`${API_URL}/superadmin/activity/full?limit=10&action=LOGIN`, {
                 headers: { 'Authorization': `Bearer ${token}` },
             });
             if (res.ok) {
                 const data = await res.json();
-                setLoginHistory(Array.isArray(data) ? data : []);
+                // getActivityLog returns { data: [], pagination: {} }
+                const logs = Array.isArray(data) ? data : (data.data || []);
+                setLoginHistory(logs);
             }
         } catch { /* ignore */ }
     };

@@ -72,7 +72,7 @@ export default function TenantsPage() {
 
     // Create Modal
     const [showCreateModal, setShowCreateModal] = useState(false);
-    const [createForm, setCreateForm] = useState({ name: '', slug: '', ownerName: '', ownerEmail: '', ownerPassword: '', planTier: 'DEMO' });
+    const [createForm, setCreateForm] = useState({ name: '', slug: '', ownerName: '', ownerEmail: '', ownerPassword: '', planTier: 'DEMO', billingMonths: 1 });
     const [createLoading, setCreateLoading] = useState(false);
 
     // Edit Modal
@@ -145,7 +145,7 @@ export default function TenantsPage() {
             }
             showToast('Tenant berhasil dibuat', 'success');
             setShowCreateModal(false);
-            setCreateForm({ name: '', slug: '', ownerName: '', ownerEmail: '', ownerPassword: '', planTier: 'DEMO' });
+            setCreateForm({ name: '', slug: '', ownerName: '', ownerEmail: '', ownerPassword: '', planTier: 'DEMO', billingMonths: 1 });
             fetchTenants();
         } catch (e: any) {
             showToast(e.message, 'error');

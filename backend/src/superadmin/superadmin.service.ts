@@ -251,10 +251,18 @@ export class SuperadminService {
         if (tenant.deletedAt) throw new BadRequestException('Tenant sudah dihapus sebelumnya');
 
         try {
+            const now = new Date();
+
+            // CASCADE: Soft-delete all users belonging to this tenant
+            await this.prisma.user.updateMany({
+                where: { tenantId: id, deletedAt: null },
+                data: { deletedAt: now },
+            });
+
             const updated = await this.prisma.tenant.update({
                 where: { id },
                 data: {
-                    deletedAt: new Date(),
+                    deletedAt: now,
                     subscriptionStatus: 'CANCELLED',
                 },
             });
@@ -279,15 +287,67 @@ export class SuperadminService {
 
     // ==================== PLAN TIERS ====================
 
-    getPlans() {
+    async getPlans() {
+        // Fetch plans from DB, fall back to in-memory config
+        const dbPlans = await this.prisma.plan.findMany({ orderBy: { createdAt: 'asc' } });
+        if (dbPlans.length > 0) {
+            return dbPlans.map(p => ({
+                id: p.slug.toUpperCase(),
+                name: p.name,
+                slug: p.slug,
+                dbId: p.id,
+                price: Number(p.price),
+                currency: p.currency,
+                description: p.description,
+                features: {
+                    maxVehicles: p.maxVehicles,
+                    maxUsers: p.maxUsers,
+                    maxBranches: p.maxBranches,
+                    canCreateGroup: p.canCreateGroup,
+                    maxGroupMembers: p.maxGroupMembers,
+                    ...(typeof p.features === 'object' && p.features !== null ? p.features as Record<string, any> : {}),
+                },
+            }));
+        }
         return Object.values(PLAN_TIERS);
     }
 
-    updatePlan(planId: string, data: Partial<PlanTier>) {
+    async updatePlan(planId: string, data: Partial<PlanTier>) {
+        // Try to find plan in DB by slug (planId is slug like 'DEMO', 'BASIC', etc.)
+        const dbPlan = await this.prisma.plan.findFirst({
+            where: { slug: { equals: planId, mode: 'insensitive' } },
+        });
+
+        if (dbPlan) {
+            // Persist to database
+            const updateData: any = {};
+            if (data.name !== undefined) updateData.name = data.name;
+            if (data.price !== undefined) updateData.price = data.price;
+            if (data.description !== undefined) updateData.description = data.description;
+            if (data.features) {
+                // Merge top-level feature limits
+                if (data.features.maxVehicles !== undefined) updateData.maxVehicles = data.features.maxVehicles;
+                if (data.features.maxUsers !== undefined) updateData.maxUsers = data.features.maxUsers;
+                if (data.features.maxBranches !== undefined) updateData.maxBranches = data.features.maxBranches;
+                if ((data.features as any).canCreateGroup !== undefined) updateData.canCreateGroup = (data.features as any).canCreateGroup;
+                if ((data.features as any).maxGroupMembers !== undefined) updateData.maxGroupMembers = (data.features as any).maxGroupMembers;
+                // Store extra feature flags in JSON
+                const existingFeatures = typeof dbPlan.features === 'object' && dbPlan.features !== null ? dbPlan.features : {};
+                updateData.features = { ...existingFeatures, ...data.features };
+            }
+
+            const updated = await this.prisma.plan.update({
+                where: { id: dbPlan.id },
+                data: updateData,
+            });
+
+            return updated;
+        }
+
+        // Fallback: update in-memory config (legacy)
         const plan = PLAN_TIERS[planId];
         if (!plan) throw new NotFoundException('Plan not found');
 
-        // Update in-memory config
         if (data.price !== undefined) plan.price = data.price;
         if (data.priceLabel !== undefined) plan.priceLabel = data.priceLabel;
         if (data.name !== undefined) plan.name = data.name;
