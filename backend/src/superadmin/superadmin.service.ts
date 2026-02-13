@@ -248,27 +248,33 @@ export class SuperadminService {
     async softDeleteTenant(id: string, adminId?: string) {
         const tenant = await this.prisma.tenant.findUnique({ where: { id } });
         if (!tenant) throw new NotFoundException('Tenant not found');
-        if (tenant.deletedAt) throw new BadRequestException('Tenant already deleted');
+        if (tenant.deletedAt) throw new BadRequestException('Tenant sudah dihapus sebelumnya');
 
-        const updated = await this.prisma.tenant.update({
-            where: { id },
-            data: {
-                deletedAt: new Date(),
-                subscriptionStatus: 'CANCELLED',
-            },
-        });
-
-        if (adminId) {
-            await this.logActivity({
-                userId: adminId,
-                action: 'TENANT_DELETE',
-                entityType: 'TENANT',
-                entityId: id,
-                entityName: tenant.name,
+        try {
+            const updated = await this.prisma.tenant.update({
+                where: { id },
+                data: {
+                    deletedAt: new Date(),
+                    subscriptionStatus: 'CANCELLED',
+                },
             });
-        }
 
-        return updated;
+            if (adminId) {
+                await this.logActivity({
+                    userId: adminId,
+                    action: 'TENANT_DELETE',
+                    entityType: 'TENANT',
+                    entityId: id,
+                    entityName: tenant.name,
+                });
+            }
+
+            return updated;
+        } catch (error: any) {
+            throw new BadRequestException(
+                `Gagal menghapus tenant: ${error.message || 'Database constraint error'}`
+            );
+        }
     }
 
     // ==================== PLAN TIERS ====================

@@ -7,9 +7,19 @@ export class CmsService {
     constructor(private prisma: PrismaService) { }
 
     async getPublicContent() {
-        return this.prisma.landingPageContent.findUnique({
+        const content = await this.prisma.landingPageContent.findUnique({
             where: { id: 'default' },
         });
+
+        // Return default empty content if no record exists
+        return content || {
+            id: 'default',
+            hero: { title: '', subtitle: '', ctaText: '', ctaLink: '', bgImage: '' },
+            features: [],
+            pricing: [],
+            faq: [],
+            footer: { socialLinks: [], contactInfo: { email: '', phone: '', address: '' } },
+        };
     }
 
     async updateContent(data: any) {

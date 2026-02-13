@@ -82,7 +82,7 @@ export default function TenantsPage() {
 
     // Direct Plan Change Modal
     const [planTenant, setPlanTenant] = useState<Tenant | null>(null);
-    const [planForm, setPlanForm] = useState({ planTier: 'PRO', durationMonths: 1, immediate: true });
+    const [planForm, setPlanForm] = useState({ planTier: 'PRO', billingMonths: 1, immediate: true });
     const [planLoading, setPlanLoading] = useState(false);
 
     // Confirm Dialogs
@@ -504,7 +504,7 @@ export default function TenantsPage() {
                             </div>
                             <div>
                                 <label className="block text-sm font-medium text-slate-700 mb-1">Durasi Tambahan (Bulan)</label>
-                                <input type="number" min="1" max="12" value={planForm.durationMonths} onChange={e => setPlanForm({ ...planForm, durationMonths: parseInt(e.target.value) })}
+                                <input type="number" min="1" max="12" value={planForm.billingMonths} onChange={e => setPlanForm({ ...planForm, billingMonths: parseInt(e.target.value) })}
                                     className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm" />
                             </div>
                             <div className="flex items-center gap-2">
