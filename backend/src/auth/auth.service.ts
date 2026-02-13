@@ -172,7 +172,11 @@ export class AuthService {
     });
 
     if (!user) throw new BadRequestException('Pengguna tidak ditemukan');
-    if (user.isVerified) return { message: 'Email sudah terverifikasi' };
+    if (user.isVerified) {
+      // Already verified — return token so user can proceed
+      const token = await this.createToken(user);
+      return { message: 'Email sudah terverifikasi', ...token };
+    }
 
     if (user.verificationCode !== code) {
       throw new BadRequestException('Kode OTP tidak valid');
@@ -183,7 +187,7 @@ export class AuthService {
     }
 
     // Verify User
-    await this.prisma.user.update({
+    const updatedUser = await this.prisma.user.update({
       where: { id: user.id },
       data: {
         isVerified: true,
@@ -193,7 +197,9 @@ export class AuthService {
       }
     });
 
-    return { message: 'Email berhasil diverifikasi' };
+    // Return auth token so user can proceed to onboarding
+    const token = await this.createToken(updatedUser);
+    return { message: 'Email berhasil diverifikasi', ...token };
   }
 
   async resendVerificationCode(email: string) {

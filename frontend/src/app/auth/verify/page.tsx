@@ -88,6 +88,19 @@ function VerifyPageContent() {
                 throw new Error(errorData.message || 'Verifikasi Gagal');
             }
 
+            const data = await res.json();
+
+            // Store auth token so user can access onboarding
+            if (data.access_token) {
+                localStorage.setItem('access_token', data.access_token);
+            }
+            if (data.refresh_token) {
+                localStorage.setItem('refresh_token', data.refresh_token);
+            }
+            if (data.user) {
+                localStorage.setItem('user_info', JSON.stringify(data.user));
+            }
+
             toast.success('Email Berhasil Diverifikasi!');
 
             // Redirect to Onboarding

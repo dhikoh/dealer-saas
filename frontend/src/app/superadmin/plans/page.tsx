@@ -124,6 +124,7 @@ export default function PlansPage() {
 
     const handleSave = async () => {
         if (!editPlan || !editForm) return;
+        setConfirmSave(false); // Close confirm dialog immediately
         setSaving(true);
         try {
             const res = await fetch(`${API_URL}/superadmin/plans/${editPlan.id}`, {

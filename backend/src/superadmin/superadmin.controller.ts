@@ -128,7 +128,7 @@ export class SuperadminController {
         @Param('id') id: string,
         @Request() req: any
     ) {
-        return this.superadminService.softDeleteTenant(id, req.user.userId);
+        return this.superadminService.hardDeleteTenant(id, req.user.userId);
     }
 
     // ==================== PLAN TIERS ====================

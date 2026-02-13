@@ -245,28 +245,12 @@ export class SuperadminService {
 
     // ==================== SOFT DELETE TENANT ====================
 
-    async softDeleteTenant(id: string, adminId?: string) {
+    async hardDeleteTenant(id: string, adminId?: string) {
         const tenant = await this.prisma.tenant.findUnique({ where: { id } });
         if (!tenant) throw new NotFoundException('Tenant not found');
-        if (tenant.deletedAt) throw new BadRequestException('Tenant sudah dihapus sebelumnya');
 
         try {
-            const now = new Date();
-
-            // CASCADE: Soft-delete all users belonging to this tenant
-            await this.prisma.user.updateMany({
-                where: { tenantId: id, deletedAt: null },
-                data: { deletedAt: now },
-            });
-
-            const updated = await this.prisma.tenant.update({
-                where: { id },
-                data: {
-                    deletedAt: now,
-                    subscriptionStatus: 'CANCELLED',
-                },
-            });
-
+            // Log before deletion (while data still exists)
             if (adminId) {
                 await this.logActivity({
                     userId: adminId,
@@ -277,7 +261,66 @@ export class SuperadminService {
                 });
             }
 
-            return updated;
+            // Hard delete ALL related data in correct order (deepest relations first)
+            await this.prisma.$transaction(async (tx) => {
+                // 1. Delete activity logs (references userId + tenantId)
+                await tx.activityLog.deleteMany({ where: { tenantId: id } });
+
+                // 2. Delete invoices
+                await tx.systemInvoice.deleteMany({ where: { tenantId: id } });
+
+                // 3. Delete stock transfers (references tenantId)
+                await tx.stockTransfer.deleteMany({
+                    where: { OR: [{ tenantId: id }, { targetTenantId: id }] },
+                });
+
+                // 4. Delete operating costs
+                await tx.operatingCost.deleteMany({ where: { tenantId: id } });
+
+                // 5. Delete vehicle costs (references vehicleId -> tenantId)
+                await tx.vehicleCost.deleteMany({ where: { tenantId: id } });
+
+                // 6. Delete blacklist entries
+                await tx.blacklistEntry.deleteMany({ where: { tenantId: id } });
+
+                // 7. Delete transactions (references userId + tenantId)
+                await tx.transaction.deleteMany({ where: { tenantId: id } });
+
+                // 8. Delete vehicles (references tenantId)
+                await tx.vehicle.deleteMany({ where: { tenantId: id } });
+
+                // 9. Delete vehicle brands (references tenantId)
+                await tx.vehicleBrand.deleteMany({ where: { tenantId: id } });
+
+                // 10. Get all user IDs for this tenant
+                const tenantUsers = await tx.user.findMany({
+                    where: { tenantId: id },
+                    select: { id: true },
+                });
+                const userIds = tenantUsers.map(u => u.id);
+
+                if (userIds.length > 0) {
+                    // 11. Delete refresh tokens (references userId)
+                    await tx.refreshToken.deleteMany({ where: { userId: { in: userIds } } });
+
+                    // 12. Delete notifications (references userId)
+                    await tx.notification.deleteMany({ where: { userId: { in: userIds } } });
+
+                    // 13. Delete users
+                    await tx.user.deleteMany({ where: { tenantId: id } });
+                }
+
+                // 14. Delete branches
+                await tx.branch.deleteMany({ where: { tenantId: id } });
+
+                // 15. Delete customers
+                await tx.customer.deleteMany({ where: { tenantId: id } });
+
+                // 16. Finally, delete the tenant itself
+                await tx.tenant.delete({ where: { id } });
+            });
+
+            return { success: true, message: `Tenant "${tenant.name}" dan seluruh data terkait berhasil dihapus permanen.` };
         } catch (error: any) {
             throw new BadRequestException(
                 `Gagal menghapus tenant: ${error.message || 'Database constraint error'}`
