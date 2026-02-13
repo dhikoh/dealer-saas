@@ -439,12 +439,12 @@ export default function CustomersPage() {
                                         setEditForm({ name: customer.name, phone: customer.phone, email: customer.email || '', address: customer.address || '' });
                                         // Load existing docs
                                         setCustomerDocs({
-                                            ktpImage: customer.ktpImage || null,
-                                            kkImage: customer.kkImage || null,
-                                            homeProofImage: customer.homeProofImage || null,
-                                            salarySlipImage: customer.salarySlipImage || null,
-                                            bankStatementImage: customer.bankStatementImage || null,
-                                            businessLicenseImage: customer.businessLicenseImage || null
+                                            ktpImage: customer.ktpImage || '',
+                                            kkImage: customer.kkImage || '',
+                                            homeProofImage: customer.homeProofImage || '',
+                                            salarySlipImage: customer.salarySlipImage || '',
+                                            bankStatementImage: customer.bankStatementImage || '',
+                                            businessLicenseImage: customer.businessLicenseImage || ''
                                         });
                                         setKtpFile(null);
                                         setShowEditModal(true);
