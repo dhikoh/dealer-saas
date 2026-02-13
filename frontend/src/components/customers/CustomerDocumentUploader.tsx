@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import {
     faIdCard,
@@ -48,6 +48,14 @@ export default function CustomerDocumentUploader({ customerId, documents, onDocu
     const [previewUrl, setPreviewUrl] = useState<string | null>(null);
     const [pendingFiles, setPendingFiles] = useState<Record<string, File>>({});
     const fileRefs = useRef<Record<string, HTMLInputElement | null>>({});
+
+    // CRITICAL FIX: Reset all internal state when customer changes
+    // Prevents "KTP Tersimpan" leaking from previous customer
+    useEffect(() => {
+        setUploadingKey(null);
+        setPreviewUrl(null);
+        setPendingFiles({});
+    }, [customerId]);
 
     const handleFileChange = async (key: string, docType: string, file: File) => {
         if (file.size > 5 * 1024 * 1024) {
@@ -104,15 +112,15 @@ export default function CustomerDocumentUploader({ customerId, documents, onDocu
                         <div
                             key={field.key}
                             className={`flex flex-col p-4 rounded-xl border transition-all ${hasDoc ? 'bg-green-50 border-green-200' :
-                                    isPending ? 'bg-blue-50 border-blue-200' :
-                                        'bg-white border-gray-200'
+                                isPending ? 'bg-blue-50 border-blue-200' :
+                                    'bg-white border-gray-200'
                                 }`}
                         >
                             <div className="flex items-start justify-between mb-3">
                                 <div className="flex items-center gap-3">
                                     <div className={`w-10 h-10 rounded-full flex items-center justify-center ${hasDoc ? 'bg-green-100 text-green-600' :
-                                            isPending ? 'bg-blue-100 text-blue-600' :
-                                                'bg-gray-100 text-gray-400'
+                                        isPending ? 'bg-blue-100 text-blue-600' :
+                                            'bg-gray-100 text-gray-400'
                                         }`}>
                                         <FontAwesomeIcon icon={field.icon} />
                                     </div>
@@ -151,8 +159,8 @@ export default function CustomerDocumentUploader({ customerId, documents, onDocu
                                     onClick={() => fileRefs.current[field.key]?.click()}
                                     disabled={isUploading}
                                     className={`flex-1 py-2 text-xs rounded-lg font-medium transition-all flex items-center justify-center gap-2 ${hasDoc || isPending
-                                            ? 'bg-white border border-gray-200 text-gray-700 hover:bg-gray-50'
-                                            : 'bg-[#00bfa5] text-white hover:bg-[#00a891]'
+                                        ? 'bg-white border border-gray-200 text-gray-700 hover:bg-gray-50'
+                                        : 'bg-[#00bfa5] text-white hover:bg-[#00a891]'
                                         }`}
                                 >
                                     {isUploading ? (

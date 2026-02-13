@@ -1,98 +1,73 @@
-
 import { PrismaClient } from '@prisma/client';
 
 const prisma = new PrismaClient();
 
 async function main() {
-    console.log('🌱 Starting Seeding...');
+    console.log('🌱 Seeding database...');
 
-    // 1. Seed Plans
+    // ==================== 1. SEED PLANS ====================
     const plans = [
         {
-            name: 'Basic',
-            slug: 'basic',
-            price: 299000,
+            id: 'plan-demo',
+            name: 'Demo',
+            slug: 'demo',
+            description: 'Gratis 14 hari untuk mencoba semua fitur dasar',
+            price: 0,
             currency: 'IDR',
-            description: 'Untuk dealer kecil yang baru merintis.',
-            maxVehicles: 50,
-            maxUsers: 3,
+            maxVehicles: 10,
+            maxUsers: 2,
             maxBranches: 1,
             canCreateGroup: false,
             maxGroupMembers: 0,
             features: {
-                maxVehicles: 50,
-                maxUsers: 3,
-                maxCustomers: 100,
-                maxBranches: 1,
-                pdfExport: true,
-                internalReports: true,
+                maxVehicles: 10,
+                maxUsers: 2,
+                multiLanguage: false,
                 blacklistAccess: false,
-                reminderNotifications: true,
-                multiLanguage: true,
-                prioritySupport: false,
-                apiAccess: false,
-                customBranding: false,
-                advancedAnalytics: false,
-                dataExport: false,
                 whatsappIntegration: false,
+                prioritySupport: false,
             },
         },
         {
-            name: 'Pro',
+            id: 'plan-pro',
+            name: 'Professional',
             slug: 'pro',
-            price: 599000,
+            description: 'Untuk dealer skala menengah dengan fitur lengkap',
+            price: 199000,
             currency: 'IDR',
-            description: 'Terbaik untuk dealer yang sedang berkembang.',
-            maxVehicles: 200,
+            maxVehicles: 100,
             maxUsers: 10,
             maxBranches: 3,
             canCreateGroup: false,
             maxGroupMembers: 0,
             features: {
-                maxVehicles: 200,
+                maxVehicles: 100,
                 maxUsers: 10,
-                maxCustomers: 500,
-                maxBranches: 3,
-                pdfExport: true,
-                internalReports: true,
-                blacklistAccess: true,
-                reminderNotifications: true,
                 multiLanguage: true,
-                prioritySupport: true,
-                apiAccess: false,
-                customBranding: true,
-                advancedAnalytics: true,
-                dataExport: true,
+                blacklistAccess: true,
                 whatsappIntegration: true,
+                prioritySupport: false,
             },
         },
         {
+            id: 'plan-enterprise',
             name: 'Enterprise',
             slug: 'enterprise',
-            price: 1499000,
+            description: 'Solusi lengkap untuk jaringan dealer besar',
+            price: 499000,
             currency: 'IDR',
-            description: 'Solusi lengkap untuk dealer group & korporasi.',
             maxVehicles: -1, // Unlimited
-            maxUsers: -1,
-            maxBranches: -1,
+            maxUsers: -1,     // Unlimited
+            maxBranches: 10,
             canCreateGroup: true,
-            maxGroupMembers: 10,
+            maxGroupMembers: 50,
             features: {
                 maxVehicles: -1,
                 maxUsers: -1,
-                maxCustomers: -1,
-                maxBranches: -1,
-                pdfExport: true,
-                internalReports: true,
-                blacklistAccess: true,
-                reminderNotifications: true,
                 multiLanguage: true,
-                prioritySupport: true,
-                apiAccess: true,
-                customBranding: true,
-                advancedAnalytics: true,
-                dataExport: true,
+                blacklistAccess: true,
                 whatsappIntegration: true,
+                prioritySupport: true,
             },
         },
     ];
@@ -100,95 +75,127 @@ async function main() {
     for (const plan of plans) {
         await prisma.plan.upsert({
             where: { slug: plan.slug },
-            update: plan,
+            update: {
+                name: plan.name,
+                description: plan.description,
+                price: plan.price,
+                currency: plan.currency,
+                maxVehicles: plan.maxVehicles,
+                maxUsers: plan.maxUsers,
+                maxBranches: plan.maxBranches,
+                canCreateGroup: plan.canCreateGroup,
+                maxGroupMembers: plan.maxGroupMembers,
+                features: plan.features,
+            },
             create: plan,
         });
-        console.log(`  ✅ Plan Upserted: ${plan.name}`);
+        console.log(`  ✅ Plan "${plan.name}" seeded`);
     }
 
-    // 2. Seed Landing Page Content
-    const defaultContent = {
-        hero: {
-            title: 'Kelola Bisnis Mobil Bekas Anda',
-            subtitle: 'Platform SaaS all-in-one untuk dealer mobil bekas. Inventaris, transaksi, customer, laporan keuangan — semua dalam satu dashboard modern.',
-            ctaText: 'Mulai Gratis',
-            ctaLink: '/auth?mode=register',
-            bgImage: '/images/hero-bg.jpg', // Placeholder
-        },
-        features: [
-            {
-                icon: 'Car',
-                title: 'Manajemen Inventaris',
-                description: 'Kelola stok kendaraan dengan foto, spesifikasi, kondisi, dan harga. Dilengkapi filter dan pencarian cepat.',
-            },
-            {
-                icon: 'Users',
-                title: 'Database Customer',
-                description: 'Simpan data pelanggan, riwayat pembelian, dan follow-up otomatis untuk repeat customer.',
-            },
-            {
-                icon: 'BarChart3',
-                title: 'Laporan & Statistik',
-                description: 'Dashboard real-time untuk penjualan, revenue, dan performa bisnis Anda.',
-            },
-            {
-                icon: 'Shield',
-                title: 'Multi-User & Role',
-                description: 'Tambahkan tim sales dengan akses berbeda. Owner dan Staff memiliki permission terpisah.',
-            },
-            {
-                icon: 'Zap',
-                title: 'Simulasi Kredit',
-                description: 'Hitung angsuran untuk berbagai tenor dan DP. Bagikan ke customer dalam hitungan detik.',
-            },
-            {
-                icon: 'Globe',
-                title: 'Multi-Cabang & Group',
-                description: 'Kelola beberapa cabang dealer dalam satu akun. Laporan terpisah per cabang atau gabungan (Enterprise).',
-                badge: 'PRO',
-            },
-        ],
-        pricing: [], // Will fetch from Plan table
-        faq: [
-            {
-                question: 'Apakah ada biaya tersembunyi?',
-                answer: 'Tidak ada. Harga yang Anda lihat adalah harga yang Anda bayar. Pajak sudah termasuk.',
-            },
-            {
-                question: 'Bisakah saya upgrade paker kapan saja?',
-                answer: 'Ya, Anda bisa upgrade kapan saja melalui menu Billing di dashboard.',
-            },
-        ],
-        footer: {
-            copyright: '© 2026 OTOHUB. All rights reserved.',
-            links: [
-                { label: 'Kebijakan Privasi', url: '#' },
-                { label: 'Syarat & Ketentuan', url: '#' },
-                { label: 'Bantuan', url: '#' },
-            ],
-            socials: [
-                { platform: 'Instagram', url: '#' },
-                { platform: 'Facebook', url: '#' },
-            ],
-        },
-    };
-
+    // ==================== 2. SEED LANDING PAGE CONTENT ====================
     await prisma.landingPageContent.upsert({
         where: { id: 'default' },
-        update: defaultContent,
+        update: {},
         create: {
             id: 'default',
-            ...defaultContent,
+            hero: {
+                title: 'Kelola Dealer Mobil Bekas Anda dengan Mudah',
+                subtitle:
+                    'Platform SaaS all-in-one untuk manajemen inventaris, transaksi, kredit, dan pelanggan dealer kendaraan bekas.',
+                ctaText: 'Mulai Gratis',
+                ctaLink: '/auth?mode=register',
+                bgImage: '',
+            },
+            features: [
+                {
+                    icon: 'Car',
+                    title: 'Manajemen Inventaris',
+                    description:
+                        'Kelola stok kendaraan dengan foto, dokumen, dan riwayat biaya lengkap.',
+                },
+                {
+                    icon: 'BarChart3',
+                    title: 'Dashboard Analytics',
+                    description:
+                        'Pantau penjualan, profit, dan performa bisnis secara real-time.',
+                    badge: 'POPULER',
+                },
+                {
+                    icon: 'Users',
+                    title: 'CRM Pelanggan',
+                    description:
+                        'Kelola data pelanggan, lead, dan pipeline penjualan dalam satu tempat.',
+                },
+                {
+                    icon: 'Shield',
+                    title: 'Blacklist Nasional',
+                    description:
+                        'Cek riwayat pelanggan bermasalah lintas dealer untuk keamanan transaksi.',
+                },
+                {
+                    icon: 'Zap',
+                    title: 'Kredit & Cicilan',
+                    description:
+                        'Kelola kredit internal dan leasing dengan tracking pembayaran otomatis.',
+                },
+                {
+                    icon: 'Globe',
+                    title: 'Multi Cabang & Grup',
+                    description:
+                        'Jalankan bisnis multi-cabang dan jaringan dealer dari satu platform.',
+                    badge: 'ENTERPRISE',
+                },
+            ],
+            pricing: [],
+            faq: [
+                {
+                    question: 'Apakah OTOHUB gratis?',
+                    answer:
+                        'Ya, kami menyediakan paket Demo gratis selama 14 hari tanpa kartu kredit. Anda bisa mencoba semua fitur dasar.',
+                },
+                {
+                    question: 'Berapa banyak kendaraan yang bisa saya kelola?',
+                    answer:
+                        'Tergantung paket Anda. Paket Demo mendukung 10 kendaraan, Pro 100 kendaraan, dan Enterprise unlimited.',
+                },
+                {
+                    question: 'Apakah data saya aman?',
+                    answer:
+                        'Tentu. Kami menggunakan enkripsi SSL, isolasi tenant, dan backup data berkala untuk keamanan maksimal.',
+                },
+                {
+                    question: 'Bisakah saya menggunakan OTOHUB dari HP?',
+                    answer:
+                        'Ya, OTOHUB didesain responsive dan bisa diakses dari browser HP manapun. Kami juga menyediakan aplikasi mobile (coming soon).',
+                },
+                {
+                    question: 'Bagaimana cara upgrade paket?',
+                    answer:
+                        'Anda bisa upgrade kapan saja dari menu Billing di dashboard. Perubahan berlaku langsung tanpa downtime.',
+                },
+            ],
+            footer: {
+                copyright: '© 2026 OTOHUB. All rights reserved.',
+                links: [
+                    { label: 'Syarat & Ketentuan', url: '#' },
+                    { label: 'Kebijakan Privasi', url: '#' },
+                    { label: 'Hubungi Kami', url: 'mailto:support@modula.click' },
+                ],
+                socials: [
+                    { platform: 'whatsapp', url: 'https://wa.me/6281234567890' },
+                    { platform: 'instagram', url: 'https://instagram.com/otohub' },
+                ],
+            },
         },
     });
-    console.log('  ✅ Landing Page Content Upserted');
+    console.log('  ✅ Landing Page Content seeded');
 
-    console.log('🌱 Seeding Completed.');
+    console.log('🌱 Seeding complete!');
 }
 
 main()
     .catch((e) => {
-        console.error(e);
+        console.error('❌ Seed error:', e);
         process.exit(1);
     })
     .finally(async () => {

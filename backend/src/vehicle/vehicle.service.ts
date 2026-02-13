@@ -81,16 +81,18 @@ export class VehicleService {
         if (data.isShowroom === true) {
             // Check incoming images OR existing images
             const imagesRaw = data.images !== undefined ? data.images : vehicle.images;
-            const parsedImages = imagesRaw ? JSON.parse(imagesRaw) : [];
+            let parsedImages: any[] = [];
+            try {
+                parsedImages = imagesRaw ? JSON.parse(imagesRaw) : [];
+            } catch {
+                parsedImages = [];
+            }
 
             if (!Array.isArray(parsedImages) || parsedImages.length === 0) {
-                // If it's just a status update, we might not want to throw, 
-                // BUT the requirement says "Showroom wajib minimal 1 foto".
-                // So we force it to false if no photos.
-                // OR we throw error. Requirement implies validation/block.
-                throw new BadRequestException(
-                    'Minimal 1 foto kendaraan diperlukan untuk menampilkannya di Showroom/Website'
-                );
+                // Gracefully degrade: auto-set isShowroom to false instead of blocking.
+                // This allows the creation → upload → update flow to work.
+                // The user can turn showroom back on after uploading photos.
+                data.isShowroom = false;
             }
         }
 

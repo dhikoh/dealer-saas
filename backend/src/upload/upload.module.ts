@@ -24,8 +24,16 @@ import { existsSync, mkdirSync } from 'fs';
                 return {
                     storage: diskStorage({
                         destination: (req, file, cb) => {
-                            // Organize uploads by type
-                            const type = (req as any).uploadType || 'general';
+                            // Derive upload type from URL path instead of req.uploadType
+                            // URL patterns: /upload/vehicle/:id, /upload/customer/:id/:docType, etc.
+                            const urlPath = (req as any).originalUrl || '';
+                            let type = 'general';
+                            if (urlPath.includes('/upload/vehicle')) type = 'vehicles';
+                            else if (urlPath.includes('/upload/customer')) type = 'customers';
+                            else if (urlPath.includes('/upload/receipt')) type = 'receipts';
+                            else if (urlPath.includes('/upload/payment')) type = 'payments';
+                            else if (urlPath.includes('/upload/cost')) type = 'costs';
+
                             const destPath = join(uploadDir, type);
 
                             if (!existsSync(destPath)) {
