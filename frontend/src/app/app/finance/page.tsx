@@ -28,7 +28,7 @@ export default function FinancePage() {
     const [costs, setCosts] = useState<OperatingCost[]>([]);
     const [loading, setLoading] = useState(true);
     const [showModal, setShowModal] = useState(false);
-    const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001";
+    const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:4000";
 
     // Form State
     const [formData, setFormData] = useState({
@@ -43,7 +43,7 @@ export default function FinancePage() {
 
     const fetchCosts = async () => {
         try {
-            const token = localStorage.getItem("token");
+            const token = localStorage.getItem("access_token");
             const res = await fetch(`${API_URL}/finance/costs`, {
                 headers: { Authorization: `Bearer ${token}` },
             });
@@ -65,7 +65,7 @@ export default function FinancePage() {
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
         try {
-            const token = localStorage.getItem("token");
+            const token = localStorage.getItem("access_token");
             let proofUrl = "";
 
             // 1. Upload Proof if exists
@@ -120,7 +120,7 @@ export default function FinancePage() {
     const handleDelete = async (id: string) => {
         if (!confirm("Hapus biaya ini?")) return;
         try {
-            const token = localStorage.getItem("token");
+            const token = localStorage.getItem("access_token");
             const res = await fetch(`${API_URL}/finance/costs/${id}`, {
                 method: "DELETE",
                 headers: { Authorization: `Bearer ${token}` },

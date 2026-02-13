@@ -2,6 +2,8 @@ import { MiddlewareConsumer, Module, RequestMethod } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
 import { ThrottlerModule, ThrottlerGuard } from '@nestjs/throttler';
 import { APP_GUARD } from '@nestjs/core';
+import { JwtAuthGuard } from './auth/jwt-auth.guard';
+import { UserStateGuard } from './auth/user-state.guard';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
 import { PrismaModule } from './prisma/prisma.module';
@@ -88,10 +90,20 @@ import { FinanceModule } from './finance/finance.module';
   controllers: [AppController],
   providers: [
     AppService,
-    // Apply rate limiting globally
+    // 1. Rate limiting globally
     {
       provide: APP_GUARD,
       useClass: ThrottlerGuard,
+    },
+    // 2. JWT Authentication globally (skip with @Public())
+    {
+      provide: APP_GUARD,
+      useClass: JwtAuthGuard,
+    },
+    // 3. User state enforcement globally (email verified + onboarding)
+    {
+      provide: APP_GUARD,
+      useClass: UserStateGuard,
     },
   ],
 })

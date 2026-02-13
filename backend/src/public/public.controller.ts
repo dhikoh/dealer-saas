@@ -2,9 +2,10 @@
 import { Controller, Get, Param, Query, UseGuards } from '@nestjs/common';
 import { PublicService } from './public.service';
 import { ApiKeyGuard } from '../auth/api-key.guard';
+import { Public } from '../auth/public.decorator';
 
 @Controller('api/public')
-// @UseGuards(ApiKeyGuard) -- Disabled for Public Access
+@Public() // Marketplace API — no auth required
 export class PublicController {
     constructor(private readonly publicService: PublicService) { }
 

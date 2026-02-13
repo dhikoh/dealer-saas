@@ -73,7 +73,7 @@ export default function HelpCenterPage() {
             const token = localStorage.getItem('access_token');
             if (!token) return;
             try {
-                const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
+                const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
                 const res = await fetch(`${API_URL}/tenant/profile`, {
                     headers: { Authorization: `Bearer ${token}` }
                 });

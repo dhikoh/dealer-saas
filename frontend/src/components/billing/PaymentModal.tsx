@@ -38,7 +38,7 @@ export default function PaymentModal({
     const [uploading, setUploading] = useState(false);
     const [copied, setCopied] = useState(false);
 
-    const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
+    const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
 
     useEffect(() => {
         if (isOpen) {
