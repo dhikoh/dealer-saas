@@ -48,9 +48,16 @@ export class BranchService {
     async update(id: string, data: any, tenantId: string) {
         await this.findOne(id, tenantId); // Validate existence
 
+        // SECURITY: Strip dangerous fields before update
+        const safeData = { ...data };
+        delete safeData.id;
+        delete safeData.tenantId;
+        delete safeData.createdAt;
+        delete safeData.updatedAt;
+
         return this.prisma.branch.update({
             where: { id },
-            data,
+            data: safeData,
         });
     }
 

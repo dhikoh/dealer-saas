@@ -316,6 +316,18 @@ export class SuperadminService {
     }
 
     async verifyInvoice(invoiceId: string, approved: boolean, adminId?: string, adminEmail?: string) {
+        // SECURITY: Prevent double-approval / double-rejection
+        const existingInvoice = await (this.prisma as any).systemInvoice.findUnique({
+            where: { id: invoiceId },
+        });
+        if (!existingInvoice) throw new NotFoundException('Invoice not found');
+        if (existingInvoice.status === 'PAID') {
+            throw new BadRequestException('Invoice sudah disetujui sebelumnya');
+        }
+        if (existingInvoice.status === 'CANCELLED') {
+            throw new BadRequestException('Invoice sudah dibatalkan sebelumnya');
+        }
+
         const newStatus = approved ? 'PAID' : 'CANCELLED';
 
         const invoice = await (this.prisma as any).systemInvoice.update({

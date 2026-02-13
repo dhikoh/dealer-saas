@@ -11,10 +11,13 @@ import {
     BadRequestException,
     NotFoundException,
     ForbiddenException,
+    UseGuards,
 } from '@nestjs/common';
 import { FileInterceptor, FilesInterceptor } from '@nestjs/platform-express';
 import { UploadService } from './upload.service';
 import { PrismaService } from '../prisma/prisma.service';
+import { Roles } from '../auth/roles.decorator';
+import { RolesGuard } from '../auth/roles.guard';
 
 /**
  * Upload Controller
@@ -195,9 +198,11 @@ export class UploadController {
     }
 
     /**
-     * Delete a file
+     * Delete a file — restricted to OWNER/ADMIN roles
      */
     @Delete()
+    @UseGuards(RolesGuard)
+    @Roles('OWNER', 'ADMIN')
     deleteFile(@Body('url') url: string) {
         if (!url) {
             throw new BadRequestException('URL is required');

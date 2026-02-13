@@ -57,8 +57,15 @@ export class CustomerService {
             }
         }
 
+        // SECURITY: Strip dangerous fields before create
+        const safeData = { ...data };
+        delete safeData.id;
+        delete safeData.tenantId;
+        delete safeData.createdAt;
+        delete safeData.updatedAt;
+
         return this.prisma.customer.create({
-            data: { ...data, tenantId },
+            data: { ...safeData, tenantId },
         });
     }
 
@@ -70,9 +77,16 @@ export class CustomerService {
         if (!customer) {
             throw new NotFoundException('Customer tidak ditemukan');
         }
+        // SECURITY: Strip dangerous fields before update
+        const safeData = { ...data };
+        delete safeData.id;
+        delete safeData.tenantId;
+        delete safeData.createdAt;
+        delete safeData.updatedAt;
+
         return this.prisma.customer.update({
             where: { id },
-            data,
+            data: safeData,
         });
     }
 
