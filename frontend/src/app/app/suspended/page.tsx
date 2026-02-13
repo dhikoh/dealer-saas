@@ -28,7 +28,7 @@ export default function SuspendedPage() {
                     return;
                 }
 
-                const res = await fetch(`${API_URL}/tenant/info`, {
+                const res = await fetch(`${API_URL}/tenant/profile`, {
                     headers: { 'Authorization': `Bearer ${token}` },
                 });
 

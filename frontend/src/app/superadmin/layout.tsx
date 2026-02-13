@@ -115,8 +115,8 @@ export default function SuperadminLayout({ children }: { children: React.ReactNo
     const markAllRead = async () => {
         try {
             const token = localStorage.getItem('access_token');
-            await fetch(`${API_URL}/notifications/read-all`, {
-                method: 'PATCH',
+            await fetch(`${API_URL}/notifications/mark-all-read`, {
+                method: 'POST',
                 headers: { 'Authorization': `Bearer ${token}` },
             });
             setNotifications(prev => prev.map(n => ({ ...n, isRead: true })));
