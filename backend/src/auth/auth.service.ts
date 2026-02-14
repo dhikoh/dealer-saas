@@ -520,10 +520,14 @@ export class AuthService {
 
     if (user) {
       // Existing user — update googleId if not set, then login
-      if (!user.googleId) {
+      if (!user.googleId || !user.isVerified) {
         await this.prisma.user.update({
           where: { id: user.id },
-          data: { googleId, isOauth: true },
+          data: {
+            googleId,
+            isOauth: true,
+            isVerified: true // Trust Google verification
+          },
         });
       }
 

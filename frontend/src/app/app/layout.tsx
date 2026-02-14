@@ -28,6 +28,7 @@ export default function DashboardLayout({
             try {
                 const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000'}/auth/me`, {
                     headers: { Authorization: `Bearer ${token}` },
+                    cache: 'no-store',
                 });
 
                 if (!res.ok) {
