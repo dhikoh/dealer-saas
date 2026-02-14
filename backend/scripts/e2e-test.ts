@@ -1,8 +1,9 @@
-
 import axios from 'axios';
 import * as dotenv from 'dotenv';
 import * as fs from 'fs';
 import * as path from 'path';
+import { PrismaClient } from '@prisma/client';
+import * as bcrypt from 'bcrypt';
 
 // Load environment variables
 const envPath = path.resolve(__dirname, '../.env');
