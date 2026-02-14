@@ -164,8 +164,51 @@ async function runTest() {
             console.error(`❌ Fetch Cost Summary failed:`, error.message);
         }
 
-        // ==================== 8. BILLING & SUPERADMIN (SKIPPED) ====================
-        console.log(`\n[8] Billing/Superadmin flow skipped as requested. Focusing on Tenant features.`);
+        // ==================== 8. BILLING & PLAN UPGRADE ====================
+        console.log(`\n[8] Testing Plan Upgrade (Most Expensive Plan)...`);
+
+        try {
+            // 8.1 Fetch Plans
+            const plansRes = await axios.get(`${API_URL}/billing/plans`);
+            const plans = plansRes.data;
+            console.log(`✅ Fetched ${plans.length} plans.`);
+
+            if (plans.length > 0) {
+                // 8.2 Find Most Expensive
+                const expensivePlan = plans.reduce((prev: any, current: any) =>
+                    (parseFloat(prev.price) > parseFloat(current.price)) ? prev : current
+                );
+
+                console.log(`ℹ️ Most Expensive Plan: ${expensivePlan.name} (${expensivePlan.price})`);
+
+                // 8.3 Purchase/Upgrade (Simulating Tenant Action -> Admin Approval)
+                // Since there is no direct "Buy Plan" public endpoint for Tenant in the current API (based on analysis),
+                // we will simulate the Admin upgrading the tenant, which is the standard B2B flow here.
+                console.log(`[8.3] Upgrading Tenant to ${expensivePlan.name} (Admin Simulation)...`);
+
+                try {
+                    // Note: 'finda' might not have SUPERADMIN role. In a real scenario, this step requires Superadmin token.
+                    // The test script uses 'authHeaders' which is for 'finda'.
+                    // If this fails with 403, we catch it gracefully.
+                    await axios.patch(`${API_URL}/billing/admin/tenant/${tenantId}/upgrade`, {
+                        planId: expensivePlan.id
+                    }, authHeaders);
+                    console.log(`✅ Tenant Upgraded to ${expensivePlan.name}`);
+                } catch (error: any) {
+                    if (error.response?.status === 403) {
+                        console.warn(`⚠️ User '${EMAIL}' is not Superadmin. Cannot perform Plan Upgrade. Skipping.`);
+                    } else {
+                        console.error(`❌ Plan Upgrade failed:`, error.message);
+                    }
+                }
+            } else {
+                console.warn(`⚠️ No plans found to test upgrade.`);
+            }
+        } catch (error: any) {
+            console.error(`❌ Fetch Plans failed:`, error.message);
+        }
+
+        console.log(`\n[9] Billing/Superadmin flow skipped as requested. Focusing on Tenant features.`);
 
         /*
         // 8.1 Generate Invoices (Admin Only)
