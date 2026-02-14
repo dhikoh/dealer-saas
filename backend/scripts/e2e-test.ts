@@ -94,7 +94,8 @@ async function runTest() {
             condition: 'READY',
             // description: 'E2E Comprehensive Test Vehicle', // Removed: Not in DTO
             purchasePrice: 250000000,
-            purchaseDate: new Date().toISOString()
+            purchaseDate: new Date().toISOString(),
+            stnkImage: 'https://example.com/dummy-stnk.jpg' // Required for SALE transaction
         };
 
         try {
