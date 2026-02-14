@@ -17,7 +17,8 @@
     "test:watch": "jest --watch",
     "test:cov": "jest --coverage",
     "test:debug": "node --inspect-brk -r tsconfig-paths/register -r ts-node/register node_modules/.bin/jest --runInBand",
-    "test:e2e": "jest --config ./test/jest-e2e.json"
+    "test:e2e": "jest --config ./test/jest-e2e.json",
+    "e2e": "ts-node -O \"{\\\"module\\\":\\\"commonjs\\\"}\" scripts/e2e-test.ts"
   },
   "dependencies": {
     "@nestjs/axios": "^4.0.1",
@@ -33,7 +34,7 @@
     "@nestjs/swagger": "^11.2.6",
     "@nestjs/throttler": "^6.5.0",
     "@nestjs/websockets": "^11.1.13",
-    "@prisma/client": "^6.4.1",
+    "@prisma/client": "^5.14.0",
     "@types/nodemailer": "^7.0.9",
     "axios": "^1.13.5",
     "bcrypt": "^6.0.0",
@@ -47,7 +48,7 @@
     "passport": "^0.7.0",
     "passport-jwt": "^4.0.1",
     "pdfkit": "^0.17.2",
-    "prisma": "^6.4.1",
+    "prisma": "^5.14.0",
     "reflect-metadata": "^0.2.2",
     "rxjs": "^7.8.1",
     "socket.io": "^4.8.3",
