@@ -243,6 +243,96 @@ export class SuperadminService {
         return tenant;
     }
 
+    // ==================== ALL USERS MANAGEMENT ====================
+
+    async getAllUsers(filters: { search?: string; role?: string; page: number; limit: number }) {
+        const { search, role, page, limit } = filters;
+        const skip = (page - 1) * limit;
+        const where: any = { deletedAt: null };
+
+        if (search) {
+            where.OR = [
+                { name: { contains: search, mode: 'insensitive' } },
+                { email: { contains: search, mode: 'insensitive' } },
+                { username: { contains: search, mode: 'insensitive' } },
+            ];
+        }
+
+        if (role) {
+            where.role = role;
+        }
+
+        const [users, total] = await Promise.all([
+            this.prisma.user.findMany({
+                where,
+                include: {
+                    tenant: { select: { name: true, slug: true } },
+                },
+                orderBy: { createdAt: 'desc' },
+                skip,
+                take: limit,
+            }),
+            this.prisma.user.count({ where }),
+        ]);
+
+        return {
+            data: users.map(u => ({
+                id: u.id,
+                name: u.name,
+                email: u.email,
+                username: u.username, // Added username
+                role: u.role,
+                phone: u.phone,
+                tenantName: u.tenant?.name || 'N/A',
+                tenantId: u.tenantId,
+                isVerified: u.isVerified,
+                createdAt: u.createdAt,
+            })),
+            pagination: {
+                page,
+                limit,
+                total,
+                totalPages: Math.ceil(total / limit),
+            },
+        };
+    }
+
+    async deleteAnyUser(userId: string, adminId: string) {
+        const user = await this.prisma.user.findUnique({ where: { id: userId } });
+        if (!user) throw new NotFoundException('User not found');
+
+        // Prevent deleting yourself
+        if (user.id === adminId) {
+            throw new BadRequestException('Cannot delete your own account');
+        }
+
+        // Hard delete user
+        try {
+            await this.prisma.$transaction(async (tx) => {
+                // Delete related data first
+                await tx.refreshToken.deleteMany({ where: { userId } });
+                await tx.notification.deleteMany({ where: { userId } });
+                await tx.activityLog.deleteMany({ where: { userId } });
+
+                // Finally delete user
+                await tx.user.delete({ where: { id: userId } });
+            });
+
+            await this.logActivity({
+                userId: adminId,
+                action: 'USER_DELETE_FORCE',
+                entityType: 'USER',
+                entityId: userId,
+                entityName: user.name || user.email,
+                details: JSON.stringify({ email: user.email, role: user.role }),
+            });
+
+            return { success: true, message: 'User deleted successfully' };
+        } catch (error: any) {
+            throw new BadRequestException(`Failed to delete user: ${error.message}`);
+        }
+    }
+
     // ==================== SOFT DELETE TENANT ====================
 
     async hardDeleteTenant(id: string, adminId?: string) {

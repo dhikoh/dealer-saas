@@ -131,6 +131,32 @@ export class SuperadminController {
         return this.superadminService.hardDeleteTenant(id, req.user.userId);
     }
 
+    // ==================== ALL USERS MANAGEMENT ====================
+
+    @Get('users')
+    async getAllUsers(
+        @Query('search') search?: string,
+        @Query('role') role?: string,
+        @Query('page') page?: string,
+        @Query('limit') limit?: string,
+    ) {
+        return this.superadminService.getAllUsers({
+            search,
+            role,
+            page: page ? parseInt(page) : 1,
+            limit: limit ? parseInt(limit) : 20,
+        });
+    }
+
+    @Delete('users/:id')
+    @Roles('SUPERADMIN')
+    async deleteAnyUser(
+        @Param('id') id: string,
+        @Request() req: any
+    ) {
+        return this.superadminService.deleteAnyUser(id, req.user.userId);
+    }
+
     // ==================== PLAN TIERS ====================
 
     @Get('plans')

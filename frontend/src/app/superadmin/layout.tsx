@@ -6,7 +6,7 @@ import Link from 'next/link';
 import {
     LayoutDashboard, Users, CreditCard, FileText, Settings, Bell,
     ChevronLeft, ChevronRight, LogOut, Check, CheckCheck, X,
-    ShieldCheck, Activity, Globe
+    ShieldCheck, Activity, Globe, Building2
 } from 'lucide-react';
 import { API_URL } from '@/lib/api';
 
@@ -21,7 +21,8 @@ interface Notification {
 
 const menuItems = [
     { id: 'dashboard', label: 'Overview', icon: LayoutDashboard, href: '/superadmin' },
-    { id: 'tenants', label: 'Tenants', icon: Users, href: '/superadmin/tenants' },
+    { id: 'tenants', label: 'Tenants', icon: Building2, href: '/superadmin/tenants' },
+    { id: 'users', label: 'All Users', icon: Users, href: '/superadmin/users' },
     { id: 'plans', label: 'Plan Tiers', icon: CreditCard, href: '/superadmin/plans' },
     { id: 'invoices', label: 'Invoices & Billing', icon: FileText, href: '/superadmin/invoices' },
     { id: 'approvals', label: 'Approvals', icon: ShieldCheck, href: '/superadmin/approvals' },
