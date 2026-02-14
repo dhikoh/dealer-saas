@@ -1,6 +1,9 @@
-﻿import { Injectable, NotFoundException, BadRequestException, Logger } from '@nestjs/common';
+﻿```typescript
+import { Injectable, NotFoundException, BadRequestException, Logger } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { NotificationService } from '../notification/notification.service';
+import { Prisma } from '@prisma/client';
+import { Prisma } from '@prisma/client';
 import { Decimal } from '@prisma/client/runtime/library';
 import * as path from 'path';
 import * as fs from 'fs';
@@ -19,7 +22,7 @@ export class TransactionService {
      */
     private async generateInvoiceNumber(tenantId: string, type: string): Promise<string> {
         const now = new Date();
-        const yearMonth = `${now.getFullYear()}${String(now.getMonth() + 1).padStart(2, '0')}`;
+        const yearMonth = `${ now.getFullYear() }${ String(now.getMonth() + 1).padStart(2, '0') } `;
         const prefix = type === 'SALE' ? 'INV' : 'PUR';
 
         // Count existing transactions this month for this tenant
@@ -34,7 +37,7 @@ export class TransactionService {
         });
 
         const seq = String(count + 1).padStart(3, '0');
-        return `${prefix}-${yearMonth}-${seq}`;
+        return `${ prefix } -${ yearMonth } -${ seq } `;
     }
 
     async findAll(tenantId: string, filters?: { type?: string; status?: string; startDate?: Date; endDate?: Date }) {
@@ -150,7 +153,7 @@ export class TransactionService {
 
         // VALIDATION: Vehicle must be AVAILABLE
         if (vehicle.status !== 'AVAILABLE') {
-            throw new BadRequestException(`Kendaraan tidak tersedia untuk dijual (Status: ${vehicle.status})`);
+            throw new BadRequestException(`Kendaraan tidak tersedia untuk dijual(Status: ${ vehicle.status })`);
         }
 
         // Validate customer belongs to tenant
@@ -315,7 +318,7 @@ export class TransactionService {
                 await this.notificationService.createNotification({
                     userId: owner.id,
                     title: data.type === 'SALE' ? 'Penjualan Baru 🎉' : 'Pembelian Baru',
-                    message: `Transaksi ${data.type === 'SALE' ? 'penjualan' : 'pembelian'} baru telah dibuat.`,
+                    message: `Transaksi ${ data.type === 'SALE' ? 'penjualan' : 'pembelian' } baru telah dibuat.`,
                     type: 'TRANSACTION',
                     link: '/app/transactions',
                 });
