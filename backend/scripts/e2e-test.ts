@@ -15,8 +15,8 @@ const API_URL = 'http://localhost:3000';
 const prisma = new PrismaClient();
 
 // Test Data
-const SUPER_EMAIL = 'super@admin.com';
-const SUPER_PASSWORD = 'password123';
+const SUPER_EMAIL = 'superadmin@otohub.id';
+const SUPER_PASSWORD = 'superadmin123';
 const EMAIL = 'finda@example.com';
 const PASSWORD = 'Bismillah';
 
