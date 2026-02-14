@@ -36,6 +36,8 @@ export default function SuperadminUsersPage() {
     const [userToDelete, setUserToDelete] = useState<UserData | null>(null);
     const [isDeleting, setIsDeleting] = useState(false);
 
+    const [activeTab, setActiveTab] = useState<'all' | 'tenant' | 'ghost'>('all');
+
     const fetchUsers = useCallback(async () => {
         setLoading(true);
         try {
@@ -62,6 +64,13 @@ export default function SuperadminUsersPage() {
             setLoading(false);
         }
     }, [page, search, roleFilter]);
+
+    // Filter users based on active tab
+    const filteredUsers = users.filter(user => {
+        if (activeTab === 'tenant') return user.tenantId !== null;
+        if (activeTab === 'ghost') return user.tenantId === null;
+        return true;
+    });
 
     useEffect(() => {
         const timer = setTimeout(() => {
@@ -110,33 +119,67 @@ export default function SuperadminUsersPage() {
             <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
                 <div>
                     <h1 className="text-2xl font-bold text-slate-900">User Management</h1>
-                    <p className="text-slate-500 text-sm mt-1">Manage all users, including those without tenants (Ghost Users).</p>
+                    <p className="text-slate-500 text-sm mt-1">Manage global users. Clean up ghost users who don't belong to any tenant.</p>
                 </div>
             </div>
 
-            {/* FILTERS */}
-            <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm flex flex-col sm:flex-row gap-4">
-                <div className="relative flex-1">
-                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 w-5 h-5" />
-                    <input
-                        type="text"
-                        placeholder="Cari nama, email, username..."
-                        value={search}
-                        onChange={(e) => setSearch(e.target.value)}
-                        className="w-full pl-10 pr-4 py-2 rounded-lg border border-slate-200 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all"
-                    />
+            {/* TABS & FILTERS */}
+            <div className="flex flex-col gap-4">
+                {/* TABS */}
+                <div className="flex p-1 bg-slate-100 rounded-xl w-fit">
+                    <button
+                        onClick={() => setActiveTab('all')}
+                        className={`px-4 py-2 text-sm font-medium rounded-lg transition-all ${activeTab === 'all'
+                                ? 'bg-white text-slate-900 shadow-sm'
+                                : 'text-slate-500 hover:text-slate-700'
+                            }`}
+                    >
+                        All Users
+                    </button>
+                    <button
+                        onClick={() => setActiveTab('tenant')}
+                        className={`px-4 py-2 text-sm font-medium rounded-lg transition-all flex items-center gap-2 ${activeTab === 'tenant'
+                                ? 'bg-white text-indigo-600 shadow-sm'
+                                : 'text-slate-500 hover:text-slate-700'
+                            }`}
+                    >
+                        <Building2 className="w-4 h-4" />
+                        Tenant Users
+                    </button>
+                    <button
+                        onClick={() => setActiveTab('ghost')}
+                        className={`px-4 py-2 text-sm font-medium rounded-lg transition-all flex items-center gap-2 ${activeTab === 'ghost'
+                                ? 'bg-white text-rose-600 shadow-sm'
+                                : 'text-slate-500 hover:text-slate-700'
+                            }`}
+                    >
+                        <User className="w-4 h-4" />
+                        Ghost Users
+                    </button>
                 </div>
-                <select
-                    value={roleFilter}
-                    onChange={(e) => setRoleFilter(e.target.value)}
-                    className="px-4 py-2 rounded-lg border border-slate-200 focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-white"
-                >
-                    <option value="">Semua Role</option>
-                    <option value="SUPERADMIN">Superadmin</option>
-                    <option value="OWNER">Owner</option>
-                    <option value="STAFF">Staff</option>
-                    <option value="ADMIN_STAFF">Admin Staff</option>
-                </select>
+
+                <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm flex flex-col sm:flex-row gap-4">
+                    <div className="relative flex-1">
+                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 w-5 h-5" />
+                        <input
+                            type="text"
+                            placeholder="Cari nama, email, username..."
+                            value={search}
+                            onChange={(e) => setSearch(e.target.value)}
+                            className="w-full pl-10 pr-4 py-2 rounded-lg border border-slate-200 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all"
+                        />
+                    </div>
+                    <select
+                        value={roleFilter}
+                        onChange={(e) => setRoleFilter(e.target.value)}
+                        className="px-4 py-2 rounded-lg border border-slate-200 focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-white"
+                    >
+                        <option value="">Semua Role</option>
+                        <option value="OWNER">Owner</option>
+                        <option value="STAFF">Staff</option>
+                        <option value="ADMIN_STAFF">Admin Staff</option>
+                    </select>
+                </div>
             </div>
 
             {/* TABLE */}
@@ -160,14 +203,14 @@ export default function SuperadminUsersPage() {
                                         <p>Memuat data user...</p>
                                     </td>
                                 </tr>
-                            ) : users.length === 0 ? (
+                            ) : filteredUsers.length === 0 ? (
                                 <tr>
                                     <td colSpan={5} className="p-8 text-center text-slate-500">
-                                        Data tidak ditemukan.
+                                        {users.length === 0 ? 'Data tidak ditemukan.' : 'Tidak ada user di kategori ini.'}
                                     </td>
                                 </tr>
                             ) : (
-                                users.map((user) => (
+                                filteredUsers.map((user) => (
                                     <tr key={user.id} className="hover:bg-slate-50 transition-colors">
                                         <td className="p-4">
                                             <div className="flex items-center gap-3">

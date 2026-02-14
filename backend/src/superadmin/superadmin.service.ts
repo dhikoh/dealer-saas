@@ -67,20 +67,43 @@ export class SuperadminService {
             ];
         }
 
+        // 1. Fetch Tenants
         const tenants = await this.prisma.tenant.findMany({
             where,
-            include: {
-                _count: {
-                    select: {
-                        users: true,
-                        vehicles: true,
-                        customers: true,
-                        transactions: true,
-                    },
-                },
-            },
             orderBy: { createdAt: 'desc' },
         });
+
+        if (tenants.length === 0) return [];
+
+        const tenantIds = tenants.map(t => t.id);
+
+        // 2. Fetch Active Counts using GroupBy (Performance Optimized)
+        const [userCounts, vehicleCounts, customerCounts, transactionCounts] = await Promise.all([
+            this.prisma.user.groupBy({
+                by: ['tenantId'],
+                where: { tenantId: { in: tenantIds }, deletedAt: null },
+                _count: { id: true },
+            }),
+            this.prisma.vehicle.groupBy({
+                by: ['tenantId'],
+                where: { tenantId: { in: tenantIds }, deletedAt: null },
+                _count: { id: true },
+            }),
+            this.prisma.customer.groupBy({
+                by: ['tenantId'],
+                where: { tenantId: { in: tenantIds }, deletedAt: null },
+                _count: { id: true },
+            }),
+            this.prisma.transaction.groupBy({
+                by: ['tenantId'],
+                where: { tenantId: { in: tenantIds }, deletedAt: null },
+                _count: { id: true },
+            }),
+        ]);
+
+        // Helper to get count
+        const getCount = (arr: any[], tenantId: string) =>
+            arr.find(x => x.tenantId === tenantId)?._count.id || 0;
 
         return tenants.map(t => ({
             id: t.id,
@@ -96,10 +119,10 @@ export class SuperadminService {
             monthlyBill: Number(t.monthlyBill || 0),
             autoRenew: t.autoRenew,
             usage: {
-                users: t._count.users,
-                vehicles: t._count.vehicles,
-                customers: t._count.customers,
-                transactions: t._count.transactions,
+                users: getCount(userCounts, t.id),
+                vehicles: getCount(vehicleCounts, t.id),
+                customers: getCount(customerCounts, t.id),
+                transactions: getCount(transactionCounts, t.id),
             },
             createdAt: t.createdAt,
         }));
@@ -111,17 +134,9 @@ export class SuperadminService {
             include: {
                 users: {
                     select: { id: true, name: true, email: true, role: true, createdAt: true },
+                    where: { deletedAt: null }, // Only active users in detailed view
                     orderBy: { createdAt: 'desc' },
                     take: 10,
-                },
-                _count: {
-                    select: {
-                        users: true,
-                        vehicles: true,
-                        customers: true,
-                        transactions: true,
-                        branches: true,
-                    },
                 },
             },
         });
@@ -135,6 +150,15 @@ export class SuperadminService {
             take: 5,
         });
 
+        // Get exact active counts
+        const [usersCount, vehiclesCount, customersCount, transactionsCount, branchesCount] = await Promise.all([
+            this.prisma.user.count({ where: { tenantId: id, deletedAt: null } }),
+            this.prisma.vehicle.count({ where: { tenantId: id, deletedAt: null } }),
+            this.prisma.customer.count({ where: { tenantId: id, deletedAt: null } }),
+            this.prisma.transaction.count({ where: { tenantId: id, deletedAt: null } }),
+            this.prisma.branch.count({ where: { tenantId: id } }), // Branch usually doesn't have soft delete yet, but if it does, add it
+        ]);
+
         const plan = getPlanById(tenant.planTier);
 
         return {
@@ -142,11 +166,11 @@ export class SuperadminService {
             monthlyBill: Number(tenant.monthlyBill || 0),
             planDetails: plan,
             usage: {
-                users: tenant._count.users,
-                vehicles: tenant._count.vehicles,
-                customers: tenant._count.customers,
-                transactions: tenant._count.transactions,
-                branches: tenant._count.branches,
+                users: usersCount,
+                vehicles: vehiclesCount,
+                customers: customersCount,
+                transactions: transactionsCount,
+                branches: branchesCount,
             },
             limits: plan ? {
                 usersLimit: plan.features.maxUsers,
@@ -248,7 +272,10 @@ export class SuperadminService {
     async getAllUsers(filters: { search?: string; role?: string; page: number; limit: number }) {
         const { search, role, page, limit } = filters;
         const skip = (page - 1) * limit;
-        const where: any = { deletedAt: null };
+        const where: any = {
+            deletedAt: null,
+            role: { not: 'SUPERADMIN' } // Exclude Superadmin
+        };
 
         if (search) {
             where.OR = [
