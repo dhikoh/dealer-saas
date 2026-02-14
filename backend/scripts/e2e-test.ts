@@ -91,8 +91,8 @@ async function runTest() {
             color: 'White',
             price: 275000000,
             status: 'AVAILABLE',
-            condition: 'NEW',
-            description: 'E2E Comprehensive Test Vehicle',
+            condition: 'READY',
+            // description: 'E2E Comprehensive Test Vehicle', // Removed: Not in DTO
             purchasePrice: 250000000,
             purchaseDate: new Date().toISOString()
         };
