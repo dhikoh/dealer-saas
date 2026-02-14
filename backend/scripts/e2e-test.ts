@@ -15,12 +15,12 @@ const EMAIL = 'finda'; // Username or Email
 const PASSWORD = 'Bismillah';
 
 async function runTest() {
-    console.log(`🚀 Starting E2E Test...`);
+    console.log(`🚀 Starting Comprehensive E2E Test...`);
     console.log(`Target: ${API_URL}`);
     console.log(`User: ${EMAIL}`);
 
     try {
-        // 1. LOGIN
+        // ==================== 1. AUTHENTICATION ====================
         console.log(`\n[1] Logging in...`);
         let token = '';
         let tenantId = '';
@@ -38,7 +38,7 @@ async function runTest() {
 
         const authHeaders = { headers: { Authorization: `Bearer ${token}` } };
 
-        // 2. GET PROFILE (to get Tenant ID)
+        // ==================== 2. PROFILE & TENANT ====================
         console.log(`\n[2] Fetching Profile...`);
         try {
             const profileRes = await axios.get(`${API_URL}/auth/me`, authHeaders);
@@ -50,19 +50,51 @@ async function runTest() {
             process.exit(1);
         }
 
-        // 3. CREATE VEHICLE
-        console.log(`\n[3] Creating Vehicle...`);
+        console.log(`\n[2.1] Updating Profile...`);
+        try {
+            const updateRes = await axios.put(`${API_URL}/auth/profile`, {
+                name: `Finda Updated ${Date.now()}`,
+                address: 'Updated Address via E2E'
+            }, authHeaders);
+            console.log(`✅ Profile Updated: ${updateRes.data.name}`);
+        } catch (error: any) {
+            console.error(`❌ Update Profile failed:`, error.response?.data || error.message);
+        }
+
+        // ==================== 3. CUSTOMER MANAGEMENT ====================
+        console.log(`\n[3] Creating Customer...`);
+        let customerId = '';
+        const uniqueKtp = Date.now().toString().padEnd(16, '0').slice(0, 16);
+        try {
+            const customerRes = await axios.post(`${API_URL}/customers`, {
+                ktpNumber: uniqueKtp,
+                name: 'E2E Customer',
+                phone: '08123456789',
+                email: `customer${Date.now()}@example.com`,
+                address: 'Jalan E2E Testing'
+            }, authHeaders);
+            customerId = customerRes.data.id;
+            console.log(`✅ Customer Created: ${customerId} (${customerRes.data.name})`);
+        } catch (error: any) {
+            console.error(`❌ Create Customer failed:`, JSON.stringify(error.response?.data || error.message, null, 2));
+            process.exit(1);
+        }
+
+        // ==================== 4. VEHICLE MANAGEMENT ====================
+        console.log(`\n[4] Creating Vehicle...`);
         let vehicleId = '';
         const vehicleData = {
-            brand: 'Toyota',
-            model: 'Avanza E2E',
-            year: 2023,
-            color: 'Black',
-            plateNumber: `B ${Math.floor(Math.random() * 10000)} TST`,
-            price: 250000000,
+            category: 'CAR',
+            make: 'Toyota',
+            model: 'Veloz E2E',
+            year: 2024,
+            color: 'White',
+            price: 275000000,
             status: 'AVAILABLE',
             condition: 'NEW',
-            description: 'E2E Test Vehicle'
+            description: 'E2E Comprehensive Test Vehicle',
+            purchasePrice: 250000000,
+            purchaseDate: new Date().toISOString()
         };
 
         try {
@@ -71,23 +103,21 @@ async function runTest() {
             console.log(`✅ Vehicle Created: ${vehicleId}`);
         } catch (error: any) {
             console.error(`❌ Create Vehicle failed:`, JSON.stringify(error.response?.data || error.message, null, 2));
-            // Don't exit, maybe we can test other things or retry? 
-            // Actually if vehicle fails, transaction will fail.
             process.exit(1);
         }
 
-        // 4. CREATE TRANSACTION (SALE)
-        console.log(`\n[4] Creating Transaction (SALE)...`);
+        // ==================== 5. TRANSACTION (SALE) ====================
+        console.log(`\n[5] Creating Transaction (SALE - CASH)...`);
         let transactionId = '';
         try {
             const transactionRes = await axios.post(`${API_URL}/transactions`, {
                 type: 'SALE',
                 vehicleId: vehicleId,
-                customerName: 'E2E Buyer',
-                customerPhone: '081234567890',
-                salePrice: 260000000, // Profit 10jt
-                paymentMethod: 'CASH',
-                notes: 'E2E Transaction'
+                customerId: customerId, // Using the created customer ID
+                paymentType: 'CASH',
+                finalPrice: 280000000,
+                paymentMethod: 'TRANSFER',
+                notes: 'E2E Comprehensive Transaction'
             }, authHeaders);
             transactionId = transactionRes.data.id;
             console.log(`✅ Transaction Created: ${transactionId}`);
@@ -95,9 +125,9 @@ async function runTest() {
             console.error(`❌ Create Transaction failed:`, JSON.stringify(error.response?.data || error.message, null, 2));
         }
 
-        // 5. DOWNLOAD INVOICE (Test PDF generation)
+        // ==================== 6. INVOICE ====================
         if (transactionId) {
-            console.log(`\n[5] Testing Invoice Download...`);
+            console.log(`\n[6] Testing Invoice Download...`);
             try {
                 await axios.get(`${API_URL}/transactions/${transactionId}/invoice`, {
                     ...authHeaders,
@@ -109,7 +139,30 @@ async function runTest() {
             }
         }
 
-        console.log(`\n🎉 E2E Test Completed Successfully!`);
+        // ==================== 7. FINANCE (OPERATING COSTS) ====================
+        console.log(`\n[7] Creating Operating Cost...`);
+        try {
+            const costRes = await axios.post(`${API_URL}/finance/costs`, {
+                name: 'E2E Test Expense',
+                amount: 150000,
+                category: 'UTILITY',
+                date: new Date().toISOString(),
+                note: 'Generated by E2E Script'
+            }, authHeaders);
+            console.log(`✅ Operating Cost Created: ${costRes.data.id}`);
+        } catch (error: any) {
+            console.error(`❌ Create Operating Cost failed:`, JSON.stringify(error.response?.data || error.message, null, 2));
+        }
+
+        console.log(`\n[7.1] Fetching Cost Summary...`);
+        try {
+            const summaryRes = await axios.get(`${API_URL}/finance/summary`, authHeaders);
+            console.log(`✅ Cost Summary Fetched. Total: ${summaryRes.data.total}`);
+        } catch (error: any) {
+            console.error(`❌ Fetch Cost Summary failed:`, error.message);
+        }
+
+        console.log(`\n🎉 Comprehensive E2E Test Completed Successfully!`);
 
     } catch (error: any) {
         console.error(`\n❌ Unexpected Error:`, error.message);
