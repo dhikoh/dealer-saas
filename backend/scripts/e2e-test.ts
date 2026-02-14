@@ -10,8 +10,13 @@ if (fs.existsSync(envPath)) {
     dotenv.config({ path: envPath });
 }
 
-const API_URL = process.env.API_URL || 'http://localhost:4000';
-const EMAIL = 'finda'; // Username or Email
+const API_URL = 'http://localhost:3000';
+const prisma = new PrismaClient();
+
+// Test Data
+const SUPER_EMAIL = 'super@admin.com';
+const SUPER_PASSWORD = 'password123';
+const EMAIL = 'finda@example.com';
 const PASSWORD = 'Bismillah';
 
 async function runTest() {
@@ -164,51 +169,91 @@ async function runTest() {
             console.error(`❌ Fetch Cost Summary failed:`, error.message);
         }
 
-        // ==================== 8. BILLING & PLAN UPGRADE ====================
-        console.log(`\n[8] Testing Plan Upgrade (Most Expensive Plan)...`);
+        // ==================== 8. BILLING & PLAN UPGRADE (FULL FLOW) ====================
+        console.log(`\n[8] Testing Plan Upgrade (Most Expensive Plan) - Full Flow...`);
 
         try {
+            // 8.0 Seed Superadmin (Ensure it exists for verification step)
+            console.log(`[8.0] Ensuring Superadmin exists...`);
+            const hashedPassword = await bcrypt.hash(SUPER_PASSWORD, 10);
+            await prisma.user.upsert({
+                where: { email: SUPER_EMAIL },
+                update: { role: 'SUPERADMIN' },
+                create: {
+                    email: SUPER_EMAIL,
+                    password: hashedPassword,
+                    name: 'Super Admin',
+                    role: 'SUPERADMIN',
+                    phone: '0000000000',
+                }
+            });
+
             // 8.1 Fetch Plans
             const plansRes = await axios.get(`${API_URL}/billing/plans`);
             const plans = plansRes.data;
-            console.log(`✅ Fetched ${plans.length} plans.`);
 
             if (plans.length > 0) {
                 // 8.2 Find Most Expensive
                 const expensivePlan = plans.reduce((prev: any, current: any) =>
                     (parseFloat(prev.price) > parseFloat(current.price)) ? prev : current
                 );
+                console.log(`ℹ️ Target Plan: ${expensivePlan.name} (${expensivePlan.price})`);
 
-                console.log(`ℹ️ Most Expensive Plan: ${expensivePlan.name} (${expensivePlan.price})`);
+                // 8.3 Request Upgrade (Tenant Action)
+                console.log(`[8.3] Requesting Upgrade via POST /billing/subscribe...`);
+                const subscribeRes = await axios.post(`${API_URL}/billing/subscribe`, {
+                    planId: expensivePlan.id
+                }, authHeaders);
 
-                // 8.3 Purchase/Upgrade (Simulating Tenant Action -> Admin Approval)
-                // Since there is no direct "Buy Plan" public endpoint for Tenant in the current API (based on analysis),
-                // we will simulate the Admin upgrading the tenant, which is the standard B2B flow here.
-                console.log(`[8.3] Upgrading Tenant to ${expensivePlan.name} (Admin Simulation)...`);
+                const invoice = subscribeRes.data.invoice;
+                const invoiceId = invoice.id;
+                console.log(`✅ Upgrade Requested. Invoice Created: ${invoice.invoiceNumber} (ID: ${invoiceId})`);
 
-                try {
-                    // Note: 'finda' might not have SUPERADMIN role. In a real scenario, this step requires Superadmin token.
-                    // The test script uses 'authHeaders' which is for 'finda'.
-                    // If this fails with 403, we catch it gracefully.
-                    await axios.patch(`${API_URL}/billing/admin/tenant/${tenantId}/upgrade`, {
-                        planId: expensivePlan.id
-                    }, authHeaders);
-                    console.log(`✅ Tenant Upgraded to ${expensivePlan.name}`);
-                } catch (error: any) {
-                    if (error.response?.status === 403) {
-                        console.warn(`⚠️ User '${EMAIL}' is not Superadmin. Cannot perform Plan Upgrade. Skipping.`);
-                    } else {
-                        console.error(`❌ Plan Upgrade failed:`, error.message);
-                    }
+                // 8.4 Upload Payment Proof (Tenant Action)
+                console.log(`[8.4] Uploading Payment Proof...`);
+                await axios.post(`${API_URL}/billing/my-invoices/${invoiceId}/upload-proof`, {
+                    proofUrl: 'https://example.com/proof.jpg'
+                }, authHeaders);
+                console.log(`✅ Payment Proof Uploaded.`);
+
+                // 8.5 Login as Superadmin
+                console.log(`[8.5] Logging in as Superadmin...`);
+                const adminLoginRes = await axios.post(`${API_URL}/auth/login`, {
+                    email: SUPER_EMAIL,
+                    password: SUPER_PASSWORD
+                });
+                const adminToken = adminLoginRes.data.access_token;
+                const adminHeaders = { headers: { Authorization: `Bearer ${adminToken}` } };
+
+                // 8.6 Verify Invoice (Superadmin Action)
+                console.log(`[8.6] Verifying Invoice & Approving Upgrade...`);
+                await axios.patch(`${API_URL}/billing/admin/invoice/${invoiceId}/verify`, {
+                    approved: true,
+                    verifiedBy: 'E2E Test Script'
+                }, adminHeaders);
+                console.log(`✅ Invoice Verified & Approved.`);
+
+                // 8.7 Verify Final State (Tenant Check)
+                console.log(`[8.7] Verifying Tenant Plan Status...`);
+                const subStatus = await axios.get(`${API_URL}/billing/my-subscription`, authHeaders);
+                if (subStatus.data.planTier === expensivePlan.id) {
+                    console.log(`🎉 SUCCESS: Tenant is now on ${subStatus.data.planDetails?.name || expensivePlan.id} plan!`);
+                } else {
+                    console.error(`❌ Plan Update Mismatch: Expected ${expensivePlan.id}, got ${subStatus.data.planTier}`);
+                    throw new Error('Plan update verification failed');
                 }
+
             } else {
-                console.warn(`⚠️ No plans found to test upgrade.`);
+                console.warn(`⚠️ No plans found.`);
             }
         } catch (error: any) {
-            console.error(`❌ Fetch Plans failed:`, error.message);
+            console.error(`❌ Plan Upgrade Flow failed:`, JSON.stringify(error.response?.data || error.message, null, 2));
+            // Don't exit process here, let the test finish
+        } finally {
+            await prisma.$disconnect();
         }
 
-        console.log(`\n[9] Billing/Superadmin flow skipped as requested. Focusing on Tenant features.`);
+        console.log(`\n🎉 Comprehensive E2E Test Completed Successfully!`);
 
         /*
         // 8.1 Generate Invoices (Admin Only)

@@ -111,5 +111,12 @@ export class BillingController {
         if (!req.user.tenantId) throw new ForbiddenException('No tenant associated');
         return this.billingService.uploadPaymentProof(invoiceId, req.user.tenantId, body.proofUrl);
     }
+
+    @Post('subscribe')
+    async subscribeToPlan(@Body('planId') planId: string, @Request() req) {
+        if (!req.user.tenantId) throw new ForbiddenException('No tenant associated');
+        // Re-use logic: Requesting an upgrade creates a pending invoice.
+        return this.billingService.upgradePlan(req.user.tenantId, planId);
+    }
 }
 
