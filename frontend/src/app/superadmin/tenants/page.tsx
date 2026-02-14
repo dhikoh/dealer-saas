@@ -5,30 +5,7 @@ import { Search, MoreHorizontal, Eye, Power, PowerOff, ArrowUpCircle, Pencil, Tr
 import { API_URL } from '@/lib/api';
 import ConfirmDialog from '@/components/ui/ConfirmDialog';
 
-interface Tenant {
-    id: string;
-    name: string;
-    slug: string;
-    email: string | null;
-    phone: string | null;
-    address: string | null;
-    planTier: string;
-    planDetails: any;
-    subscriptionStatus: string;
-    trialEndsAt: string | null;
-    subscriptionEndsAt: string | null;
-    nextBillingDate: string | null;
-    monthlyBill: number;
-    autoRenew: boolean;
-    usage: {
-        users: number;
-        vehicles: number;
-        customers: number;
-        transactions: number;
-    };
-    subscriptionStartedAt?: string | null;
-    createdAt: string;
-}
+import { Tenant } from '@/types/superadmin';
 
 const StatusBadge = ({ status }: { status: string }) => {
     const styles: Record<string, string> = {
@@ -229,7 +206,7 @@ export default function TenantsPage() {
         return new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', minimumFractionDigits: 0 }).format(value);
     };
 
-    const formatDate = (date: string | null) => {
+    const formatDate = (date: string | null | undefined) => {
         if (!date) return '-';
         return new Date(date).toLocaleDateString('id-ID', { day: 'numeric', month: 'short', year: 'numeric' });
     };

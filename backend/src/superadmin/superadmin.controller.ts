@@ -1,10 +1,22 @@
-import { Controller, Get, Post, Patch, Delete, Param, Body, Query, UseGuards, Request } from '@nestjs/common';
+import { Controller, Get, Post, Patch, Delete, Param, Body, Query, UseGuards, Request, ValidationPipe, UsePipes } from '@nestjs/common';
 import { SuperadminService } from './superadmin.service';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { RolesGuard } from '../auth/roles.guard';
 import { Roles } from '../auth/roles.decorator';
 
 import { PublicService } from '../public/public.service';
+
+import {
+    CreateTenantDto, UpdateTenantDto, UpdateTenantStatusDto, SuspendTenantDto,
+    UpgradeTenantPlanDto, DirectPlanChangeDto
+} from './dto/tenant.dto';
+import { CreateAdminStaffDto } from './dto/user.dto';
+import { CreateInvoiceDto, VerifyInvoiceDto } from './dto/invoice.dto';
+import { CreateApprovalRequestDto, ProcessApprovalRequestDto } from './dto/approval.dto';
+import { GenerateApiKeyDto } from './dto/api-key.dto';
+import { UpdatePlatformSettingDto } from './dto/platform-setting.dto';
+
+
 
 @Controller('superadmin')
 @UseGuards(JwtAuthGuard, RolesGuard)
@@ -50,47 +62,41 @@ export class SuperadminController {
 
     @Post('tenants')
     @Roles('SUPERADMIN')
+    @UsePipes(new ValidationPipe({ whitelist: true }))
     async createTenant(
-        @Body() data: {
-            name: string;
-            email: string;
-            phone?: string;
-            address?: string;
-            planTier: string;
-            billingMonths: number;
-            ownerName: string;
-            ownerEmail: string;
-            ownerPassword: string;
-        },
+        @Body() data: CreateTenantDto,
         @Request() req: any
     ) {
         return this.superadminService.createTenant(data, req.user.userId);
     }
 
     @Patch('tenants/:id')
+    @UsePipes(new ValidationPipe({ whitelist: true }))
     async updateTenant(
         @Param('id') id: string,
-        @Body() data: { name?: string; email?: string; phone?: string; address?: string }
+        @Body() data: UpdateTenantDto
     ) {
         return this.superadminService.updateTenant(id, data);
     }
 
     @Patch('tenants/:id/status')
+    @UsePipes(new ValidationPipe({ whitelist: true }))
     async updateTenantStatus(
         @Param('id') id: string,
-        @Body('status') status: string
+        @Body() dto: UpdateTenantStatusDto
     ) {
-        return this.superadminService.updateTenantStatus(id, status);
+        return this.superadminService.updateTenantStatus(id, dto.status);
     }
 
     @Post('tenants/:id/suspend')
     @Roles('SUPERADMIN')
+    @UsePipes(new ValidationPipe({ whitelist: true }))
     async suspendTenant(
         @Param('id') id: string,
-        @Body('reason') reason: string,
+        @Body() dto: SuspendTenantDto,
         @Request() req: any
     ) {
-        return this.superadminService.suspendTenant(id, reason, req.user.userId);
+        return this.superadminService.suspendTenant(id, dto.reason, req.user.userId);
     }
 
     @Post('tenants/:id/activate')
@@ -104,19 +110,21 @@ export class SuperadminController {
 
     @Patch('tenants/:id/upgrade')
     @Roles('SUPERADMIN')
+    @UsePipes(new ValidationPipe({ whitelist: true }))
     async upgradeTenantPlan(
         @Param('id') id: string,
-        @Body('planTier') planTier: string,
+        @Body() dto: UpgradeTenantPlanDto,
         @Request() req: any
     ) {
-        return this.superadminService.upgradeTenantPlan(id, planTier, req.user.userId);
+        return this.superadminService.upgradeTenantPlan(id, dto.planTier, req.user.userId);
     }
 
     @Patch('tenants/:id/plan-direct')
     @Roles('SUPERADMIN')
+    @UsePipes(new ValidationPipe({ whitelist: true }))
     async directPlanChange(
         @Param('id') id: string,
-        @Body() data: { planTier: string; billingMonths: number },
+        @Body() data: DirectPlanChangeDto,
         @Request() req: any
     ) {
         return this.superadminService.directPlanChange(id, data, req.user.userId);
@@ -139,10 +147,14 @@ export class SuperadminController {
         @Query('role') role?: string,
         @Query('page') page?: string,
         @Query('limit') limit?: string,
+        @Query('status') status?: string,
+        @Query('hasTenant') hasTenant?: string,
     ) {
         return this.superadminService.getAllUsers({
             search,
             role,
+            status,
+            hasTenant: hasTenant === 'true' ? true : hasTenant === 'false' ? false : undefined,
             page: page ? parseInt(page) : 1,
             limit: limit ? parseInt(limit) : 20,
         });
@@ -183,8 +195,9 @@ export class SuperadminController {
     }
 
     @Post('invoices')
+    @UsePipes(new ValidationPipe({ whitelist: true }))
     async createInvoice(
-        @Body() data: { tenantId: string; amount: number; dueDate: string; items?: string },
+        @Body() data: CreateInvoiceDto,
         @Request() req: any
     ) {
         return this.superadminService.createInvoice(data, req.user.userId);
@@ -192,12 +205,13 @@ export class SuperadminController {
 
     @Post('invoices/:id/verify')
     @Roles('SUPERADMIN')
+    @UsePipes(new ValidationPipe({ whitelist: true }))
     async verifyInvoice(
         @Param('id') id: string,
-        @Body('approved') approved: boolean,
+        @Body() dto: VerifyInvoiceDto,
         @Request() req: any
     ) {
-        return this.superadminService.verifyInvoice(id, approved, req.user.userId, req.user.email);
+        return this.superadminService.verifyInvoice(id, dto.approved, req.user.userId, req.user.email);
     }
 
     // ==================== ADMIN STAFF ====================
@@ -209,8 +223,9 @@ export class SuperadminController {
 
     @Post('staff')
     @Roles('SUPERADMIN')
+    @UsePipes(new ValidationPipe({ whitelist: true }))
     async createAdminStaff(
-        @Body() data: { name: string; email: string; password: string; phone?: string },
+        @Body() data: CreateAdminStaffDto,
         @Request() req: any
     ) {
         return this.superadminService.createAdminStaff(data, req.user.userId);
@@ -233,8 +248,9 @@ export class SuperadminController {
     }
 
     @Post('approvals')
+    @UsePipes(new ValidationPipe({ whitelist: true }))
     async createApprovalRequest(
-        @Body() data: { type: string; payload: string },
+        @Body() data: CreateApprovalRequestDto,
         @Request() req: any
     ) {
         return this.superadminService.createApprovalRequest(data, req.user.userId);
@@ -242,9 +258,10 @@ export class SuperadminController {
 
     @Patch('approvals/:id')
     @Roles('SUPERADMIN')
+    @UsePipes(new ValidationPipe({ whitelist: true }))
     async processApprovalRequest(
         @Param('id') id: string,
-        @Body() data: { approved: boolean; note?: string },
+        @Body() data: ProcessApprovalRequestDto,
         @Request() req: any
     ) {
         return this.superadminService.processApprovalRequest(id, data.approved, req.user.userId, data.note);
@@ -259,8 +276,9 @@ export class SuperadminController {
 
     @Post('api-keys')
     @Roles('SUPERADMIN')
+    @UsePipes(new ValidationPipe({ whitelist: true }))
     async generateApiKey(
-        @Body() data: { name: string; scopes?: string[] }
+        @Body() data: GenerateApiKeyDto
     ) {
         return this.superadminService.generateApiKey(data.name, data.scopes);
     }
@@ -280,11 +298,12 @@ export class SuperadminController {
 
     @Patch('platform-settings/:key')
     @Roles('SUPERADMIN')
+    @UsePipes(new ValidationPipe({ whitelist: true }))
     async updatePlatformSetting(
         @Param('key') key: string,
-        @Body('value') value: any
+        @Body() dto: UpdatePlatformSettingDto
     ) {
-        return this.superadminService.updatePlatformSetting(key, value);
+        return this.superadminService.updatePlatformSetting(key, dto.value);
     }
 
     // ==================== ACTIVITY LOG ====================

@@ -9,22 +9,11 @@ import {
 } from 'lucide-react';
 import { API_URL } from '@/lib/api';
 
-interface UserData {
-    id: string;
-    name: string;
-    email: string;
-    username: string;
-    role: string;
-    phone: string | null;
-    tenantName: string;
-    tenantId: string | null;
-    isVerified: boolean;
-    createdAt: string;
-}
+import { SuperadminUser } from '@/types/superadmin';
 
 export default function SuperadminUsersPage() {
     const router = useRouter();
-    const [users, setUsers] = useState<UserData[]>([]);
+    const [users, setUsers] = useState<SuperadminUser[]>([]);
     const [loading, setLoading] = useState(true);
     const [search, setSearch] = useState('');
     const [roleFilter, setRoleFilter] = useState('');
@@ -33,10 +22,15 @@ export default function SuperadminUsersPage() {
 
     // Delete Modal State
     const [deleteModalOpen, setDeleteModalOpen] = useState(false);
-    const [userToDelete, setUserToDelete] = useState<UserData | null>(null);
+    const [userToDelete, setUserToDelete] = useState<SuperadminUser | null>(null);
     const [isDeleting, setIsDeleting] = useState(false);
 
     const [activeTab, setActiveTab] = useState<'all' | 'tenant' | 'ghost'>('all');
+
+    // Reset page when tab changes
+    useEffect(() => {
+        setPage(1);
+    }, [activeTab]);
 
     const fetchUsers = useCallback(async () => {
         setLoading(true);
@@ -49,6 +43,10 @@ export default function SuperadminUsersPage() {
             if (search) params.append('search', search);
             if (roleFilter) params.append('role', roleFilter);
 
+            // Tab Filters
+            if (activeTab === 'tenant') params.append('hasTenant', 'true');
+            if (activeTab === 'ghost') params.append('hasTenant', 'false');
+
             const res = await fetch(`${API_URL}/superadmin/users?${params}`, {
                 headers: { Authorization: `Bearer ${token}` },
             });
@@ -56,21 +54,21 @@ export default function SuperadminUsersPage() {
             if (!res.ok) throw new Error('Failed to fetch users');
 
             const data = await res.json();
-            setUsers(data.data);
+            setUsers(data.data); // Directly set users, filtering is done on backend
             setTotalPages(data.pagination.totalPages);
         } catch (error) {
             toast.error('Gagal memuat data user');
         } finally {
             setLoading(false);
         }
-    }, [page, search, roleFilter]);
+    }, [page, search, roleFilter, activeTab]); // Added activeTab dependency
 
-    // Filter users based on active tab
-    const filteredUsers = users.filter(user => {
-        if (activeTab === 'tenant') return user.tenantId !== null;
-        if (activeTab === 'ghost') return user.tenantId === null;
-        return true;
-    });
+    useEffect(() => {
+        const timer = setTimeout(() => {
+            fetchUsers();
+        }, 300); // Debounce search
+        return () => clearTimeout(timer);
+    }, [fetchUsers]);
 
     useEffect(() => {
         const timer = setTimeout(() => {
@@ -130,8 +128,8 @@ export default function SuperadminUsersPage() {
                     <button
                         onClick={() => setActiveTab('all')}
                         className={`px-4 py-2 text-sm font-medium rounded-lg transition-all ${activeTab === 'all'
-                                ? 'bg-white text-slate-900 shadow-sm'
-                                : 'text-slate-500 hover:text-slate-700'
+                            ? 'bg-white text-slate-900 shadow-sm'
+                            : 'text-slate-500 hover:text-slate-700'
                             }`}
                     >
                         All Users
@@ -139,8 +137,8 @@ export default function SuperadminUsersPage() {
                     <button
                         onClick={() => setActiveTab('tenant')}
                         className={`px-4 py-2 text-sm font-medium rounded-lg transition-all flex items-center gap-2 ${activeTab === 'tenant'
-                                ? 'bg-white text-indigo-600 shadow-sm'
-                                : 'text-slate-500 hover:text-slate-700'
+                            ? 'bg-white text-indigo-600 shadow-sm'
+                            : 'text-slate-500 hover:text-slate-700'
                             }`}
                     >
                         <Building2 className="w-4 h-4" />
@@ -149,8 +147,8 @@ export default function SuperadminUsersPage() {
                     <button
                         onClick={() => setActiveTab('ghost')}
                         className={`px-4 py-2 text-sm font-medium rounded-lg transition-all flex items-center gap-2 ${activeTab === 'ghost'
-                                ? 'bg-white text-rose-600 shadow-sm'
-                                : 'text-slate-500 hover:text-slate-700'
+                            ? 'bg-white text-rose-600 shadow-sm'
+                            : 'text-slate-500 hover:text-slate-700'
                             }`}
                     >
                         <User className="w-4 h-4" />
@@ -203,14 +201,14 @@ export default function SuperadminUsersPage() {
                                         <p>Memuat data user...</p>
                                     </td>
                                 </tr>
-                            ) : filteredUsers.length === 0 ? (
+                            ) : users.length === 0 ? (
                                 <tr>
                                     <td colSpan={5} className="p-8 text-center text-slate-500">
-                                        {users.length === 0 ? 'Data tidak ditemukan.' : 'Tidak ada user di kategori ini.'}
+                                        {'Data tidak ditemukan.'}
                                     </td>
                                 </tr>
                             ) : (
-                                filteredUsers.map((user) => (
+                                users.map((user) => (
                                     <tr key={user.id} className="hover:bg-slate-50 transition-colors">
                                         <td className="p-4">
                                             <div className="flex items-center gap-3">
@@ -242,11 +240,18 @@ export default function SuperadminUsersPage() {
                                             )}
                                         </td>
                                         <td className="p-4">
-                                            <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium ${user.isVerified ? 'bg-emerald-50 text-emerald-700' : 'bg-amber-50 text-amber-700'
-                                                }`}>
-                                                <span className={`w-1.5 h-1.5 rounded-full ${user.isVerified ? 'bg-emerald-500' : 'bg-amber-500'}`} />
-                                                {user.isVerified ? 'Verified' : 'Unverified'}
-                                            </span>
+                                            <div className="flex gap-2">
+                                                <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium ${user.isVerified ? 'bg-emerald-50 text-emerald-700' : 'bg-amber-50 text-amber-700'
+                                                    }`}>
+                                                    <span className={`w-1.5 h-1.5 rounded-full ${user.isVerified ? 'bg-emerald-500' : 'bg-amber-500'}`} />
+                                                    {user.isVerified ? 'Verified' : 'Unverified'}
+                                                </span>
+                                                {user.deletedAt && (
+                                                    <span className="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium bg-rose-50 text-rose-700 border border-rose-100">
+                                                        Deleted
+                                                    </span>
+                                                )}
+                                            </div>
                                         </td>
                                         <td className="p-4 text-right">
                                             <button

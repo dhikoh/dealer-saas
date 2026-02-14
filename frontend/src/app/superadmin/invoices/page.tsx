@@ -5,25 +5,7 @@ import { Download, Eye, CheckCircle, XCircle, FileText, AlertCircle, Plus, X } f
 import { API_URL } from '@/lib/api';
 import ConfirmDialog from '@/components/ui/ConfirmDialog';
 
-interface Invoice {
-    id: string;
-    invoiceNumber: string;
-    tenantId: string;
-    tenant: { name: string; email?: string };
-    amount: number;
-    date: string;
-    dueDate: string;
-    status: string;
-    paymentProof: string | null;
-    items?: string;
-}
-
-interface Tenant {
-    id: string;
-    name: string;
-    planTier: string;
-    monthlyBill: number;
-}
+import { SystemInvoice, Tenant } from '@/types/superadmin';
 
 const StatusBadge = ({ status }: { status: string }) => {
     const styles: Record<string, string> = {
@@ -48,7 +30,7 @@ const StatusBadge = ({ status }: { status: string }) => {
 };
 
 export default function InvoicesPage() {
-    const [invoices, setInvoices] = useState<Invoice[]>([]);
+    const [invoices, setInvoices] = useState<SystemInvoice[]>([]);
     const [tenants, setTenants] = useState<Tenant[]>([]);
     const [loading, setLoading] = useState(true);
     const [statusFilter, setStatusFilter] = useState('');
@@ -280,7 +262,7 @@ export default function InvoicesPage() {
                                     <td className="px-6 py-4">
                                         {inv.paymentProof ? (
                                             <button
-                                                onClick={() => setProofUrl(inv.paymentProof)}
+                                                onClick={() => setProofUrl(inv.paymentProof || null)}
                                                 className="flex items-center gap-1.5 text-indigo-600 font-medium hover:underline"
                                             >
                                                 <Eye className="w-4 h-4" /> Lihat

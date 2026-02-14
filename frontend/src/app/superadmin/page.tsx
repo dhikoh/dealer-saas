@@ -4,16 +4,7 @@ import React, { useEffect, useState } from 'react';
 import { UserCheck, TrendingUp, TrendingDown, Users, FileText, AlertCircle, Building2 } from 'lucide-react';
 import { API_URL } from '@/lib/api';
 
-interface Stats {
-    totalTenants: number;
-    activeTenants: number;
-    trialTenants: number;
-    suspendedTenants: number;
-    totalMrr: number;
-    pendingInvoices: number;
-    churnRate: number;
-    recentActivity: any[];
-}
+import { DashboardStats, ActivityLog } from '@/types/superadmin';
 
 interface RevenueData {
     month: string;
@@ -22,7 +13,7 @@ interface RevenueData {
 }
 
 export default function SuperadminDashboard() {
-    const [stats, setStats] = useState<Stats | null>(null);
+    const [stats, setStats] = useState<DashboardStats | null>(null);
     const [revenue, setRevenue] = useState<RevenueData[]>([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
@@ -174,7 +165,7 @@ export default function SuperadminDashboard() {
                 <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm">
                     <h3 className="text-lg font-semibold text-slate-900 mb-4">Activity Log</h3>
                     <div className="space-y-4">
-                        {stats?.recentActivity?.slice(0, 5).map((log: any, i: number) => (
+                        {stats?.recentActivity?.slice(0, 5).map((log: ActivityLog, i: number) => (
                             <div key={log.id || i} className="flex items-start space-x-3 pb-3 border-b border-slate-100 last:border-0">
                                 <div className="w-8 h-8 rounded-full bg-indigo-100 flex items-center justify-center flex-shrink-0">
                                     <UserCheck className="w-4 h-4 text-indigo-600" />

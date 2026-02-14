@@ -1,9 +1,13 @@
-import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
+import { Injectable, NotFoundException, BadRequestException, Logger } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { getPlanById, PLAN_TIERS, PlanTier } from '../config/plan-tiers.config';
+import { CreateTenantDto, UpdateTenantDto } from './dto/tenant.dto';
+import { CreateInvoiceDto } from './dto/invoice.dto';
 
 @Injectable()
 export class SuperadminService {
+    private readonly logger = new Logger(SuperadminService.name);
+
     constructor(private prisma: PrismaService) { }
 
     // ==================== DASHBOARD STATS ====================
@@ -26,7 +30,7 @@ export class SuperadminService {
                 _sum: { monthlyBill: true },
                 where: { subscriptionStatus: 'ACTIVE' },
             }),
-            (this.prisma as any).systemInvoice.count({
+            this.prisma.systemInvoice.count({
                 where: { status: 'PENDING' },
             }),
             this.getRecentActivity(5),
@@ -144,7 +148,7 @@ export class SuperadminService {
         if (!tenant) return null;
 
         // Get recent invoices
-        const invoices = await (this.prisma as any).systemInvoice.findMany({
+        const invoices = await this.prisma.systemInvoice.findMany({
             where: { tenantId: id },
             orderBy: { createdAt: 'desc' },
             take: 5,
@@ -269,13 +273,27 @@ export class SuperadminService {
 
     // ==================== ALL USERS MANAGEMENT ====================
 
-    async getAllUsers(filters: { search?: string; role?: string; page: number; limit: number }) {
-        const { search, role, page, limit } = filters;
+    async getAllUsers(filters: { search?: string; role?: string; page: number; limit: number; status?: string; hasTenant?: boolean }) {
+        const { search, role, page, limit, status, hasTenant } = filters;
         const skip = (page - 1) * limit;
         const where: any = {
-            deletedAt: null,
             role: { not: 'SUPERADMIN' } // Exclude Superadmin
         };
+
+        // Status Filter
+        if (status === 'active') {
+            where.deletedAt = null;
+        } else if (status === 'deleted') {
+            where.deletedAt = { not: null };
+        }
+        // If status is 'all' or undefined, we fetch everything (including deleted)
+
+        // Tenant Filter (Ghost vs Tenant)
+        if (hasTenant === true) {
+            where.tenantId = { not: null };
+        } else if (hasTenant === false) {
+            where.tenantId = null;
+        }
 
         if (search) {
             where.OR = [
@@ -307,12 +325,13 @@ export class SuperadminService {
                 id: u.id,
                 name: u.name,
                 email: u.email,
-                username: u.username, // Added username
+                username: u.username,
                 role: u.role,
                 phone: u.phone,
                 tenantName: u.tenant?.name || 'N/A',
                 tenantId: u.tenantId,
                 isVerified: u.isVerified,
+                deletedAt: u.deletedAt, // Return deletedAt status
                 createdAt: u.createdAt,
             })),
             pagination: {
@@ -331,6 +350,21 @@ export class SuperadminService {
         // Prevent deleting yourself
         if (user.id === adminId) {
             throw new BadRequestException('Cannot delete your own account');
+        }
+
+        // SAFETY CHECK: Business Data Dependencies
+        const [transactionCount, stockTransferCount, groupOwnerCount] = await Promise.all([
+            this.prisma.transaction.count({ where: { salesPersonId: userId } }),
+            this.prisma.stockTransfer.count({
+                where: { OR: [{ requestedById: userId }, { approvedById: userId }] }
+            }),
+            this.prisma.dealerGroup.count({ where: { ownerId: userId } })
+        ]);
+
+        if (transactionCount > 0 || stockTransferCount > 0 || groupOwnerCount > 0) {
+            throw new BadRequestException(
+                `User tidak dapat dihapus permanen karena memiliki data terkait (${transactionCount} transaksi, ${stockTransferCount} transfer stock). Lakukan Soft Delete atau hapus data terkait terlebih dahulu.`
+            );
         }
 
         // Hard delete user
@@ -535,7 +569,7 @@ export class SuperadminService {
             where.tenantId = filters.tenantId;
         }
 
-        return (this.prisma as any).systemInvoice.findMany({
+        return this.prisma.systemInvoice.findMany({
             where,
             include: { tenant: { select: { name: true, email: true } } },
             orderBy: { createdAt: 'desc' },
@@ -544,7 +578,7 @@ export class SuperadminService {
 
     async verifyInvoice(invoiceId: string, approved: boolean, adminId?: string, adminEmail?: string) {
         // SECURITY: Prevent double-approval / double-rejection
-        const existingInvoice = await (this.prisma as any).systemInvoice.findUnique({
+        const existingInvoice = await this.prisma.systemInvoice.findUnique({
             where: { id: invoiceId },
         });
         if (!existingInvoice) throw new NotFoundException('Invoice not found');
@@ -557,7 +591,7 @@ export class SuperadminService {
 
         const newStatus = approved ? 'PAID' : 'CANCELLED';
 
-        const invoice = await (this.prisma as any).systemInvoice.update({
+        const invoice = await this.prisma.systemInvoice.update({
             where: { id: invoiceId },
             data: { status: newStatus },
             include: { tenant: { select: { name: true, id: true } } },
@@ -613,14 +647,14 @@ export class SuperadminService {
 
         // Auto-generate invoice number: INV-YYYY-NNN
         const year = new Date().getFullYear();
-        const count = await (this.prisma as any).systemInvoice.count({
+        const count = await this.prisma.systemInvoice.count({
             where: {
                 invoiceNumber: { startsWith: `INV-${year}` },
             },
         });
         const invoiceNumber = `INV-${year}-${String(count + 1).padStart(3, '0')}`;
 
-        const invoice = await (this.prisma as any).systemInvoice.create({
+        const invoice = await this.prisma.systemInvoice.create({
             data: {
                 tenantId: data.tenantId,
                 invoiceNumber,
@@ -658,20 +692,35 @@ export class SuperadminService {
         details?: string;
         ipAddress?: string;
     }) {
-        return (this.prisma as any).adminActivityLog.create({
-            data,
+        let userEmail = data.userEmail;
+        if (!userEmail) {
+            const user = await this.prisma.user.findUnique({ where: { id: data.userId } });
+            userEmail = user?.email || 'unknown@system.com';
+        }
+
+        return this.prisma.adminActivityLog.create({
+            data: {
+                userId: data.userId,
+                userEmail: userEmail,
+                action: data.action,
+                entityType: data.entityType,
+                entityId: data.entityId,
+                entityName: data.entityName,
+                details: data.details,
+                ipAddress: data.ipAddress,
+            },
         });
     }
 
     async getRecentActivity(limit: number = 20) {
-        return (this.prisma as any).adminActivityLog.findMany({
+        return this.prisma.adminActivityLog.findMany({
             orderBy: { createdAt: 'desc' },
             take: limit,
         });
     }
 
     async getActivityByUser(userId: string) {
-        return (this.prisma as any).adminActivityLog.findMany({
+        return this.prisma.adminActivityLog.findMany({
             where: { userId },
             orderBy: { createdAt: 'desc' },
             take: 50,
@@ -686,13 +735,13 @@ export class SuperadminService {
         if (filters?.action) where.action = filters.action;
 
         const [data, total] = await Promise.all([
-            (this.prisma as any).adminActivityLog.findMany({
+            this.prisma.adminActivityLog.findMany({
                 where,
                 orderBy: { createdAt: 'desc' },
                 skip,
                 take: limit,
             }),
-            (this.prisma as any).adminActivityLog.count({ where }),
+            this.prisma.adminActivityLog.count({ where }),
         ]);
 
         // ENRICH LOGS WITH USER DETAILS
@@ -768,7 +817,7 @@ export class SuperadminService {
             where: { tenantId, role: 'OWNER' },
         });
         if (owner) {
-            await (this.prisma as any).notification.create({
+            await this.prisma.notification.create({
                 data: {
                     userId: owner.id,
                     title: 'Plan berhasil diubah',
@@ -938,7 +987,7 @@ export class SuperadminService {
         const where: any = {};
         if (status) where.status = status;
 
-        const requests = await (this.prisma as any).adminApprovalRequest.findMany({
+        const requests = await this.prisma.adminApprovalRequest.findMany({
             where,
             orderBy: { createdAt: 'desc' },
         });
@@ -963,7 +1012,7 @@ export class SuperadminService {
         type: string;
         payload: string;
     }, requestedById: string) {
-        const request = await (this.prisma as any).adminApprovalRequest.create({
+        const request = await this.prisma.adminApprovalRequest.create({
             data: {
                 type: data.type,
                 payload: data.payload,
@@ -977,7 +1026,7 @@ export class SuperadminService {
             where: { role: 'SUPERADMIN' },
         });
         for (const sa of superadmins) {
-            await (this.prisma as any).notification.create({
+            await this.prisma.notification.create({
                 data: {
                     userId: sa.id,
                     title: 'Approval Request Baru',
@@ -992,13 +1041,13 @@ export class SuperadminService {
     }
 
     async processApprovalRequest(requestId: string, approved: boolean, adminId: string, note?: string) {
-        const request = await (this.prisma as any).adminApprovalRequest.findUnique({
+        const request = await this.prisma.adminApprovalRequest.findUnique({
             where: { id: requestId },
         });
         if (!request) throw new NotFoundException('Request not found');
         if (request.status !== 'PENDING') throw new BadRequestException('Request already processed');
 
-        const updated = await (this.prisma as any).adminApprovalRequest.update({
+        const updated = await this.prisma.adminApprovalRequest.update({
             where: { id: requestId },
             data: {
                 status: approved ? 'APPROVED' : 'REJECTED',
@@ -1032,7 +1081,7 @@ export class SuperadminService {
         }
 
         // Notify the requester
-        await (this.prisma as any).notification.create({
+        await this.prisma.notification.create({
             data: {
                 userId: request.requestedById,
                 title: approved ? 'Request Disetujui' : 'Request Ditolak',
@@ -1056,7 +1105,7 @@ export class SuperadminService {
     // ==================== API KEYS ====================
 
     async getApiKeys() {
-        return (this.prisma as any).apiKey.findMany({
+        return this.prisma.apiKey.findMany({
             where: { active: true },
             select: {
                 id: true,
@@ -1078,7 +1127,7 @@ export class SuperadminService {
         const keyHash = await bcrypt.hash(rawKey, 10);
         const prefix = rawKey.substring(0, 16);
 
-        await (this.prisma as any).apiKey.create({
+        await this.prisma.apiKey.create({
             data: {
                 name,
                 keyHash,
@@ -1092,7 +1141,7 @@ export class SuperadminService {
     }
 
     async revokeApiKey(keyId: string) {
-        await (this.prisma as any).apiKey.update({
+        await this.prisma.apiKey.update({
             where: { id: keyId },
             data: { active: false },
         });
