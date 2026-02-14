@@ -162,6 +162,70 @@ async function runTest() {
             console.error(`❌ Fetch Cost Summary failed:`, error.message);
         }
 
+        // ==================== 8. BILLING & SUPERADMIN (Conditional) ====================
+        console.log(`\n[8] Testing Billing Flow (Requires Admin Permissions)...`);
+
+        // 8.1 Generate Invoices (Admin Only)
+        console.log(`\n[8.1] Generating Monthly Invoices (Admin Action)...`);
+        let invoicesGenerated = false;
+        try {
+            const genRes = await axios.post(`${API_URL}/billing/admin/generate-invoices`, {}, authHeaders);
+            console.log(`✅ Invoices Generated: ${genRes.data.generated}`);
+            invoicesGenerated = true;
+        } catch (error: any) {
+            if (error.response?.status === 403) {
+                console.warn(`⚠️ User '${EMAIL}' is not Superadmin. Skipping Admin Billing steps.`);
+            } else {
+                console.error(`❌ Generate Invoices failed:`, error.message);
+            }
+        }
+
+        // 8.2 Tenant Upload Proof
+        if (invoicesGenerated || true) { // Try listing anyway, maybe an invoice exists
+            console.log(`\n[8.2] Checking My Invoices...`);
+            let pendingInvoiceId = '';
+            try {
+                const invoicesRes = await axios.get(`${API_URL}/billing/my-invoices`, authHeaders);
+                const invoices = invoicesRes.data;
+                console.log(`✅ Found ${invoices.length} invoices`);
+
+                const pending = invoices.find((inv: any) => inv.status === 'PENDING');
+                if (pending) {
+                    pendingInvoiceId = pending.id;
+                    console.log(`ℹ️ Found Pending Invoice: ${pendingInvoiceId} (Amount: ${pending.amount})`);
+
+                    // Upload Proof
+                    console.log(`\n[8.3] Uploading Payment Proof...`);
+                    await axios.post(`${API_URL}/billing/my-invoices/${pendingInvoiceId}/upload-proof`, {
+                        proofUrl: 'https://example.com/fake-proof.jpg'
+                    }, authHeaders);
+                    console.log(`✅ Payment Proof Uploaded`);
+                } else {
+                    console.log(`ℹ️ No PENDING invoices found to test upload.`);
+                }
+            } catch (error: any) {
+                console.error(`❌ Listing/Uploading Invoices failed:`, error.message);
+            }
+
+            // 8.3 Admin Approve (Verify)
+            if (pendingInvoiceId) {
+                console.log(`\n[8.4] Verifying Payment (Admin Action)...`);
+                try {
+                    await axios.patch(`${API_URL}/billing/admin/invoice/${pendingInvoiceId}/verify`, {
+                        approved: true,
+                        verifiedBy: 'E2E_TEST_SCRIPT'
+                    }, authHeaders);
+                    console.log(`✅ Payment Verified/Approved`);
+                } catch (error: any) {
+                    if (error.response?.status === 403) {
+                        console.warn(`⚠️ User '${EMAIL}' cannot approve payments (Not Superadmin).`);
+                    } else {
+                        console.error(`❌ Verify Payment failed:`, error.message);
+                    }
+                }
+            }
+        }
+
         console.log(`\n🎉 Comprehensive E2E Test Completed Successfully!`);
 
     } catch (error: any) {
