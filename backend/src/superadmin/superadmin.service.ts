@@ -297,7 +297,7 @@ export class SuperadminService {
         };
     }
 
-    async deleteAnyUser(userId: string, adminId: string) {
+    async deleteAnyUser(userId: string, adminId: string, adminEmail: string) {
         const user = await this.prisma.user.findUnique({ where: { id: userId } });
         if (!user) throw new NotFoundException('User not found');
 
@@ -320,6 +320,7 @@ export class SuperadminService {
 
             await this.logActivity({
                 userId: adminId,
+                userEmail: adminEmail,
                 action: 'USER_DELETE_FORCE',
                 entityType: 'USER',
                 entityId: userId,

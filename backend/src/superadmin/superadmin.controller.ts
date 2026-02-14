@@ -154,7 +154,7 @@ export class SuperadminController {
         @Param('id') id: string,
         @Request() req: any
     ) {
-        return this.superadminService.deleteAnyUser(id, req.user.userId);
+        return this.superadminService.deleteAnyUser(id, req.user.userId, req.user.email);
     }
 
     // ==================== PLAN TIERS ====================
