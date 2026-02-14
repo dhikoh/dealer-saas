@@ -182,6 +182,7 @@ async function runTest() {
                 update: { role: 'SUPERADMIN' },
                 create: {
                     email: SUPER_EMAIL,
+                    username: 'superadmin',
                     password: hashedPassword,
                     name: 'Super Admin',
                     role: 'SUPERADMIN',
