@@ -402,7 +402,7 @@ export class SuperadminService {
         if (!tenant) throw new NotFoundException('Tenant not found');
 
         try {
-            // Log before deletion (while data still exists)
+            // Log before deletion
             if (adminId) {
                 await this.logActivity({
                     userId: adminId,
@@ -413,69 +413,88 @@ export class SuperadminService {
                 });
             }
 
-            // Hard delete ALL related data in correct order (deepest relations first)
+            // Hard delete in STRICT dependency order (Leaf -> Root)
             await this.prisma.$transaction(async (tx) => {
-                // 1. Delete activity logs (references userId + tenantId)
+
+                // 1. CreditPayment (Dependent on Credit)
+                await tx.creditPayment.deleteMany({
+                    where: { credit: { transaction: { tenantId: id } } }
+                });
+
+                // 2. Credit (Dependent on Transaction)
+                await tx.credit.deleteMany({
+                    where: { transaction: { tenantId: id } }
+                });
+
+                // 3. ActivityLog (Dependent on Tenant/User)
                 await tx.activityLog.deleteMany({ where: { tenantId: id } });
 
-                // 2. Delete invoices
-                await tx.systemInvoice.deleteMany({ where: { tenantId: id } });
-
-                // 3. Delete stock transfers (references tenantId)
-                await tx.stockTransfer.deleteMany({
-                    where: { OR: [{ tenantId: id }, { targetTenantId: id }] },
-                });
-
-                // 4. Delete operating costs
-                await tx.operatingCost.deleteMany({ where: { tenantId: id } });
-
-                // 5. Delete vehicle costs (references vehicleId -> tenantId)
+                // 4. VehicleCost (Dependent on Vehicle/Tenant)
                 await tx.vehicleCost.deleteMany({ where: { tenantId: id } });
 
-                // 6. Delete blacklist entries
-                await tx.blacklistEntry.deleteMany({ where: { tenantId: id } });
+                // 5. StockTransfer (Dependent on Vehicle/User/Branch/Tenant)
+                // Clears references to Vehicles and Users before they are deleted
+                await tx.stockTransfer.deleteMany({
+                    where: { OR: [{ tenantId: id }, { targetTenantId: id }] }
+                });
 
-                // 7. Delete transactions (references userId + tenantId)
+                // 6. Transaction (Dependent on Vehicle/Customer/User/Branch)
+                // Must be deleted before Users, Vehicles, Customers
                 await tx.transaction.deleteMany({ where: { tenantId: id } });
 
-                // 8. Delete vehicles (references tenantId)
+                // 7. DealerGroup Cleanup (Dependent on User Owner)
+                // 7a. Unlink other tenants from groups owned by this tenant's users (Prevent FK violation on Tenant.dealerGroupId)
+                await tx.tenant.updateMany({
+                    where: { dealerGroup: { owner: { tenantId: id } } },
+                    data: { dealerGroupId: null }
+                });
+
+                // 7b. Delete DealerGroups owned by this tenant's users
+                await tx.dealerGroup.deleteMany({
+                    where: { owner: { tenantId: id } }
+                });
+
+                // 8. VehicleModel (Dependent on VehicleBrand)
+                // Implicitly dependent on Tenant via Brand, strict order cleaner
+                await tx.vehicleModel.deleteMany({
+                    where: { brand: { tenantId: id } }
+                });
+
+                // 9. Vehicle (Dependent on Tenant/Branch)
                 await tx.vehicle.deleteMany({ where: { tenantId: id } });
 
-                // 9. Delete vehicle brands (references tenantId)
+                // 10. VehicleBrand (Dependent on Tenant)
                 await tx.vehicleBrand.deleteMany({ where: { tenantId: id } });
 
-                // 10. Get all user IDs for this tenant
-                const tenantUsers = await tx.user.findMany({
-                    where: { tenantId: id },
-                    select: { id: true },
-                });
-                const userIds = tenantUsers.map(u => u.id);
-
-                if (userIds.length > 0) {
-                    // 11. Delete refresh tokens (references userId)
-                    await tx.refreshToken.deleteMany({ where: { userId: { in: userIds } } });
-
-                    // 12. Delete notifications (references userId)
-                    await tx.notification.deleteMany({ where: { userId: { in: userIds } } });
-
-                    // 13. Delete users
-                    await tx.user.deleteMany({ where: { tenantId: id } });
-                }
-
-                // 14. Delete branches
-                await tx.branch.deleteMany({ where: { tenantId: id } });
-
-                // 15. Delete customers
+                // 11. Customer (Dependent on Tenant/Branch)
                 await tx.customer.deleteMany({ where: { tenantId: id } });
 
-                // 16. Finally, delete the tenant itself
+                // 12. User (Dependent on Tenant/Branch)
+                // Cascades: RefreshToken, Notification
+                await tx.user.deleteMany({ where: { tenantId: id } });
+
+                // 13. Branch (Dependent on Tenant)
+                await tx.branch.deleteMany({ where: { tenantId: id } });
+
+                // 14. OperatingCost (Dependent on Tenant)
+                await tx.operatingCost.deleteMany({ where: { tenantId: id } });
+
+                // 15. BlacklistEntry (Dependent on Tenant)
+                await tx.blacklistEntry.deleteMany({ where: { tenantId: id } });
+
+                // 16. SystemInvoice (Dependent on Tenant)
+                await tx.systemInvoice.deleteMany({ where: { tenantId: id } });
+
+                // 17. Tenant (Root)
                 await tx.tenant.delete({ where: { id } });
             });
 
             return { success: true, message: `Tenant "${tenant.name}" dan seluruh data terkait berhasil dihapus permanen.` };
         } catch (error: any) {
+            // Include Prisma meta for debugging foreign key constraint names
+            const meta = error.meta ? JSON.stringify(error.meta) : '';
             throw new BadRequestException(
-                `Gagal menghapus tenant: ${error.message || 'Database constraint error'}`
+                `Gagal menghapus tenant: ${error.message} ${meta}`
             );
         }
     }
