@@ -197,27 +197,34 @@
 
 
 /* --- BRANDING TEXT --- */
+/* --- BRANDING TEXT --- */
 .brandName {
-    font-size: 1.8rem;
+    font-size: 2rem;
+    /* Increased size for impact */
     font-weight: 800;
-    /* Extra Bold */
     color: var(--text-main);
-    /* Dark Grey */
-    letter-spacing: 1px;
-    margin-top: 10px;
-    text-shadow: 1px 1px 1px #fff;
+    letter-spacing: 1.5px;
+    /* Slight increase */
+    margin-top: 5px;
+    /* Reduced top margin since Logo has bottom margin */
+    text-shadow: 2px 2px 2px #fff;
+    /* Softer shadow */
     text-align: center;
+    line-height: 1.2;
 }
 
 .subName {
-    font-size: 0.75rem;
-    font-weight: 500;
+    font-size: 0.7rem;
+    /* Slightly smaller for contrast */
+    font-weight: 600;
     color: var(--text-sub);
-    /* Lighter Grey */
     text-transform: uppercase;
-    letter-spacing: 2px;
-    margin-bottom: 30px;
+    letter-spacing: 3px;
+    /* Premium spacing */
+    margin-bottom: 35px;
+    /* More breathing room before form */
     text-align: center;
+    opacity: 0.8;
 }
 
 
