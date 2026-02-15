@@ -318,8 +318,9 @@ export default function PlansPage() {
                                 <div className="grid grid-cols-2 gap-3">
                                     {editForm.features && ['maxVehicles', 'maxUsers', 'maxCustomers', 'maxBranches'].map(key => (
                                         <div key={key}>
-                                            <label className="block text-xs text-slate-500 mb-1">{FEATURE_LABELS[key]} <span className="text-slate-400">(-1 = unlimited)</span></label>
-                                            <input type="number" value={editForm.features[key as keyof PlanFeatures] as number}
+                                            <label className="block text-xs text-slate-500 mb-1">{FEATURE_LABELS[key as keyof PlanFeatures]} <span className="text-slate-400">(-1 = unlimited)</span></label>
+                                            <input type="number"
+                                                value={(editForm.features as PlanFeatures)?.[key as keyof PlanFeatures] as number ?? 0}
                                                 onChange={e => updateFeature(key, parseInt(e.target.value))}
                                                 className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500" />
                                         </div>
