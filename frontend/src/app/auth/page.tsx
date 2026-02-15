@@ -449,6 +449,7 @@ export default function AuthPage() {
                                         className={`${styles.formInput} ${errors['login_email'] ? styles.invalid : ''}`}
                                         placeholder="Email / Username"
                                         required
+                                        autoComplete="username"
                                         onChange={() => setErrors({ ...errors, login_email: false })}
                                     />
                                 </div>
@@ -460,6 +461,7 @@ export default function AuthPage() {
                                         className={`${styles.formInput} ${errors['login_password'] ? styles.invalid : ''}`}
                                         placeholder={t.authPassword}
                                         required
+                                        autoComplete="current-password"
                                         onChange={() => setErrors({ ...errors, login_password: false })}
                                     />
                                     <FontAwesomeIcon
@@ -532,6 +534,7 @@ export default function AuthPage() {
                                         className={`${styles.formInput} ${errors['signup_username'] ? styles.invalid : ''}`}
                                         placeholder="Username"
                                         required
+                                        autoComplete="username"
                                         onChange={() => setErrors({ ...errors, signup_username: false })}
                                     />
                                 </div>
@@ -543,6 +546,7 @@ export default function AuthPage() {
                                         className={`${styles.formInput} ${errors['signup_email'] ? styles.invalid : ''}`}
                                         placeholder={t.authEmailActive}
                                         required
+                                        autoComplete="email"
                                         onChange={() => setErrors({ ...errors, signup_email: false })}
                                     />
                                 </div>
@@ -554,6 +558,7 @@ export default function AuthPage() {
                                         className={`${styles.formInput} ${errors['signup_pass'] ? styles.invalid : ''}`}
                                         placeholder={t.authCreatePass}
                                         required
+                                        autoComplete="new-password"
                                         onChange={() => setErrors({ ...errors, signup_pass: false })}
                                     />
                                 </div>
@@ -565,6 +570,7 @@ export default function AuthPage() {
                                         className={`${styles.formInput} ${errors['signup_confirm_pass'] ? styles.invalid : ''}`}
                                         placeholder="Konfirmasi Password"
                                         required
+                                        autoComplete="new-password"
                                         onChange={() => setErrors({ ...errors, signup_confirm_pass: false })}
                                     />
                                     <FontAwesomeIcon
@@ -598,6 +604,7 @@ export default function AuthPage() {
                                         className={`${styles.formInput} ${errors['forgot_email'] ? styles.invalid : ''}`}
                                         placeholder={t.authEmailReg}
                                         required
+                                        autoComplete="email"
                                         onChange={() => setErrors({ ...errors, forgot_email: false })}
                                     />
                                 </div>
