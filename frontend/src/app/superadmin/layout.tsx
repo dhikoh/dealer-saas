@@ -9,6 +9,7 @@ import {
     ShieldCheck, Activity, Globe, Building2
 } from 'lucide-react';
 import { API_URL, fetchApi } from '@/lib/api';
+import { useAuthProtection } from '@/hooks/useAuthProtection';
 
 interface Notification {
     id: string;
@@ -43,29 +44,13 @@ export default function SuperadminLayout({ children }: { children: React.ReactNo
     const [showNotifications, setShowNotifications] = useState(false);
     const notifRef = useRef<HTMLDivElement>(null);
 
+    const { user, loading, isAuthenticated } = useAuthProtection('SUPERADMIN');
+
     useEffect(() => {
-        const checkAuth = async () => {
-            try {
-                // Verify session and role via backend
-                const res = await fetchApi('/auth/me');
-                if (!res.ok) {
-                    router.push('/auth');
-                    return;
-                }
-
-                const user = await res.json();
-                if (user.role !== 'SUPERADMIN') {
-                    router.push('/app');
-                    return;
-                }
-                setMounted(true);
-            } catch {
-                router.push('/auth');
-            }
-        };
-
-        checkAuth();
-    }, [router]);
+        if (!loading && isAuthenticated && user?.role === 'SUPERADMIN') {
+            setMounted(true);
+        }
+    }, [loading, isAuthenticated, user]);
 
     // Fetch notifications
     const fetchNotifications = useCallback(async () => {

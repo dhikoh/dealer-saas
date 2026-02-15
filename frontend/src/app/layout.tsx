@@ -17,6 +17,8 @@ export const metadata: Metadata = {
   metadataBase: new URL('https://oto.modula.click'),
 };
 
+import { AuthProvider } from "@/context/AuthContext";
+
 export default function RootLayout({
   children,
 }: Readonly<{
@@ -28,8 +30,10 @@ export default function RootLayout({
         className={`${poppins.variable} antialiased font-sans`}
         suppressHydrationWarning
       >
-        {children}
-        <Toaster position="top-center" richColors />
+        <AuthProvider>
+          {children}
+          <Toaster position="top-center" richColors />
+        </AuthProvider>
       </body>
     </html>
   );

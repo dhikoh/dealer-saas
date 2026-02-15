@@ -30,7 +30,9 @@ interface SearchResult {
 }
 
 export default function Header() {
-    const { user } = useAuthProtection();
+    // Header is used in protected layouts, but let the layout handle the redirect.
+    // We just want user data here.
+    const { user } = useAuthProtection(undefined, { redirect: false });
     const [theme, setTheme] = useState<'light' | 'dark'>('light');
     const [showNotifications, setShowNotifications] = useState(false);
     const [showSearch, setShowSearch] = useState(false);

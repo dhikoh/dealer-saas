@@ -74,6 +74,11 @@ export function middleware(request: NextRequest) {
 
     // 4. GUEST GUARD: Redirect authenticated users away from /auth pages
     if (payload && (pathname === '/auth' || pathname === '/auth/verify')) {
+        // Break Loop: if force_logout is present, allow access
+        if (request.nextUrl.searchParams.get('force_logout')) {
+            return NextResponse.next();
+        }
+
         // Special case: Allow verify page if user is NOT verified
         if (pathname === '/auth/verify' && !payload.isVerified) {
             return NextResponse.next();
