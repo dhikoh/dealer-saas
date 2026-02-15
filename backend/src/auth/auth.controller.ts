@@ -12,11 +12,15 @@ export class AuthController {
   constructor(private readonly authService: AuthService) { }
 
   private setCookie(response: Response, token: string) {
+    const isProd = process.env.NODE_ENV === 'production';
+    const domain = process.env.COOKIE_DOMAIN || (isProd ? '.modula.click' : undefined);
+
     response.cookie('auth_token', token, {
       httpOnly: true,
-      secure: process.env.NODE_ENV === 'production',
+      secure: isProd,
       sameSite: 'lax',
       path: '/',
+      domain, // Allow sharing across subdomains (api.modula.click -> oto.modula.click)
       maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
     });
   }
