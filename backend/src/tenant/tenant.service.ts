@@ -346,7 +346,7 @@ export class TenantService {
     }
 
     // Validate Role
-    if (!TENANT_ROLES.includes(data.role)) {
+    if (data.role && !TENANT_ROLES.includes(data.role)) {
       throw new BadRequestException('Role tidak valid. Role yang diperbolehkan: ' + TENANT_ROLES.join(', '));
     }
 
