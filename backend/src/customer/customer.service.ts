@@ -44,17 +44,30 @@ export class CustomerService {
         // Check plan limit
         const tenant = await this.prisma.tenant.findUnique({
             where: { id: tenantId },
-            include: { _count: { select: { customers: true } } },
+            include: {
+                _count: { select: { customers: true } },
+                plan: true
+            },
         });
 
         if (tenant) {
-            const plan = getPlanById(tenant.planTier);
-            if (plan && plan.features.maxCustomers !== -1) {
-                if (tenant._count.customers >= plan.features.maxCustomers) {
-                    throw new BadRequestException(
-                        `Batas customer tercapai (${plan.features.maxCustomers} customer). Upgrade plan untuk menambah lebih banyak.`
-                    );
-                }
+            let limit = 0;
+            let planName = '';
+
+            if (tenant.plan) {
+                // maxCustomers is in features JSON, not a column
+                limit = (tenant.plan.features as any)?.maxCustomers ?? 0;
+                planName = tenant.plan.name;
+            } else {
+                const legacyPlan = getPlanById(tenant.planTier);
+                limit = legacyPlan?.features.maxCustomers ?? 0;
+                planName = legacyPlan?.name || 'Unknown';
+            }
+
+            if (limit !== -1 && tenant._count.customers >= limit) {
+                throw new BadRequestException(
+                    `Batas customer tercapai (${limit} customer pada paket ${planName}). Upgrade plan untuk menambah lebih banyak.`
+                );
             }
         }
 

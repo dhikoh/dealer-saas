@@ -1,4 +1,5 @@
 import { Controller, Post, Get, Put, Body, HttpCode, HttpStatus, Request } from '@nestjs/common';
+import { Throttle } from '@nestjs/throttler';
 import { AuthService } from './auth.service';
 import { CreateAuthDto } from './dto/create-auth.dto';
 import { Public } from './public.decorator';
@@ -16,6 +17,7 @@ export class AuthController {
 
   @Public()
   @HttpCode(HttpStatus.OK)
+  @Throttle({ default: { limit: 5, ttl: 60000 } }) // Limit: 5 requests per minute
   @Post('login')
   login(@Body() loginDto: { email: string; password: string }) {
     return this.authService.login(loginDto);
@@ -23,6 +25,7 @@ export class AuthController {
 
   @Public()
   @HttpCode(HttpStatus.OK)
+  @Throttle({ default: { limit: 5, ttl: 60000 } })
   @Post('verify')
   verify(@Body() body: { email: string; code: string }) {
     return this.authService.verifyEmail(body.email, body.code);
@@ -30,6 +33,7 @@ export class AuthController {
 
   @Public()
   @HttpCode(HttpStatus.OK)
+  @Throttle({ default: { limit: 5, ttl: 60000 } })
   @Post('resend-otp')
   resendOtp(@Body() body: { email: string }) {
     return this.authService.resendVerificationCode(body.email);

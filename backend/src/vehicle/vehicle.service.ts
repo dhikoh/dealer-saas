@@ -39,19 +39,32 @@ export class VehicleService {
 
     async create(tenantId: string, data: any) {
         // Check plan limit
+        // Check plan limit (Hybrid: Prefer Dynamic Plan > Legacy Config)
         const tenant = await this.prisma.tenant.findUnique({
             where: { id: tenantId },
-            include: { _count: { select: { vehicles: true } } },
+            include: {
+                _count: { select: { vehicles: true } },
+                plan: true
+            },
         });
 
         if (tenant) {
-            const plan = getPlanById(tenant.planTier);
-            if (plan && plan.features.maxVehicles !== -1) {
-                if (tenant._count.vehicles >= plan.features.maxVehicles) {
-                    throw new BadRequestException(
-                        `Batas kendaraan tercapai (${plan.features.maxVehicles} kendaraan). Upgrade plan untuk menambah lebih banyak.`
-                    );
-                }
+            let limit = 0;
+            let planName = '';
+
+            if (tenant.plan) {
+                limit = tenant.plan.maxVehicles;
+                planName = tenant.plan.name;
+            } else {
+                const legacyPlan = getPlanById(tenant.planTier);
+                limit = legacyPlan?.features.maxVehicles ?? 0;
+                planName = legacyPlan?.name || 'Unknown';
+            }
+
+            if (limit !== -1 && tenant._count.vehicles >= limit) {
+                throw new BadRequestException(
+                    `Batas kendaraan tercapai (${limit} unit pada paket ${planName}). Upgrade plan untuk menambah lebih banyak.`
+                );
             }
         }
 

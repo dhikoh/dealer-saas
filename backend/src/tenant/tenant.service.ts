@@ -1,6 +1,7 @@
 import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { getPlanById, PLAN_TIERS, canUpgrade } from '../config/plan-tiers.config';
+import { TENANT_ROLES } from '../config/roles.config';
 
 @Injectable()
 export class TenantService {
@@ -19,6 +20,7 @@ export class TenantService {
             branches: true,
           },
         },
+        plan: true,
       },
     });
 
@@ -59,13 +61,18 @@ export class TenantService {
         customers: tenant._count.customers,
         branches: tenant._count.branches,
       },
-      // Limits from plan
-      limits: plan ? {
+      // Limits from plan (Dynamic or Legacy)
+      limits: tenant.plan ? {
+        maxUsers: tenant.plan.maxUsers,
+        maxVehicles: tenant.plan.maxVehicles,
+        maxCustomers: (tenant.plan.features as any)?.maxCustomers || 200,
+        maxBranches: tenant.plan.maxBranches,
+      } : (plan ? {
         maxUsers: plan.features.maxUsers,
         maxVehicles: plan.features.maxVehicles,
         maxCustomers: plan.features.maxCustomers,
         maxBranches: plan.features.maxBranches,
-      } : null,
+      } : null),
       createdAt: tenant.createdAt,
     };
   }
@@ -252,20 +259,28 @@ export class TenantService {
     // Check plan limit
     const tenant = await this.prisma.tenant.findUnique({
       where: { id: tenantId },
-      include: { _count: { select: { users: true } } },
+      include: {
+        _count: { select: { users: true } },
+        plan: true
+      },
     });
 
     if (!tenant) {
       throw new NotFoundException('Tenant tidak ditemukan');
     }
 
-    const plan = getPlanById(tenant.planTier);
-    if (plan && plan.features.maxUsers !== -1) {
-      if (tenant._count.users >= plan.features.maxUsers) {
-        throw new BadRequestException(
-          `Batas user tercapai (${plan.features.maxUsers} user). Upgrade plan untuk menambah lebih banyak user.`
-        );
-      }
+    let limit = 0;
+    if (tenant.plan) {
+      limit = tenant.plan.maxUsers;
+    } else {
+      const legacyPlan = getPlanById(tenant.planTier);
+      limit = legacyPlan?.features.maxUsers ?? 0;
+    }
+
+    if (limit !== -1 && tenant._count.users >= limit) {
+      throw new BadRequestException(
+        `Batas user tercapai (${limit} user). Upgrade plan untuk menambah lebih banyak user.`
+      );
     }
 
     // Check if email already exists
@@ -275,6 +290,11 @@ export class TenantService {
 
     if (existingUser) {
       throw new BadRequestException('Email sudah terdaftar');
+    }
+
+    // Validate Role
+    if (!TENANT_ROLES.includes(data.role)) {
+      throw new BadRequestException('Role tidak valid. Role yang diperbolehkan: ' + TENANT_ROLES.join(', '));
     }
 
     // Hash password
@@ -323,6 +343,11 @@ export class TenantService {
 
     if (!staff) {
       throw new NotFoundException('Staff tidak ditemukan');
+    }
+
+    // Validate Role
+    if (!TENANT_ROLES.includes(data.role)) {
+      throw new BadRequestException('Role tidak valid. Role yang diperbolehkan: ' + TENANT_ROLES.join(', '));
     }
 
     return this.prisma.user.update({
@@ -424,20 +449,28 @@ export class TenantService {
     // Check plan limit
     const tenant = await this.prisma.tenant.findUnique({
       where: { id: tenantId },
-      include: { _count: { select: { branches: true } } },
+      include: {
+        _count: { select: { branches: true } },
+        plan: true
+      },
     });
 
     if (!tenant) {
       throw new NotFoundException('Tenant tidak ditemukan');
     }
 
-    const plan = getPlanById(tenant.planTier);
-    if (plan && plan.features.maxBranches !== -1) {
-      if (tenant._count.branches >= plan.features.maxBranches) {
-        throw new BadRequestException(
-          `Batas cabang tercapai (${plan.features.maxBranches} cabang). Upgrade plan untuk menambah lebih banyak cabang.`
-        );
-      }
+    let limit = 0;
+    if (tenant.plan) {
+      limit = tenant.plan.maxBranches;
+    } else {
+      const legacyPlan = getPlanById(tenant.planTier);
+      limit = legacyPlan?.features.maxBranches ?? 0;
+    }
+
+    if (limit !== -1 && tenant._count.branches >= limit) {
+      throw new BadRequestException(
+        `Batas cabang tercapai (${limit} cabang). Upgrade plan untuk menambah lebih banyak cabang.`
+      );
     }
 
     return this.prisma.branch.create({

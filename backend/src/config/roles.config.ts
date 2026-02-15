@@ -1,0 +1,16 @@
+export const ROLES = {
+    SUPERADMIN: 'SUPERADMIN',
+    ADMIN_STAFF: 'ADMIN_STAFF',
+    OWNER: 'OWNER',
+    ADMIN: 'ADMIN',
+    STAFF: 'STAFF',
+    SALES: 'SALES',
+    MECHANIC: 'MECHANIC',
+};
+
+export const TENANT_ROLES = [
+    ROLES.ADMIN,
+    ROLES.STAFF,
+    ROLES.SALES,
+    ROLES.MECHANIC,
+];
