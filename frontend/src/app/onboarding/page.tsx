@@ -8,7 +8,7 @@ import { faSpinner, faUser, faPhone, faBuilding, faGlobe, faChevronDown } from '
 import DatePicker, { registerLocale } from 'react-datepicker';
 import { id } from 'date-fns/locale/id';
 import NeumorphicSelect from '@/components/NeumorphicSelect';
-import { API_URL } from '@/lib/api';
+import { API_URL, fetchApi } from '@/lib/api';
 registerLocale('id', id);
 
 export default function OnboardingPage() {
@@ -143,13 +143,8 @@ export default function OnboardingPage() {
         setIsLoading(true);
 
         try {
-            const token = localStorage.getItem('access_token');
-            const res = await fetch(`${API_URL}/auth/onboarding`, {
+            const res = await fetchApi('/auth/onboarding', {
                 method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${token}`
-                },
                 body: JSON.stringify(formData),
             });
 
@@ -161,10 +156,10 @@ export default function OnboardingPage() {
             const data = await res.json();
 
             // Update stored user info logic
-            if (data.access_token) {
-                localStorage.setItem('access_token', data.access_token);
+            if (data.user) {
                 localStorage.setItem('user_info', JSON.stringify(data.user));
             }
+            // Token is handled by httpOnly cookie now
 
             toast.success(text.success);
 

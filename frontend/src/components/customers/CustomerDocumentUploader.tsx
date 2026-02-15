@@ -16,7 +16,7 @@ import {
     faFileInvoiceDollar
 } from '@fortawesome/free-solid-svg-icons';
 import { toast } from 'sonner';
-import { API_URL } from '@/lib/api';
+import { API_URL, fetchApi } from '@/lib/api';
 
 interface DocumentField {
     key: string; // Database field name
@@ -71,17 +71,13 @@ export default function CustomerDocumentUploader({ customerId, documents, onDocu
         }
 
         // MODE 2: DIRECT UPLOAD (Edit Existing Customer)
-        const token = localStorage.getItem('access_token');
-        if (!token) return;
-
         setUploadingKey(key);
         try {
             const formData = new FormData();
             formData.append('document', file);
 
-            const res = await fetch(`${API_URL}/upload/customer/${customerId}/${docType}`, {
+            const res = await fetchApi(`/upload/customer/${customerId}/${docType}`, {
                 method: 'POST',
-                headers: { Authorization: `Bearer ${token}` },
                 body: formData,
             });
 

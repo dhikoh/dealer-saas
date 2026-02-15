@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import { Copy, Check, Upload, ArrowRight, Building2, QrCode } from 'lucide-react';
 import { toast } from 'sonner';
+import { fetchApi } from '@/lib/api';
 import { Skeleton } from '@/components/ui/Skeleton';
 
 interface PaymentMethod {
@@ -38,7 +39,6 @@ export default function PaymentModal({
     const [uploading, setUploading] = useState(false);
     const [copied, setCopied] = useState(false);
 
-    const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
 
     useEffect(() => {
         if (isOpen) {
@@ -50,10 +50,7 @@ export default function PaymentModal({
     const fetchMethods = async () => {
         setLoading(true);
         try {
-            const token = localStorage.getItem('access_token');
-            const res = await fetch(`${API_URL}/payment-methods/active`, {
-                headers: { Authorization: `Bearer ${token}` }
-            });
+            const res = await fetchApi('/payment-methods/active');
             if (res.ok) {
                 const data = await res.json();
                 setMethods(data);
@@ -83,10 +80,8 @@ export default function PaymentModal({
         formData.append('proof', file);
 
         try {
-            const token = localStorage.getItem('access_token');
-            const res = await fetch(`${API_URL}/billing/my-invoices/${invoiceId}/upload-proof`, {
+            const res = await fetchApi(`/billing/my-invoices/${invoiceId}/upload-proof`, {
                 method: 'POST',
-                headers: { Authorization: `Bearer ${token}` },
                 body: formData
             });
 

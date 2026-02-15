@@ -4,7 +4,7 @@ import React, { useState, useEffect } from 'react';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faExchangeAlt, faStore, faMoneyBillWave } from '@fortawesome/free-solid-svg-icons';
 import { toast } from 'sonner';
-import { API_URL } from '@/lib/api';
+import { fetchApi } from '@/lib/api';
 import NeumorphicSelect from '@/components/NeumorphicSelect';
 
 interface CrossTenantTransferModalProps {
@@ -40,10 +40,7 @@ export default function CrossTenantTransferModal({ isOpen, onClose, vehicleId, v
     const fetchGroupMembers = async () => {
         setLoadingMembers(true);
         try {
-            const token = localStorage.getItem('access_token');
-            const res = await fetch(`${API_URL}/dealer-groups/my`, {
-                headers: { Authorization: `Bearer ${token}` }
-            });
+            const res = await fetchApi('/dealer-groups/my');
             if (res.ok) {
                 const data = await res.json();
                 if (data?.group && data.group.members) {
@@ -72,13 +69,8 @@ export default function CrossTenantTransferModal({ isOpen, onClose, vehicleId, v
         };
 
         try {
-            const token = localStorage.getItem('access_token');
-            const res = await fetch(`${API_URL}/stock-transfers`, {
+            const res = await fetchApi('/stock-transfers', {
                 method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    Authorization: `Bearer ${token}`
-                },
                 body: JSON.stringify(payload)
             });
 

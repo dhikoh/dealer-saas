@@ -84,6 +84,16 @@ export async function fetchApi(
         ...(options.headers as Record<string, string> || {}),
     };
 
+    // Auto-set Content-Type for JSON
+    if (
+        options.body &&
+        typeof options.body === 'string' &&
+        !headers['Content-Type'] &&
+        !headers['content-type']
+    ) {
+        headers['Content-Type'] = 'application/json';
+    }
+
     // IMPORTANT: Include credentials (cookies) for cross-origin requests
     const fetchOptions: RequestInit = {
         ...options,

@@ -65,7 +65,7 @@ export default function PlansPage() {
         }
     }, [toast]);
 
-    // const getToken = () => localStorage.getItem('access_token'); // Removed
+
 
     const fetchPlans = async () => {
         try {

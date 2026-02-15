@@ -3,7 +3,8 @@
 import React, { useEffect, useState } from 'react';
 import { Crown, AlertTriangle, ChevronRight, Clock, CreditCard } from 'lucide-react';
 import Link from 'next/link';
-import { API_URL } from '@/lib/api';
+
+import { fetchApi } from '@/lib/api';
 
 interface SubscriptionStatus {
     planTier: string;
@@ -20,12 +21,7 @@ export default function SubscriptionWidget() {
     useEffect(() => {
         const fetchSubscription = async () => {
             try {
-                const token = localStorage.getItem('access_token');
-                if (!token) return;
-
-                const res = await fetch(`${API_URL}/tenant/profile`, {
-                    headers: { Authorization: `Bearer ${token}` },
-                });
+                const res = await fetchApi('/tenant/profile');
 
                 if (res.ok) {
                     const data = await res.json();
@@ -37,9 +33,7 @@ export default function SubscriptionWidget() {
                         hasPendingInvoice: false, // You might need another check for this, or backend adds it to profile
                     });
                     // Check for pending invoices separately if needed or if profile includes it
-                    const invoiceRes = await fetch(`${API_URL}/tenant/invoices?status=PENDING`, {
-                        headers: { Authorization: `Bearer ${token}` },
-                    });
+                    const invoiceRes = await fetchApi('/tenant/invoices?status=PENDING');
                     if (invoiceRes.ok) {
                         const invoices = await invoiceRes.json();
                         if (invoices.length > 0) {

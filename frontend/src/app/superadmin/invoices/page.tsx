@@ -61,7 +61,7 @@ export default function InvoicesPage() {
         }
     }, [toast]);
 
-    // const getToken = () => localStorage.getItem('access_token'); // Removed
+
 
     const fetchInvoices = async () => {
         try {

@@ -28,7 +28,7 @@ export default function ApprovalsPage() {
         id: string; action: 'APPROVED' | 'REJECTED';
     } | null>(null);
 
-    // const token = typeof window !== 'undefined' ? localStorage.getItem('access_token') : null; // Removed
+
 
     const fetchApprovals = useCallback(async () => {
         try {

@@ -38,7 +38,7 @@ export default function ActivityLogPage() {
     const [totalPages, setTotalPages] = useState(1);
     const [limit] = useState(20);
 
-    // const token = typeof window !== 'undefined' ? localStorage.getItem('access_token') : null; // Removed
+
 
     const fetchLogs = useCallback(async () => {
         setLoading(true);

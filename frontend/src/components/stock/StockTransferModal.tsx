@@ -5,7 +5,7 @@ import React, { useState } from 'react';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faTimes, faExchangeAlt, faSpinner } from '@fortawesome/free-solid-svg-icons';
 import { toast } from 'sonner';
-import { API_URL } from '@/lib/api';
+import { fetchApi } from '@/lib/api';
 import { useBranch, Branch } from '@/context/BranchContext';
 
 interface StockTransferModalProps {
@@ -37,13 +37,8 @@ export default function StockTransferModal({ vehicle, onClose, onSuccess }: Stoc
 
         setLoading(true);
         try {
-            const token = localStorage.getItem('access_token');
-            const res = await fetch(`${API_URL}/stock-transfers`, {
+            const res = await fetchApi('/stock-transfers', {
                 method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${token}`
-                },
                 body: JSON.stringify({
                     vehicleId: vehicle.id,
                     fromBranchId: currentBranch?.id,

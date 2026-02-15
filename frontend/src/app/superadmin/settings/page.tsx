@@ -283,7 +283,7 @@ function StaffManagementTab() {
     const [deleteId, setDeleteId] = useState<string | null>(null);
     const [deleteLoading, setDeleteLoading] = useState(false);
 
-    // const getToken = () => localStorage.getItem('access_token'); // Removed
+
 
     const fetchStaff = useCallback(async () => {
         setLoading(true);
@@ -603,7 +603,7 @@ function ApiConfigTab() {
 // ================== TAB 5: BILLING INTEGRATION ==================
 
 function BillingIntegrationTab() {
-    // const getToken = () => localStorage.getItem('access_token') || '';
+
     const [gateway, setGateway] = useState('manual');
     const [bankInfo, setBankInfo] = useState({ bankName: 'BCA', accountNumber: '', accountHolder: '' });
     const [autoInvoice, setAutoInvoice] = useState(true);

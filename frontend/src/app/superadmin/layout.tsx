@@ -8,7 +8,7 @@ import {
     ChevronLeft, ChevronRight, LogOut, Check, CheckCheck, X,
     ShieldCheck, Activity, Globe, Building2
 } from 'lucide-react';
-import { API_URL } from '@/lib/api';
+import { API_URL, fetchApi } from '@/lib/api';
 
 interface Notification {
     id: string;
@@ -44,17 +44,16 @@ export default function SuperadminLayout({ children }: { children: React.ReactNo
     const notifRef = useRef<HTMLDivElement>(null);
 
     useEffect(() => {
-        const token = localStorage.getItem('access_token');
-        const userInfoStr = localStorage.getItem('user_info');
-
-        if (!token) {
-            router.push('/auth');
-            return;
-        }
-
-        if (userInfoStr) {
+        const checkAuth = async () => {
             try {
-                const user = JSON.parse(userInfoStr);
+                // Verify session and role via backend
+                const res = await fetchApi('/auth/me');
+                if (!res.ok) {
+                    router.push('/auth');
+                    return;
+                }
+
+                const user = await res.json();
                 if (user.role !== 'SUPERADMIN') {
                     router.push('/app');
                     return;
@@ -63,18 +62,15 @@ export default function SuperadminLayout({ children }: { children: React.ReactNo
             } catch {
                 router.push('/auth');
             }
-        } else {
-            router.push('/auth');
-        }
+        };
+
+        checkAuth();
     }, [router]);
 
     // Fetch notifications
     const fetchNotifications = useCallback(async () => {
         try {
-            const token = localStorage.getItem('access_token');
-            const res = await fetch(`${API_URL}/notifications?limit=20`, {
-                headers: { 'Authorization': `Bearer ${token}` },
-            });
+            const res = await fetchApi('/notifications?limit=20');
             if (!res.ok) return;
             const data = await res.json();
             setNotifications(data.notifications || []);
@@ -103,10 +99,8 @@ export default function SuperadminLayout({ children }: { children: React.ReactNo
 
     const markAsRead = async (id: string) => {
         try {
-            const token = localStorage.getItem('access_token');
-            await fetch(`${API_URL}/notifications/${id}/read`, {
+            await fetchApi(`/notifications/${id}/read`, {
                 method: 'PATCH',
-                headers: { 'Authorization': `Bearer ${token}` },
             });
             setNotifications(prev => prev.map(n => n.id === id ? { ...n, isRead: true } : n));
             setUnreadCount(prev => Math.max(0, prev - 1));
@@ -115,17 +109,18 @@ export default function SuperadminLayout({ children }: { children: React.ReactNo
 
     const markAllRead = async () => {
         try {
-            const token = localStorage.getItem('access_token');
-            await fetch(`${API_URL}/notifications/mark-all-read`, {
+            await fetchApi('/notifications/mark-all-read', {
                 method: 'POST',
-                headers: { 'Authorization': `Bearer ${token}` },
             });
             setNotifications(prev => prev.map(n => ({ ...n, isRead: true })));
             setUnreadCount(0);
         } catch { /* ignore */ }
     };
 
-    const handleLogout = () => {
+    const handleLogout = async () => {
+        try {
+            await fetchApi('/auth/logout', { method: 'POST' });
+        } catch { /* ignore */ }
         localStorage.removeItem('access_token');
         localStorage.removeItem('user_info');
         router.push('/auth');
