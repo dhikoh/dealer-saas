@@ -125,11 +125,21 @@
     padding: 30px;
 }
 
+/* --- HEADER WRAPPER --- */
+.headerContent {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    width: 100%;
+}
+
 /* --- LOGO CONTAINER & ANIMATION --- */
 .logoContainer {
     width: 130px;
     height: 130px;
-    margin: 0 auto 10px;
+    margin: 0 0 10px 0;
+    /* Updated margin: Remove auto side margins */
     border-radius: 50%;
     display: flex;
     align-items: center;
@@ -196,6 +206,7 @@
     letter-spacing: 1px;
     margin-top: 10px;
     text-shadow: 1px 1px 1px #fff;
+    text-align: center;
 }
 
 .subName {
@@ -206,6 +217,7 @@
     text-transform: uppercase;
     letter-spacing: 2px;
     margin-bottom: 30px;
+    text-align: center;
 }
 
 

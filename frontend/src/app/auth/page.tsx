@@ -399,44 +399,46 @@ export default function AuthPage() {
 
             <div className={styles.container}>
                 <div className={styles.loginCard}>
-                    {/* CONTAINER LOGO: OTO-BOT (ROBOT AI) */}
-                    <div className={`${styles.logoContainer} ${isAnimating ? styles.animatingFlip : ''}`}>
-                        <svg className={styles.customLogoSvg} viewBox="0 0 200 200" xmlns="http://www.w3.org/2000/svg">
-                            {/* BASE SHAPE */}
-                            <line x1="100" y1="40" x2="100" y2="20" stroke="var(--teal-btn)" strokeWidth="6" strokeLinecap="round" />
-                            <circle cx="100" cy="15" r="5" fill="var(--teal-btn)" />
-                            <rect x="40" y="40" width="120" height="100" rx="30" ry="30" fill="none" stroke="var(--teal-btn)" strokeWidth="6" />
-                            <rect x="25" y="80" width="15" height="20" rx="5" fill="var(--teal-btn)" />
-                            <rect x="160" y="80" width="15" height="20" rx="5" fill="var(--teal-btn)" />
+                    <div className={styles.headerContent}>
+                        {/* CONTAINER LOGO: OTO-BOT (ROBOT AI) */}
+                        <div className={`${styles.logoContainer} ${isAnimating ? styles.animatingFlip : ''}`}>
+                            <svg className={styles.customLogoSvg} viewBox="0 0 200 200" xmlns="http://www.w3.org/2000/svg">
+                                {/* BASE SHAPE */}
+                                <line x1="100" y1="40" x2="100" y2="20" stroke="var(--teal-btn)" strokeWidth="6" strokeLinecap="round" />
+                                <circle cx="100" cy="15" r="5" fill="var(--teal-btn)" />
+                                <rect x="40" y="40" width="120" height="100" rx="30" ry="30" fill="none" stroke="var(--teal-btn)" strokeWidth="6" />
+                                <rect x="25" y="80" width="15" height="20" rx="5" fill="var(--teal-btn)" />
+                                <rect x="160" y="80" width="15" height="20" rx="5" fill="var(--teal-btn)" />
 
-                            {/* 1. MODE LOGIN */}
-                            <g className={`${styles.logoGroup} ${activeForm === 'login' ? styles.active : ''}`}>
-                                <circle cx="75" cy="80" r="10" fill="var(--teal-btn)" />
-                                <circle cx="125" cy="80" r="10" fill="var(--teal-btn)" />
-                                <path d="M80,110 Q100,120 120,110" fill="none" stroke="var(--teal-btn)" strokeWidth="5" strokeLinecap="round" />
-                            </g>
+                                {/* 1. MODE LOGIN */}
+                                <g className={`${styles.logoGroup} ${activeForm === 'login' ? styles.active : ''}`}>
+                                    <circle cx="75" cy="80" r="10" fill="var(--teal-btn)" />
+                                    <circle cx="125" cy="80" r="10" fill="var(--teal-btn)" />
+                                    <path d="M80,110 Q100,120 120,110" fill="none" stroke="var(--teal-btn)" strokeWidth="5" strokeLinecap="round" />
+                                </g>
 
-                            {/* 2. MODE SIGNUP */}
-                            <g className={`${styles.logoGroup} ${activeForm === 'signup' ? styles.active : ''}`}>
-                                <path d="M65,80 L85,80" stroke="var(--teal-btn)" strokeWidth="6" strokeLinecap="round" />
-                                <circle cx="125" cy="80" r="10" fill="var(--teal-btn)" />
-                                <path d="M70,105 Q100,135 130,105" fill="none" stroke="var(--teal-btn)" strokeWidth="6" strokeLinecap="round" />
-                                <circle cx="60" cy="95" r="4" fill="#ffaaa5" opacity="0.6" />
-                                <circle cx="140" cy="95" r="4" fill="#ffaaa5" opacity="0.6" />
-                            </g>
+                                {/* 2. MODE SIGNUP */}
+                                <g className={`${styles.logoGroup} ${activeForm === 'signup' ? styles.active : ''}`}>
+                                    <path d="M65,80 L85,80" stroke="var(--teal-btn)" strokeWidth="6" strokeLinecap="round" />
+                                    <circle cx="125" cy="80" r="10" fill="var(--teal-btn)" />
+                                    <path d="M70,105 Q100,135 130,105" fill="none" stroke="var(--teal-btn)" strokeWidth="6" strokeLinecap="round" />
+                                    <circle cx="60" cy="95" r="4" fill="#ffaaa5" opacity="0.6" />
+                                    <circle cx="140" cy="95" r="4" fill="#ffaaa5" opacity="0.6" />
+                                </g>
 
-                            {/* 3. MODE FORGOT */}
-                            <g className={`${styles.logoGroup} ${activeForm === 'forgot' ? styles.active : ''}`}>
-                                <path d="M65,70 L85,90 M85,70 L65,90" stroke="var(--teal-btn)" strokeWidth="4" strokeLinecap="round" />
-                                <path d="M115,70 L135,90 M135,70 L115,90" stroke="var(--teal-btn)" strokeWidth="4" strokeLinecap="round" />
-                                <path d="M70,115 Q80,105 90,115 T110,115 T130,115" fill="none" stroke="var(--teal-btn)" strokeWidth="4" strokeLinecap="round" />
-                                <text x="135" y="45" fontFamily="Arial" fontWeight="bold" fontSize="40" fill="var(--teal-btn)" transform="rotate(15, 135, 45)">?</text>
-                            </g>
-                        </svg>
+                                {/* 3. MODE FORGOT */}
+                                <g className={`${styles.logoGroup} ${activeForm === 'forgot' ? styles.active : ''}`}>
+                                    <path d="M65,70 L85,90 M85,70 L65,90" stroke="var(--teal-btn)" strokeWidth="4" strokeLinecap="round" />
+                                    <path d="M115,70 L135,90 M135,70 L115,90" stroke="var(--teal-btn)" strokeWidth="4" strokeLinecap="round" />
+                                    <path d="M70,115 Q80,105 90,115 T110,115 T130,115" fill="none" stroke="var(--teal-btn)" strokeWidth="4" strokeLinecap="round" />
+                                    <text x="135" y="45" fontFamily="Arial" fontWeight="bold" fontSize="40" fill="var(--teal-btn)" transform="rotate(15, 135, 45)">?</text>
+                                </g>
+                            </svg>
+                        </div>
+
+                        <div className={styles.brandName}>OTOHUB</div>
+                        <div className={styles.subName}>Smart System</div>
                     </div>
-
-                    <div className={styles.brandName}>OTOHUB</div>
-                    <div className={styles.subName}>Smart System</div>
 
                     {apiError && <div className="text-red-500 mb-4 text-sm font-bold bg-red-100 p-2 rounded">{apiError}</div>}
 
