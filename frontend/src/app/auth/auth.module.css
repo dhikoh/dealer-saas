@@ -1,7 +1,8 @@
 /* --- MAIN CONTAINER --- */
 .container {
     position: relative;
-    width: 350px;
+    width: 100%;
+    max-width: 450px;
     padding: 30px;
 }
 
