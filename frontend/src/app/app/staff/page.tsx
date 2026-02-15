@@ -4,7 +4,7 @@ import React, { useEffect, useState } from 'react';
 import { Plus, Search, Edit2, Trash2, Mail, Phone, X, UserPlus, Check, AlertTriangle } from 'lucide-react';
 import { toast } from 'sonner';
 import { useLanguage } from '@/hooks/useLanguage';
-import { API_URL } from '@/lib/api';
+import { API_URL, fetchApi } from '@/lib/api';
 
 interface Staff {
     id: string;
@@ -45,10 +45,7 @@ export default function StaffPage() {
 
     const fetchStaff = async () => {
         try {
-            const token = localStorage.getItem('access_token');
-            const res = await fetch(`${API_URL}/tenant/staff`, {
-                headers: { 'Authorization': `Bearer ${token}` }
-            });
+            const res = await fetchApi('/tenant/staff');
 
             if (!res.ok) throw new Error('Failed to fetch staff');
 
@@ -70,16 +67,10 @@ export default function StaffPage() {
 
         setSaving(true);
         try {
-            const token = localStorage.getItem('access_token');
-
             if (editingStaff) {
                 // Update existing staff
-                const res = await fetch(`${API_URL}/tenant/staff/${editingStaff.id}`, {
+                const res = await fetchApi(`/tenant/staff/${editingStaff.id}`, {
                     method: 'PUT',
-                    headers: {
-                        'Content-Type': 'application/json',
-                        'Authorization': `Bearer ${token}`
-                    },
                     body: JSON.stringify({
                         name: form.name,
                         phone: form.phone || null,
@@ -95,12 +86,8 @@ export default function StaffPage() {
                 toast.success(t.success);
             } else {
                 // Create new staff
-                const res = await fetch(`${API_URL}/tenant/staff`, {
+                const res = await fetchApi('/tenant/staff', {
                     method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                        'Authorization': `Bearer ${token}`
-                    },
                     body: JSON.stringify({
                         name: form.name,
                         email: form.email,
@@ -132,10 +119,8 @@ export default function StaffPage() {
         setDeleteTargetId(null);
 
         try {
-            const token = localStorage.getItem('access_token');
-            const res = await fetch(`${API_URL}/tenant/staff/${id}`, {
+            const res = await fetchApi(`/tenant/staff/${id}`, {
                 method: 'DELETE',
-                headers: { 'Authorization': `Bearer ${token}` }
             });
 
             if (!res.ok) {

@@ -12,7 +12,7 @@ import {
 } from '@fortawesome/free-solid-svg-icons';
 import { useRouter } from 'next/navigation';
 
-import { API_URL } from '@/lib/api';
+import { API_URL, fetchApi } from '@/lib/api';
 
 export default function SuspendedPage() {
     const router = useRouter();
@@ -22,15 +22,7 @@ export default function SuspendedPage() {
     useEffect(() => {
         const fetchTenantInfo = async () => {
             try {
-                const token = localStorage.getItem('access_token');
-                if (!token) {
-                    router.push('/auth');
-                    return;
-                }
-
-                const res = await fetch(`${API_URL}/tenant/profile`, {
-                    headers: { 'Authorization': `Bearer ${token}` },
-                });
+                const res = await fetchApi('/tenant/profile');
 
                 if (res.ok) {
                     const data = await res.json();
@@ -153,10 +145,12 @@ export default function SuspendedPage() {
                     </a>
 
                     <button
-                        onClick={() => {
-                            localStorage.removeItem('access_token');
-                            localStorage.removeItem('user_info');
-                            router.push('/auth');
+                        onClick={async () => {
+                            try {
+                                await fetchApi('/auth/logout', { method: 'POST' });
+                            } catch (e) { console.error(e); }
+                            // Force reload/redirect
+                            window.location.href = '/auth';
                         }}
                         className="w-full py-3 text-sm text-gray-400 hover:text-gray-600 transition-colors"
                     >

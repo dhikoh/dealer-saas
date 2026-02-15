@@ -42,7 +42,14 @@ export class HttpExceptionFilter implements ExceptionFilter {
                 message = resp.message || exception.message;
                 error = resp.error || 'Error';
                 code = resp.code;
+                code = resp.code;
                 details = resp.details;
+            }
+
+            // Custom Message for Rate Limiting
+            if (status === HttpStatus.TOO_MANY_REQUESTS) {
+                message = 'Terlalu banyak permintaan. Silakan coba lagi nanti.';
+                error = 'Too Many Requests';
             }
         } else if (exception instanceof Error) {
             message = exception.message;

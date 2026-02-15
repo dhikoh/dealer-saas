@@ -12,11 +12,8 @@ import { API_URL } from '@/lib/api';
 import translations, { Language } from '@/lib/translations';
 
 // Helper to set auth cookie for middleware
-function setAuthCookie(token: string) {
-    // Set cookie with 7 days expiry (matching typical JWT expiry)
-    const expires = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toUTCString();
-    document.cookie = `auth_token=${token}; expires=${expires}; path=/; SameSite=Lax`;
-}
+// Helper to set auth cookie for middleware - REMOVED (Handled by Backend)
+// function setAuthCookie(token: string) { ... }
 
 // Helper to clear auth cookie
 function clearAuthCookie() {
@@ -71,12 +68,6 @@ export default function AuthPage() {
 
     useEffect(() => {
         setMounted(true);
-        const savedToken = localStorage.getItem('access_token');
-
-        const savedRemember = localStorage.getItem('remember_me') === 'true';
-        if (savedToken && savedRemember) {
-            router.push('/app');
-        }
 
         // M7: Support ?form=forgot redirect
         const params = new URLSearchParams(window.location.search);
@@ -208,10 +199,9 @@ export default function AuthPage() {
                 if (!res.ok) throw new Error(t.authErrLoginFailed);
 
                 const data = await res.json();
-                localStorage.setItem('access_token', data.access_token);
-                localStorage.setItem('refresh_token', data.refresh_token);
+
+                // Access Token & Refresh Token are now set via HTTP-only Cookies
                 localStorage.setItem('user_info', JSON.stringify(data.user));
-                setAuthCookie(data.access_token); // Set cookie for middleware
 
                 if (rememberMe) {
                     localStorage.setItem('remember_me', 'true');
@@ -251,10 +241,9 @@ export default function AuthPage() {
                 }
 
                 const data = await res.json();
-                localStorage.setItem('access_token', data.access_token);
-                localStorage.setItem('refresh_token', data.refresh_token);
+
+                // Access Token & Refresh Token are now set via HTTP-only Cookies
                 localStorage.setItem('user_info', JSON.stringify(data.user));
-                setAuthCookie(data.access_token); // Set cookie for middleware
 
                 toast.success(t.authAlertSignup);
 
@@ -322,10 +311,9 @@ export default function AuthPage() {
                     }
 
                     const data = await res.json();
-                    localStorage.setItem('access_token', data.access_token);
-                    localStorage.setItem('refresh_token', data.refresh_token);
+
+                    // Access Token & Refresh Token are now set via HTTP-only Cookies
                     localStorage.setItem('user_info', JSON.stringify(data.user));
-                    setAuthCookie(data.access_token);
 
                     toast.success(`Welcome ${data.user.name}!`);
 

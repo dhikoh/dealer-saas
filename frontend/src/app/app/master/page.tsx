@@ -3,7 +3,7 @@
 import React, { useEffect, useState } from 'react';
 import { Plus, Edit2, Trash2, Car, Bike, Truck, Bus, Wrench, Package, CircleDot, X, Search, Settings, Database } from 'lucide-react';
 import { getCategories, addCategory, ICON_OPTIONS, COLOR_OPTIONS, VehicleCategory, VEHICLE_ICONS } from '@/lib/categories';
-import { API_URL } from '@/lib/api';
+import { API_URL, fetchApi } from '@/lib/api';
 import { useLanguage } from '@/hooks/useLanguage';
 import { toast } from 'sonner';
 
@@ -76,11 +76,7 @@ export default function MasterDataPage() {
 
     const fetchBrands = async () => {
         try {
-            const token = localStorage.getItem('access_token');
-            const res = await fetch(
-                `${API_URL}/vehicles/brands/list?category=${activeCategory}`,
-                { headers: { 'Authorization': `Bearer ${token}` } }
-            );
+            const res = await fetchApi(`/vehicles/brands/list?category=${activeCategory}`);
             if (res.ok) {
                 setBrands(await res.json());
             }
@@ -94,13 +90,8 @@ export default function MasterDataPage() {
 
     const handleAddBrand = async () => {
         try {
-            const token = localStorage.getItem('access_token');
-            await fetch(`${API_URL}/vehicles/brands`, {
+            await fetchApi('/vehicles/brands', {
                 method: 'POST',
-                headers: {
-                    'Authorization': `Bearer ${token}`,
-                    'Content-Type': 'application/json',
-                },
                 body: JSON.stringify(brandForm),
             });
             setShowBrandModal(false);
@@ -114,13 +105,8 @@ export default function MasterDataPage() {
     const handleAddModel = async () => {
         if (!selectedBrandId) return;
         try {
-            const token = localStorage.getItem('access_token');
-            await fetch(`${API_URL}/vehicles/models`, {
+            await fetchApi('/vehicles/models', {
                 method: 'POST',
-                headers: {
-                    'Authorization': `Bearer ${token}`,
-                    'Content-Type': 'application/json',
-                },
                 body: JSON.stringify({
                     brandId: selectedBrandId,
                     name: modelForm.name,
@@ -152,12 +138,8 @@ export default function MasterDataPage() {
     const handleSeedData = async () => {
         try {
             setLoading(true);
-            const token = localStorage.getItem('access_token');
-            const res = await fetch(`${API_URL}/vehicles/seed-master-data`, {
+            const res = await fetchApi('/vehicles/seed-master-data', {
                 method: 'POST',
-                headers: {
-                    'Authorization': `Bearer ${token}`,
-                },
             });
             if (res.ok) {
                 toast.success(language === 'id' ? 'Master Data berhasil ditambahkan' : 'Master Data seeded successfully');

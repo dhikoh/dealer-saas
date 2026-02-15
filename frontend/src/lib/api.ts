@@ -11,35 +11,49 @@ let isRefreshing = false;
 let refreshPromise: Promise<boolean> | null = null;
 
 export function getAuthHeaders(): Record<string, string> {
-    const token = typeof window !== 'undefined' ? localStorage.getItem('access_token') : null;
-    return token ? { 'Authorization': `Bearer ${token}` } : {};
+    // Legacy support: if token exists in localStorage, use it.
+    // But primary method is now HTTP-only cookies.
+    if (typeof window !== 'undefined') {
+        const token = localStorage.getItem('access_token');
+        if (token) return { 'Authorization': `Bearer ${token}` };
+    }
+    return {};
 }
 
 /**
- * Attempt to refresh the access token using stored refresh_token.
- * Returns true if refresh succeeded, false if it failed.
+ * Attempt to refresh the access token.
+ * Note: With HTTP-only cookies, the refresh endpoint should also rely on cookies.
+ * We keep this for legacy/hybrid support, but ensure credentials are sent.
  */
 async function tryRefreshToken(): Promise<boolean> {
-    const refreshToken = localStorage.getItem('refresh_token');
-    if (!refreshToken) return false;
-
     try {
+        // We only need body if using legacy refresh token from localStorage
+        // If using cookies, the refresh token should also be a cookie (usually).
+        // For now, let's assume the backend handles the cookie-based refresh if no body is sent,
+        // OR we send the localStorage refresh token if available.
+
+        const refreshToken = typeof window !== 'undefined' ? localStorage.getItem('refresh_token') : null;
+        const body = refreshToken ? JSON.stringify({ refresh_token: refreshToken }) : undefined;
+
         const res = await fetch(`${API_URL}/auth/refresh`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ refresh_token: refreshToken }),
+            body,
+            credentials: 'include', // IMPORTANT: Send cookies
         });
 
         if (!res.ok) return false;
 
         const data = await res.json();
-        localStorage.setItem('access_token', data.access_token);
-        localStorage.setItem('refresh_token', data.refresh_token);
+
+        // If backend returns new tokens for localStorage (hybrid), save them
+        if (data.access_token) localStorage.setItem('access_token', data.access_token);
+        if (data.refresh_token) localStorage.setItem('refresh_token', data.refresh_token);
+
         if (data.user) {
             localStorage.setItem('user_info', JSON.stringify(data.user));
         }
-        // Update auth cookie for middleware
-        document.cookie = `auth_token=${data.access_token}; path=/; max-age=${60 * 60 * 24 * 7}; SameSite=Lax`;
+
         return true;
     } catch {
         return false;
@@ -47,11 +61,12 @@ async function tryRefreshToken(): Promise<boolean> {
 }
 
 function clearAuthAndRedirect() {
-    localStorage.removeItem('access_token');
-    localStorage.removeItem('refresh_token');
-    localStorage.removeItem('user_info');
-    document.cookie = 'auth_token=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;';
-    window.location.href = '/auth';
+    if (typeof window !== 'undefined') {
+        localStorage.removeItem('access_token');
+        localStorage.removeItem('refresh_token');
+        localStorage.removeItem('user_info');
+        window.location.href = '/auth';
+    }
 }
 
 /**
@@ -69,7 +84,14 @@ export async function fetchApi(
         ...(options.headers as Record<string, string> || {}),
     };
 
-    const res = await fetch(url, { ...options, headers });
+    // IMPORTANT: Include credentials (cookies) for cross-origin requests
+    const fetchOptions: RequestInit = {
+        ...options,
+        headers,
+        credentials: 'include',
+    };
+
+    const res = await fetch(url, fetchOptions);
 
     if (res.status === 401 && typeof window !== 'undefined') {
         // Deduplicate concurrent refresh attempts
@@ -84,12 +106,12 @@ export async function fetchApi(
         const refreshed = await (refreshPromise || tryRefreshToken());
 
         if (refreshed) {
-            // Retry original request with new token
+            // Retry original request with new token (or just cookies)
             const retryHeaders: Record<string, string> = {
                 ...getAuthHeaders(),
                 ...(options.headers as Record<string, string> || {}),
             };
-            return fetch(url, { ...options, headers: retryHeaders });
+            return fetch(url, { ...fetchOptions, headers: retryHeaders });
         }
 
         // Refresh failed — full logout

@@ -11,6 +11,7 @@ import { TenantModule } from './tenant/tenant.module';
 import { TenantMiddleware } from './middleware/tenant.middleware';
 import { AuthModule } from './auth/auth.module';
 import { EmailModule } from './email/email.module';
+
 import { VehicleModule } from './vehicle/vehicle.module';
 import { CustomerModule } from './customer/customer.module';
 import { CreditModule } from './credit/credit.module';
@@ -112,6 +113,7 @@ import { FinanceModule } from './finance/finance.module';
       provide: APP_GUARD,
       useClass: UserStateGuard,
     },
+
   ],
 })
 export class AppModule {

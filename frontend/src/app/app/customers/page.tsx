@@ -23,7 +23,7 @@ import {
 import CustomerDocumentUploader from '@/components/customers/CustomerDocumentUploader';
 import { useLanguage } from '@/hooks/useLanguage';
 import { toast } from 'sonner';
-import { API_URL } from '@/lib/api';
+import { API_URL, fetchApi } from '@/lib/api';
 
 interface Customer {
     id: string;
@@ -95,20 +95,15 @@ export default function CustomersPage() {
     const [customerDocs, setCustomerDocs] = useState<Record<string, string>>({});
     const [ktpFile, setKtpFile] = useState<File | null>(null);
 
-    const getToken = () => localStorage.getItem('access_token');
+
 
     useEffect(() => {
         fetchCustomers();
     }, []);
 
     const fetchCustomers = async () => {
-        const token = getToken();
-        if (!token) return;
-
         try {
-            const res = await fetch(`${API_URL}/customers`, {
-                headers: { Authorization: `Bearer ${token}` },
-            });
+            const res = await fetchApi('/customers');
             if (res.ok) {
                 setCustomers(await res.json());
             }
@@ -133,9 +128,6 @@ export default function CustomersPage() {
         e.preventDefault();
         if (submitting) return;
 
-        const token = getToken();
-        if (!token) return;
-
         // KTP validation
         if (form.ktpNumber && !/^\d{16}$/.test(form.ktpNumber)) {
             toast.error('No. KTP harus 16 digit angka');
@@ -145,12 +137,8 @@ export default function CustomersPage() {
         setSubmitting(true);
         try {
             // 1. Create Customer
-            const res = await fetch(`${API_URL}/customers`, {
+            const res = await fetchApi('/customers', {
                 method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    Authorization: `Bearer ${token}`,
-                },
                 body: JSON.stringify(form),
             });
 
@@ -178,21 +166,16 @@ export default function CustomersPage() {
                         const formData = new FormData();
                         formData.append('document', file);
 
-                        const uploadRes = await fetch(`${API_URL}/upload/customer/${newCustomer.id}/${docType}`, {
+                        const uploadRes = await fetchApi(`/upload/customer/${newCustomer.id}/${docType}`, {
                             method: 'POST',
-                            headers: { Authorization: `Bearer ${token}` },
                             body: formData,
                         });
 
                         if (uploadRes.ok) {
                             const uploadData = await uploadRes.json();
                             // Update customer with URL
-                            await fetch(`${API_URL}/customers/${newCustomer.id}`, {
+                            await fetchApi(`/customers/${newCustomer.id}`, {
                                 method: 'PUT',
-                                headers: {
-                                    'Content-Type': 'application/json',
-                                    Authorization: `Bearer ${token}`,
-                                },
                                 body: JSON.stringify({ [key]: uploadData.url }),
                             });
                         }
@@ -220,18 +203,13 @@ export default function CustomersPage() {
         e.preventDefault();
         if (submitting) return;
 
-        const token = getToken();
-        if (!token || !editTarget) return;
+        if (!editTarget) return;
 
         setSubmitting(true);
         try {
             // 1. Update Basic Info
-            const res = await fetch(`${API_URL}/customers/${editTarget.id}`, {
+            const res = await fetchApi(`/customers/${editTarget.id}`, {
                 method: 'PUT',
-                headers: {
-                    'Content-Type': 'application/json',
-                    Authorization: `Bearer ${token}`,
-                },
                 body: JSON.stringify(editForm),
             });
 
@@ -253,13 +231,11 @@ export default function CustomersPage() {
     };
 
     const handleDeleteCustomer = async () => {
-        const token = getToken();
-        if (!token || !deleteTarget) return;
+        if (!deleteTarget) return;
 
         try {
-            const res = await fetch(`${API_URL}/customers/${deleteTarget.id}`, {
+            const res = await fetchApi(`/customers/${deleteTarget.id}`, {
                 method: 'DELETE',
-                headers: { Authorization: `Bearer ${token}` },
             });
 
             if (res.ok) {
@@ -276,14 +252,11 @@ export default function CustomersPage() {
     };
 
     const handleCheckBlacklist = async (ktp: string) => {
-        const token = getToken();
-        if (!token || !ktp) return;
+        if (!ktp) return;
 
         setCheckLoading(true);
         try {
-            const res = await fetch(`${API_URL}/blacklist/check/${ktp}`, {
-                headers: { Authorization: `Bearer ${token}` },
-            });
+            const res = await fetchApi(`/blacklist/check/${ktp}`);
             if (res.ok) {
                 setBlacklistCheck(await res.json());
             }
@@ -295,14 +268,9 @@ export default function CustomersPage() {
     };
 
     const handleExportPdf = async (customerId: string, customerName: string) => {
-        const token = getToken();
-        if (!token) return;
-
         const toastId = toast.loading('Mengunduh PDF...');
         try {
-            const res = await fetch(`${API_URL}/customers/${customerId}/pdf`, {
-                headers: { Authorization: `Bearer ${token}` },
-            });
+            const res = await fetchApi(`/customers/${customerId}/pdf`);
 
             if (res.ok) {
                 const blob = await res.blob();
@@ -325,16 +293,11 @@ export default function CustomersPage() {
     };
 
     const handleAddToBlacklist = async () => {
-        const token = getToken();
-        if (!token || !selectedCustomer) return;
+        if (!selectedCustomer) return;
 
         try {
-            const res = await fetch(`${API_URL}/blacklist`, {
+            const res = await fetchApi('/blacklist', {
                 method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    Authorization: `Bearer ${token}`,
-                },
                 body: JSON.stringify({
                     ktpNumber: selectedCustomer.ktpNumber,
                     customerName: selectedCustomer.name,

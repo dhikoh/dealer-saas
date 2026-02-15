@@ -7,7 +7,8 @@ import { usePathname } from 'next/navigation';
 import { useLanguage, Language } from '@/hooks/useLanguage';
 import { faSearch, faBell, faMoon, faSun, faGlobe, faTimes, faCar, faUser, faCalendar, faMoneyBill, faChartLine, faCheck, faBuilding } from '@fortawesome/free-solid-svg-icons';
 
-import { API_URL } from '@/lib/api';
+import { fetchApi } from '@/lib/api';
+import { useAuthProtection } from '@/hooks/useAuthProtection';
 
 interface Notification {
     id: string;
@@ -29,7 +30,7 @@ interface SearchResult {
 }
 
 export default function Header() {
-    const [user, setUser] = useState<{ name: string, email: string } | null>(null);
+    const { user } = useAuthProtection();
     const [theme, setTheme] = useState<'light' | 'dark'>('light');
     const [showNotifications, setShowNotifications] = useState(false);
     const [showSearch, setShowSearch] = useState(false);
@@ -54,12 +55,7 @@ export default function Header() {
     // Fetch notifications from API
     const fetchNotifications = useCallback(async () => {
         try {
-            const token = localStorage.getItem('access_token');
-            if (!token) return;
-
-            const res = await fetch(`${API_URL}/notifications`, {
-                headers: { 'Authorization': `Bearer ${token}` }
-            });
+            const res = await fetchApi('/notifications');
 
             if (res.ok) {
                 const data = await res.json();
@@ -91,10 +87,7 @@ export default function Header() {
     };
 
     useEffect(() => {
-        const storedUser = localStorage.getItem('user_info');
-        if (storedUser) {
-            setUser(JSON.parse(storedUser));
-        }
+        // User is now handled by useAuthProtection
 
         const storedTheme = localStorage.getItem('otohub_theme') as 'light' | 'dark' | null;
         if (storedTheme) {
@@ -103,16 +96,14 @@ export default function Header() {
         }
 
         // Initial fetch
-        fetchNotifications();
+        if (user) {
+            fetchNotifications();
+        }
 
         // Check for Group Owner status
         const checkGroupStatus = async () => {
-            const token = localStorage.getItem('access_token');
-            if (!token) return;
             try {
-                const res = await fetch(`${API_URL}/dealer-groups/my`, {
-                    headers: { 'Authorization': `Bearer ${token}` }
-                });
+                const res = await fetchApi('/dealer-groups/my');
                 if (res.ok) {
                     const data = await res.json();
                     if (data?.group && data.group.role === 'OWNER') {
@@ -123,7 +114,10 @@ export default function Header() {
                 console.error('Failed to check group status', e);
             }
         };
-        checkGroupStatus();
+
+        if (user) {
+            checkGroupStatus();
+        }
 
         // Keyboard shortcut for search
         const handleKeyDown = (e: KeyboardEvent) => {
@@ -141,7 +135,7 @@ export default function Header() {
         };
         window.addEventListener('keydown', handleKeyDown);
         return () => window.removeEventListener('keydown', handleKeyDown);
-    }, [fetchNotifications]);
+    }, [fetchNotifications, user]);
 
     // Refetch when notifications panel opens
     useEffect(() => {
@@ -193,12 +187,7 @@ export default function Header() {
         if (searchTimerRef.current) clearTimeout(searchTimerRef.current);
         searchTimerRef.current = setTimeout(async () => {
             try {
-                const token = localStorage.getItem('access_token');
-                if (!token) return;
-
-                const res = await fetch(`${API_URL}/search?q=${encodeURIComponent(query)}&limit=8`, {
-                    headers: { 'Authorization': `Bearer ${token}` },
-                });
+                const res = await fetchApi(`/search?q=${encodeURIComponent(query)}&limit=8`);
 
                 if (res.ok) {
                     const data = await res.json();
@@ -217,10 +206,8 @@ export default function Header() {
 
     const markAllRead = async () => {
         try {
-            const token = localStorage.getItem('access_token');
-            await fetch(`${API_URL}/notifications/mark-all-read`, {
+            await fetchApi('/notifications/mark-all-read', {
                 method: 'POST',
-                headers: { 'Authorization': `Bearer ${token}` }
             });
             setNotifications(notifications.map(n => ({ ...n, read: true })));
             setUnreadCount(0);

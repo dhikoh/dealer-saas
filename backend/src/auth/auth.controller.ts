@@ -1,34 +1,53 @@
-import { Controller, Post, Get, Put, Body, HttpCode, HttpStatus, Request } from '@nestjs/common';
+import { Controller, Post, Get, Put, Body, HttpCode, HttpStatus, Request, Res, UseGuards } from '@nestjs/common';
 import { Throttle } from '@nestjs/throttler';
+import type { Response } from 'express';
 import { AuthService } from './auth.service';
 import { CreateAuthDto } from './dto/create-auth.dto';
 import { Public } from './public.decorator';
 import { AllowUnonboarded } from './user-state.decorator';
 
+
 @Controller('auth')
 export class AuthController {
   constructor(private readonly authService: AuthService) { }
 
+  private setCookie(response: Response, token: string) {
+    response.cookie('auth_token', token, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === 'production',
+      sameSite: 'lax',
+      path: '/',
+      maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
+    });
+  }
+
   @Public()
   @Post('register')
-  register(@Body() createAuthDto: CreateAuthDto) {
-    return this.authService.register(createAuthDto);
+  async register(@Body() createAuthDto: CreateAuthDto, @Res({ passthrough: true }) response: Response) {
+    const data = await this.authService.register(createAuthDto);
+    this.setCookie(response, data.access_token);
+    return data;
   }
+
 
   @Public()
   @HttpCode(HttpStatus.OK)
   @Throttle({ default: { limit: 5, ttl: 60000 } }) // Limit: 5 requests per minute
   @Post('login')
-  login(@Body() loginDto: { email: string; password: string }) {
-    return this.authService.login(loginDto);
+  async login(@Body() loginDto: { email: string; password: string }, @Res({ passthrough: true }) response: Response) {
+    const data = await this.authService.login(loginDto);
+    this.setCookie(response, data.access_token);
+    return data;
   }
 
   @Public()
   @HttpCode(HttpStatus.OK)
   @Throttle({ default: { limit: 5, ttl: 60000 } })
   @Post('verify')
-  verify(@Body() body: { email: string; code: string }) {
-    return this.authService.verifyEmail(body.email, body.code);
+  async verify(@Body() body: { email: string; code: string }, @Res({ passthrough: true }) response: Response) {
+    const data = await this.authService.verifyEmail(body.email, body.code);
+    this.setCookie(response, data.access_token);
+    return data;
   }
 
   @Public()
@@ -50,8 +69,8 @@ export class AuthController {
     domicileAddress: string;
     officeAddress: string;
     language: string;
-  }, @Request() req) {
-    return this.authService.completeOnboarding(req.user.userId, {
+  }, @Request() req, @Res({ passthrough: true }) response: Response) {
+    const data = await this.authService.completeOnboarding(req.user.userId, {
       fullName: body.fullName,
       phone: body.phone,
       dealerName: body.dealerName,
@@ -60,6 +79,8 @@ export class AuthController {
       officeAddress: body.officeAddress,
       language: body.language
     });
+    this.setCookie(response, data.access_token);
+    return data;
   }
 
 
@@ -92,8 +113,10 @@ export class AuthController {
   @Public()
   @HttpCode(HttpStatus.OK)
   @Post('google')
-  async googleLogin(@Body() body: { credential: string }) {
-    return this.authService.googleLogin(body.credential);
+  async googleLogin(@Body() body: { credential: string }, @Res({ passthrough: true }) response: Response) {
+    const data = await this.authService.googleLogin(body.credential);
+    this.setCookie(response, data.access_token);
+    return data;
   }
 
   // ==================== FORGOT / RESET PASSWORD ====================
@@ -115,13 +138,16 @@ export class AuthController {
   @Public()
   @HttpCode(HttpStatus.OK)
   @Post('refresh')
-  async refresh(@Body() body: { refresh_token: string }) {
-    return this.authService.refreshToken(body.refresh_token);
+  async refresh(@Body() body: { refresh_token: string }, @Res({ passthrough: true }) response: Response) {
+    const data = await this.authService.refreshToken(body.refresh_token);
+    this.setCookie(response, data.access_token);
+    return data;
   }
 
   @HttpCode(HttpStatus.OK)
   @Post('logout')
-  async logout(@Body() body: { refresh_token: string }) {
+  async logout(@Body() body: { refresh_token: string }, @Res({ passthrough: true }) response: Response) {
+    response.clearCookie('auth_token');
     return this.authService.logout(body.refresh_token);
   }
 }

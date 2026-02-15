@@ -90,13 +90,7 @@ function VerifyPageContent() {
 
             const data = await res.json();
 
-            // Store auth token so user can access onboarding
-            if (data.access_token) {
-                localStorage.setItem('access_token', data.access_token);
-            }
-            if (data.refresh_token) {
-                localStorage.setItem('refresh_token', data.refresh_token);
-            }
+            // Store user info for UI display
             if (data.user) {
                 localStorage.setItem('user_info', JSON.stringify(data.user));
             }

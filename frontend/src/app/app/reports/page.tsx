@@ -44,7 +44,7 @@ interface PerformanceMetrics {
     totalSold: number;
 }
 
-import { API_URL as API_BASE } from '@/lib/api';
+import { API_URL as API_BASE, fetchApi } from '@/lib/api';
 
 export default function ReportsPage() {
     const { t } = useLanguage();
@@ -62,22 +62,16 @@ export default function ReportsPage() {
         fetchData();
     }, [period]);
 
-    const getHeaders = () => {
-        const token = localStorage.getItem('access_token');
-        return { 'Authorization': `Bearer ${token}` };
-    };
-
     const fetchData = async () => {
         setLoading(true);
-        const headers = getHeaders();
 
         try {
             const [statsRes, salesRes, brandsRes, catRes, perfRes] = await Promise.allSettled([
-                fetch(`${API_BASE}/analytics/dashboard`, { headers }),
-                fetch(`${API_BASE}/analytics/monthly-sales?months=${period}`, { headers }),
-                fetch(`${API_BASE}/analytics/top-brands?months=${period}`, { headers }),
-                fetch(`${API_BASE}/analytics/revenue-breakdown?months=${period}`, { headers }),
-                fetch(`${API_BASE}/analytics/performance`, { headers }),
+                fetchApi(`/analytics/dashboard`),
+                fetchApi(`/analytics/monthly-sales?months=${period}`),
+                fetchApi(`/analytics/top-brands?months=${period}`),
+                fetchApi(`/analytics/revenue-breakdown?months=${period}`),
+                fetchApi(`/analytics/performance`),
             ]);
 
             if (statsRes.status === 'fulfilled' && statsRes.value.ok) {
@@ -105,10 +99,7 @@ export default function ReportsPage() {
 
     const handleExport = async (entity: 'vehicles' | 'customers' | 'transactions') => {
         try {
-            const token = localStorage.getItem('access_token');
-            const response = await fetch(`${API_BASE}/export/${entity}`, {
-                headers: { 'Authorization': `Bearer ${token}` },
-            });
+            const response = await fetchApi(`/export/${entity}`);
 
             if (!response.ok) throw new Error('Export gagal');
 

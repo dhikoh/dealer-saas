@@ -2,7 +2,7 @@
 
 import React, { useEffect, useState } from 'react';
 import { Download, Eye, CheckCircle, XCircle, FileText, AlertCircle, Plus, X } from 'lucide-react';
-import { API_URL } from '@/lib/api';
+import { fetchApi } from '@/lib/api';
 import ConfirmDialog from '@/components/ui/ConfirmDialog';
 
 import { SystemInvoice, Tenant } from '@/types/superadmin';
@@ -61,16 +61,14 @@ export default function InvoicesPage() {
         }
     }, [toast]);
 
-    const getToken = () => localStorage.getItem('access_token');
+    // const getToken = () => localStorage.getItem('access_token'); // Removed
 
     const fetchInvoices = async () => {
         try {
             const params = new URLSearchParams();
             if (statusFilter) params.append('status', statusFilter);
 
-            const res = await fetch(`${API_URL}/superadmin/invoices?${params}`, {
-                headers: { 'Authorization': `Bearer ${getToken()}` },
-            });
+            const res = await fetchApi(`/superadmin/invoices?${params}`);
 
             if (!res.ok) throw new Error('Failed to fetch invoices');
             const data = await res.json();
@@ -86,9 +84,7 @@ export default function InvoicesPage() {
 
     const fetchTenants = async () => {
         try {
-            const res = await fetch(`${API_URL}/superadmin/tenants`, {
-                headers: { 'Authorization': `Bearer ${getToken()}` },
-            });
+            const res = await fetchApi('/superadmin/tenants');
             if (!res.ok) return;
             const data = await res.json();
             setTenants(data);
@@ -99,9 +95,8 @@ export default function InvoicesPage() {
         if (!confirmVerify) return;
         setVerifyLoading(true);
         try {
-            const res = await fetch(`${API_URL}/superadmin/invoices/${confirmVerify.id}/verify`, {
+            const res = await fetchApi(`/superadmin/invoices/${confirmVerify.id}/verify`, {
                 method: 'POST',
-                headers: { 'Authorization': `Bearer ${getToken()}`, 'Content-Type': 'application/json' },
                 body: JSON.stringify({ approved: confirmVerify.approved }),
             });
             if (!res.ok) throw new Error('Verification failed');
@@ -122,9 +117,8 @@ export default function InvoicesPage() {
         }
         setCreateLoading(true);
         try {
-            const res = await fetch(`${API_URL}/superadmin/invoices`, {
+            const res = await fetchApi('/superadmin/invoices', {
                 method: 'POST',
-                headers: { 'Authorization': `Bearer ${getToken()}`, 'Content-Type': 'application/json' },
                 body: JSON.stringify(createForm),
             });
             if (!res.ok) throw new Error('Create failed');
@@ -284,9 +278,7 @@ export default function InvoicesPage() {
                                                 <button
                                                     onClick={async () => {
                                                         try {
-                                                            const res = await fetch(`${API_URL}/pdf/invoice/${inv.id}`, {
-                                                                headers: { 'Authorization': `Bearer ${getToken()}` },
-                                                            });
+                                                            const res = await fetchApi(`/pdf/invoice/${inv.id}`);
                                                             if (!res.ok) throw new Error('Download failed');
                                                             const blob = await res.blob();
                                                             const url = URL.createObjectURL(blob);

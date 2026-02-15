@@ -16,7 +16,7 @@ import { useLanguage } from '@/hooks/useLanguage';
 import { useCurrency } from '@/hooks/useCurrency';
 import { toast } from 'sonner';
 
-import { API_URL } from '@/lib/api';
+import { API_URL, fetchApi } from '@/lib/api';
 
 export default function StatsPage() {
     const { t } = useLanguage();
@@ -37,25 +37,15 @@ export default function StatsPage() {
     }, []);
 
     const fetchStats = async () => {
-        const token = localStorage.getItem('access_token');
-        if (!token) return;
-        const headers = { 'Authorization': `Bearer ${token}` };
+        setLoading(true);
 
         try {
             // Fetch vehicle stats + transaction stats + monthly sales in parallel
             const [vehicleRes, txStatsRes, monthlyRes] = await Promise.all([
-                fetch(`${API_URL}/vehicles`, { headers }).catch(() => null),
-                fetch(`${API_URL}/transactions/stats`, { headers }).catch(() => null),
-                fetch(`${API_URL}/transactions/reports/monthly?months=6`, { headers }).catch(() => null),
+                fetchApi(`/vehicles`).catch(() => null),
+                fetchApi(`/transactions/stats`).catch(() => null),
+                fetchApi(`/transactions/reports/monthly?months=6`).catch(() => null),
             ]);
-
-            // Handle 401 from any response
-            if (vehicleRes?.status === 401 || txStatsRes?.status === 401) {
-                localStorage.removeItem('access_token');
-                localStorage.removeItem('user_info');
-                window.location.href = '/auth';
-                return;
-            }
 
             // Process vehicles
             let totalVehicles = 0;

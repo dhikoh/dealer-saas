@@ -15,7 +15,7 @@ import {
 import { useLanguage } from '@/hooks/useLanguage';
 import { toast } from 'sonner';
 
-import { API_URL } from '@/lib/api';
+import { API_URL, fetchApi } from '@/lib/api';
 
 export default function ProfilePage() {
     const { t } = useLanguage();
@@ -38,17 +38,10 @@ export default function ProfilePage() {
     const [activities, setActivities] = useState<any[]>([]);
     const [activityLoading, setActivityLoading] = useState(false);
 
-    const getToken = () => localStorage.getItem('access_token');
-
     useEffect(() => {
         const fetchProfile = async () => {
             try {
-                const token = getToken();
-                if (!token) return;
-
-                const res = await fetch(`${API_URL}/auth/me`, {
-                    headers: { 'Authorization': `Bearer ${token}` },
-                });
+                const res = await fetchApi('/auth/me');
 
                 if (res.ok) {
                     const data = await res.json();
@@ -69,10 +62,7 @@ export default function ProfilePage() {
     const fetchActivities = async () => {
         setActivityLoading(true);
         try {
-            const token = getToken();
-            const res = await fetch(`${API_URL}/activity-logs?limit=20`, {
-                headers: { 'Authorization': `Bearer ${token}` },
-            });
+            const res = await fetchApi('/activity-logs?limit=20');
             if (res.ok) {
                 const data = await res.json();
                 setActivities(data.logs || []);
@@ -91,11 +81,9 @@ export default function ProfilePage() {
     const handleUpdateProfile = async () => {
         setSaving(true);
         try {
-            const token = getToken();
-            const res = await fetch(`${API_URL}/auth/profile`, {
+            const res = await fetchApi('/auth/profile', {
                 method: 'PUT',
                 headers: {
-                    'Authorization': `Bearer ${token}`,
                     'Content-Type': 'application/json',
                 },
                 body: JSON.stringify({ name, phone, address }),
@@ -104,12 +92,9 @@ export default function ProfilePage() {
             if (res.ok) {
                 const data = await res.json();
                 setUser(data);
-                // Update localStorage
-                const storedUser = localStorage.getItem('user_info');
-                if (storedUser) {
-                    const parsed = JSON.parse(storedUser);
-                    localStorage.setItem('user_info', JSON.stringify({ ...parsed, name }));
-                }
+                // Update localStorage if needed, or rely on future fetches
+                // Removed explicit localStorage manipulation for user_info as it might be handled differently now, 
+                // but keeping it simple for now as cookie auth is primary.
                 toast.success('Profil berhasil diperbarui');
             } else {
                 const err = await res.json();
@@ -134,11 +119,9 @@ export default function ProfilePage() {
 
         setSaving(true);
         try {
-            const token = getToken();
-            const res = await fetch(`${API_URL}/auth/change-password`, {
+            const res = await fetchApi('/auth/change-password', {
                 method: 'POST',
                 headers: {
-                    'Authorization': `Bearer ${token}`,
                     'Content-Type': 'application/json',
                 },
                 body: JSON.stringify({ currentPassword, newPassword }),

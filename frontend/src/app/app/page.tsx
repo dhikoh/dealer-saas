@@ -16,7 +16,7 @@ import {
 import { useLanguage } from '@/hooks/useLanguage';
 import { useCurrency } from '@/hooks/useCurrency';
 import Link from 'next/link';
-import { API_URL } from '@/lib/api';
+import { fetchApi } from '@/lib/api';
 import SubscriptionWidget from '@/components/dashboard/SubscriptionWidget';
 
 interface Reminder {
@@ -78,17 +78,10 @@ export default function DashboardPage() {
 
     useEffect(() => {
         const fetchData = async () => {
-            const token = localStorage.getItem('access_token');
-            if (!token) return;
-
             try {
                 const [reminderRes, statsRes] = await Promise.all([
-                    fetch(`${API_URL}/reminders`, {
-                        headers: { Authorization: `Bearer ${token}` },
-                    }),
-                    fetch(`${API_URL}/vehicles/stats`, {
-                        headers: { Authorization: `Bearer ${token}` },
-                    }),
+                    fetchApi('/reminders'),
+                    fetchApi('/vehicles/stats'),
                 ]);
 
                 if (reminderRes.ok) {

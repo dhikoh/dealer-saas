@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import { fetchApi } from '@/lib/api';
 import { useRouter } from 'next/navigation';
 import { Plus, Trash2, Edit2, Check, X, Building2, QrCode, CreditCard } from 'lucide-react';
 import { toast } from 'sonner';
@@ -27,7 +28,7 @@ export default function PaymentMethodsPage() {
     });
     const [editId, setEditId] = useState<string | null>(null);
 
-    const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
+    // const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000'; // Managed by fetchApi
 
     useEffect(() => {
         fetchMethods();
@@ -35,10 +36,7 @@ export default function PaymentMethodsPage() {
 
     const fetchMethods = async () => {
         try {
-            const token = localStorage.getItem('access_token');
-            const res = await fetch(`${API_URL}/payment-methods/admin/all`, {
-                headers: { Authorization: `Bearer ${token}` }
-            });
+            const res = await fetchApi('/payment-methods/admin/all');
             if (res.ok) {
                 const data = await res.json();
                 setMethods(data);
@@ -53,19 +51,14 @@ export default function PaymentMethodsPage() {
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
         try {
-            const token = localStorage.getItem('access_token');
-            const url = editId
-                ? `${API_URL}/payment-methods/admin/${editId}`
-                : `${API_URL}/payment-methods/admin`;
+            const endpoint = editId
+                ? `/payment-methods/admin/${editId}`
+                : `/payment-methods/admin`;
 
             const method = editId ? 'PATCH' : 'POST';
 
-            const res = await fetch(url, {
+            const res = await fetchApi(endpoint, {
                 method,
-                headers: {
-                    'Content-Type': 'application/json',
-                    Authorization: `Bearer ${token}`
-                },
                 body: JSON.stringify(formData)
             });
 
@@ -86,10 +79,8 @@ export default function PaymentMethodsPage() {
     const handleDelete = async (id: string) => {
         if (!confirm('Are you sure?')) return;
         try {
-            const token = localStorage.getItem('access_token');
-            await fetch(`${API_URL}/payment-methods/admin/${id}`, {
+            await fetchApi(`/payment-methods/admin/${id}`, {
                 method: 'DELETE',
-                headers: { Authorization: `Bearer ${token}` }
             });
             toast.success('Deleted successfully');
             fetchMethods();
@@ -103,13 +94,8 @@ export default function PaymentMethodsPage() {
         setMethods(prev => prev.map(m => m.id === id ? { ...m, isActive: !currentStatus } : m));
 
         try {
-            const token = localStorage.getItem('access_token');
-            await fetch(`${API_URL}/payment-methods/admin/${id}/toggle`, {
+            await fetchApi(`/payment-methods/admin/${id}/toggle`, {
                 method: 'PATCH',
-                headers: {
-                    'Content-Type': 'application/json',
-                    Authorization: `Bearer ${token}`
-                },
                 body: JSON.stringify({ isActive: !currentStatus })
             });
         } catch {

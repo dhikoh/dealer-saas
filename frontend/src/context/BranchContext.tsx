@@ -2,7 +2,7 @@
 'use client';
 
 import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
-import { API_URL } from '@/lib/api';
+import { fetchApi } from '@/lib/api';
 
 export interface Branch {
     id: string;
@@ -29,26 +29,7 @@ export function BranchProvider({ children }: { children: React.ReactNode }) {
 
     const refreshBranches = useCallback(async () => {
         try {
-            const token = localStorage.getItem('access_token');
-            if (!token) {
-                setIsLoading(false);
-                return;
-            }
-
-            const res = await fetch(`${API_URL}/branches`, {
-                headers: { 'Authorization': `Bearer ${token}` }
-            });
-
-            if (res.status === 401) {
-                // Token is stale/expired – clean up silently
-                localStorage.removeItem('access_token');
-                localStorage.removeItem('refresh_token');
-                localStorage.removeItem('user_info');
-                localStorage.removeItem('remember_me');
-                document.cookie = 'auth_token=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;';
-                setIsLoading(false);
-                return;
-            }
+            const res = await fetchApi('/branches');
 
             if (res.ok) {
                 const data = await res.json();

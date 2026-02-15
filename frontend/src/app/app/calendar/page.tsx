@@ -3,7 +3,7 @@
 import React, { useState, useEffect } from 'react';
 import { ChevronLeft, ChevronRight, Plus, X } from 'lucide-react';
 import { toast } from 'sonner';
-import { API_URL } from '@/lib/api';
+import { API_URL, fetchApi } from '@/lib/api';
 import { useLanguage } from '@/hooks/useLanguage';
 import { useCurrency } from '@/hooks/useCurrency';
 
@@ -82,10 +82,7 @@ export default function CalendarPage() {
     useEffect(() => {
         const fetchReminders = async () => {
             try {
-                const token = localStorage.getItem('access_token');
-                const res = await fetch(`${API_URL}/reminders`, {
-                    headers: { 'Authorization': `Bearer ${token}` }
-                });
+                const res = await fetchApi('/reminders');
 
                 const apiEvents: CalendarEvent[] = [];
 
@@ -113,11 +110,6 @@ export default function CalendarPage() {
                             description: `${t.installment} ${fmt(r.monthlyPayment || 0)}`,
                         });
                     });
-                } else if (res.status === 401) {
-                    localStorage.removeItem('access_token');
-                    localStorage.removeItem('user_info');
-                    window.location.href = '/auth';
-                    return;
                 }
 
                 // Merge API events + manual events from localStorage

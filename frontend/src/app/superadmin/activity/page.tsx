@@ -1,6 +1,6 @@
 'use client';
 import { useEffect, useState, useCallback } from 'react';
-import { API_URL } from '@/lib/api';
+import { fetchApi } from '@/lib/api';
 import { Activity, Search, ShieldAlert, User, Database, CreditCard, ChevronLeft, ChevronRight } from 'lucide-react';
 
 interface ActivityLog {
@@ -38,15 +38,13 @@ export default function ActivityLogPage() {
     const [totalPages, setTotalPages] = useState(1);
     const [limit] = useState(20);
 
-    const token = typeof window !== 'undefined' ? localStorage.getItem('access_token') : null;
+    // const token = typeof window !== 'undefined' ? localStorage.getItem('access_token') : null; // Removed
 
     const fetchLogs = useCallback(async () => {
         setLoading(true);
         try {
             // Using the paginated endpoint we added
-            const res = await fetch(`${API_URL}/superadmin/activity/full?page=${page}&limit=${limit}`, {
-                headers: { 'Authorization': `Bearer ${token}` },
-            });
+            const res = await fetchApi(`/superadmin/activity/full?page=${page}&limit=${limit}`);
             if (res.ok) {
                 const data = await res.json();
                 setLogs(data.data);
@@ -54,7 +52,7 @@ export default function ActivityLogPage() {
             }
         } catch { /* ignore */ }
         setLoading(false);
-    }, [token, page, limit]);
+    }, [page, limit]);
 
     useEffect(() => { fetchLogs(); }, [fetchLogs]);
 

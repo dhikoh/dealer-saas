@@ -38,7 +38,7 @@ interface CustomerOption {
     phone: string;
 }
 
-import { API_URL } from '@/lib/api';
+import { fetchApi } from '@/lib/api';
 
 export default function TransactionsPage() {
     const { t, language } = useLanguage();
@@ -72,7 +72,7 @@ export default function TransactionsPage() {
     const [currentPage, setCurrentPage] = useState(1);
     const ITEMS_PER_PAGE = 15;
 
-    const getToken = () => localStorage.getItem('access_token');
+    // const getToken = () => localStorage.getItem('access_token'); // Removed
 
     useEffect(() => {
         fetchTransactions();
@@ -80,10 +80,7 @@ export default function TransactionsPage() {
 
     const fetchTransactions = async () => {
         try {
-            const token = getToken();
-            const res = await fetch(`${API_URL}/transactions`, {
-                headers: { 'Authorization': `Bearer ${token}` }
-            });
+            const res = await fetchApi('/transactions');
             if (res.ok) {
                 const data = await res.json();
                 // Map backend response to frontend Transaction shape
@@ -94,10 +91,6 @@ export default function TransactionsPage() {
                     finalPrice: typeof tx.finalPrice === 'object' ? parseFloat(tx.finalPrice.toString()) : parseFloat(tx.finalPrice || '0'),
                 }));
                 setTransactions(mapped);
-            } else if (res.status === 401) {
-                localStorage.removeItem('access_token');
-                localStorage.removeItem('user_info');
-                window.location.href = '/auth';
             }
         } catch (err) {
             console.error('Error:', err);
@@ -108,11 +101,10 @@ export default function TransactionsPage() {
     };
 
     const fetchFormData = async () => {
-        const token = getToken();
         try {
             const [vRes, cRes] = await Promise.all([
-                fetch(`${API_URL}/vehicles`, { headers: { 'Authorization': `Bearer ${token}` } }),
-                fetch(`${API_URL}/customers`, { headers: { 'Authorization': `Bearer ${token}` } }),
+                fetchApi('/vehicles'),
+                fetchApi('/customers'),
             ]);
             if (vRes.ok) setVehicles(await vRes.json());
             if (cRes.ok) setCustomers(await cRes.json());
@@ -149,20 +141,15 @@ export default function TransactionsPage() {
     }, [txForm.finalPrice, txForm.downPayment, txForm.interestRate, txForm.tenorMonths, txForm.paymentType]);
 
     const handleCreateTransaction = async () => {
-        const token = getToken();
-        if (!token || !txForm.vehicleId || !txForm.finalPrice || !txForm.customerId) {
+        if (!txForm.vehicleId || !txForm.finalPrice || !txForm.customerId) {
             toast.error(t.requiredFields);
             return;
         }
 
         setSubmitting(true);
         try {
-            const res = await fetch(`${API_URL}/transactions`, {
+            const res = await fetchApi('/transactions', {
                 method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${token}`,
-                },
                 body: JSON.stringify({
                     type: txForm.type,
                     vehicleId: txForm.vehicleId,
@@ -212,10 +199,7 @@ export default function TransactionsPage() {
 
     const handlePrintInvoice = async (txId: string) => {
         try {
-            const token = getToken();
-            const res = await fetch(`${API_URL}/pdf/transaction/${txId}/invoice`, {
-                headers: { 'Authorization': `Bearer ${token}` }
-            });
+            const res = await fetchApi(`/pdf/transaction/${txId}/invoice`);
 
             if (!res.ok) throw new Error('Failed to generate PDF');
 
@@ -230,10 +214,7 @@ export default function TransactionsPage() {
 
     const handlePrintSPK = async (txId: string) => {
         try {
-            const token = getToken();
-            const res = await fetch(`${API_URL}/pdf/transaction/${txId}/spk`, {
-                headers: { 'Authorization': `Bearer ${token}` }
-            });
+            const res = await fetchApi(`/pdf/transaction/${txId}/spk`);
 
             if (!res.ok) throw new Error('Failed to generate SPK');
 
@@ -248,10 +229,7 @@ export default function TransactionsPage() {
 
     const handlePrintReceipt = async (txId: string) => {
         try {
-            const token = getToken();
-            const res = await fetch(`${API_URL}/pdf/transaction/${txId}/receipt`, {
-                headers: { 'Authorization': `Bearer ${token}` }
-            });
+            const res = await fetchApi(`/pdf/transaction/${txId}/receipt`);
 
             if (!res.ok) throw new Error('Failed to generate Receipt');
 

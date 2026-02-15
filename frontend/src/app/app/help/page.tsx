@@ -2,6 +2,7 @@
 
 import React, { useState } from 'react';
 import { HelpCircle, MessageCircle, Mail, BookOpen, Car, DollarSign, Users, CreditCard, Bell, Shield, Building } from 'lucide-react';
+import { API_URL, fetchApi } from '@/lib/api';
 
 const FAQ_CATEGORIES = [
     {
@@ -70,13 +71,8 @@ export default function HelpCenterPage() {
 
     React.useEffect(() => {
         const fetchTenant = async () => {
-            const token = localStorage.getItem('access_token');
-            if (!token) return;
             try {
-                const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
-                const res = await fetch(`${API_URL}/tenant/profile`, {
-                    headers: { Authorization: `Bearer ${token}` }
-                });
+                const res = await fetchApi('/tenant/profile');
                 if (res.ok) {
                     const data = await res.json();
                     setTenant(data);

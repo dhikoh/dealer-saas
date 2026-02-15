@@ -3,7 +3,7 @@
 import React, { useState, useEffect } from 'react';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faChartLine, faCar, faMoneyBillWave, faUsers, faCrown, faBuilding } from '@fortawesome/free-solid-svg-icons';
-import { API_URL } from '@/lib/api';
+import { API_URL, fetchApi } from '@/lib/api';
 import Link from 'next/link';
 
 interface GroupData {
@@ -30,10 +30,7 @@ export default function GroupDashboardPage() {
     useEffect(() => {
         const fetchData = async () => {
             try {
-                const token = localStorage.getItem('access_token');
-                const res = await fetch(`${API_URL}/dealer-groups/my`, {
-                    headers: { 'Authorization': `Bearer ${token}` }
-                });
+                const res = await fetchApi('/dealer-groups/my');
                 if (res.ok) {
                     const json = await res.json();
                     setData(json);

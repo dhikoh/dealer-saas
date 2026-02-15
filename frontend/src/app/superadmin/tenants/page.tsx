@@ -2,10 +2,11 @@
 
 import React, { useEffect, useState, useCallback } from 'react';
 import { Search, MoreHorizontal, Eye, Power, PowerOff, ArrowUpCircle, Pencil, Trash2, X, Building2, Users, Car, ShoppingCart, Plus, CheckCircle, Calendar } from 'lucide-react';
-import { API_URL } from '@/lib/api';
+import { fetchApi } from '@/lib/api';
 import ConfirmDialog from '@/components/ui/ConfirmDialog';
 
 import { Tenant } from '@/types/superadmin';
+import { useAuthProtection } from '@/hooks/useAuthProtection';
 
 const StatusBadge = ({ status }: { status: string }) => {
     const styles: Record<string, string> = {
@@ -39,8 +40,9 @@ const PlanBadge = ({ plan }: { plan: string }) => {
 };
 
 export default function TenantsPage() {
+    const { user, loading: authLoading } = useAuthProtection('SUPERADMIN');
     const [tenants, setTenants] = useState<Tenant[]>([]);
-    const [loading, setLoading] = useState(true);
+    const [dataLoading, setDataLoading] = useState(true);
     const [search, setSearch] = useState('');
     const [statusFilter, setStatusFilter] = useState('');
     const [selectedTenant, setSelectedTenant] = useState<Tenant | null>(null);
@@ -69,7 +71,7 @@ export default function TenantsPage() {
     } | null>(null);
     const [actionLoading, setActionLoading] = useState(false);
 
-    const getToken = useCallback(() => localStorage.getItem('access_token'), []);
+
 
     const fetchTenants = useCallback(async () => {
         try {
@@ -77,23 +79,25 @@ export default function TenantsPage() {
             if (statusFilter) params.append('status', statusFilter);
             if (search) params.append('search', search);
 
-            const res = await fetch(`${API_URL}/superadmin/tenants?${params}`, {
-                headers: { 'Authorization': `Bearer ${getToken()}` },
-            });
+            const res = await fetchApi(`/superadmin/tenants?${params}`);
 
             if (!res.ok) throw new Error('Failed to fetch');
             const data = await res.json();
-            setTenants(data);
+            // Handle if data is wrapped in { data: ... }
+            const tenantsList = Array.isArray(data) ? data : (data.data || []);
+            setTenants(tenantsList);
         } catch {
             setTenants([]);
         } finally {
-            setLoading(false);
+            setDataLoading(false);
         }
-    }, [getToken, statusFilter, search]); // Add dependencies here
+    }, [statusFilter, search]);
 
     useEffect(() => {
-        fetchTenants();
-    }, [fetchTenants]); // Used the memoized function
+        if (!authLoading && user) {
+            fetchTenants();
+        }
+    }, [authLoading, user, fetchTenants]);
 
     useEffect(() => {
         if (toast) {
@@ -111,9 +115,9 @@ export default function TenantsPage() {
     const handleCreate = async () => {
         setCreateLoading(true);
         try {
-            const res = await fetch(`${API_URL}/superadmin/tenants`, {
+            const res = await fetchApi('/superadmin/tenants', {
                 method: 'POST',
-                headers: { 'Authorization': `Bearer ${getToken()}`, 'Content-Type': 'application/json' },
+                headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(createForm),
             });
             if (!res.ok) {
@@ -135,9 +139,9 @@ export default function TenantsPage() {
         if (!editTenant) return;
         setEditLoading(true);
         try {
-            const res = await fetch(`${API_URL}/superadmin/tenants/${editTenant.id}`, {
+            const res = await fetchApi(`/superadmin/tenants/${editTenant.id}`, {
                 method: 'PATCH',
-                headers: { 'Authorization': `Bearer ${getToken()}`, 'Content-Type': 'application/json' },
+                headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(editForm),
             });
             if (!res.ok) throw new Error('Update failed');
@@ -155,9 +159,9 @@ export default function TenantsPage() {
         if (!planTenant) return;
         setPlanLoading(true);
         try {
-            const res = await fetch(`${API_URL}/superadmin/tenants/${planTenant.id}/plan-direct`, {
+            const res = await fetchApi(`/superadmin/tenants/${planTenant.id}/plan-direct`, {
                 method: 'PATCH',
-                headers: { 'Authorization': `Bearer ${getToken()}`, 'Content-Type': 'application/json' },
+                headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(planForm),
             });
             if (!res.ok) throw new Error('Plan change failed');
@@ -178,16 +182,16 @@ export default function TenantsPage() {
             let url = '';
             let method = 'POST';
 
-            if (confirmAction.type === 'suspend') url = `${API_URL}/superadmin/tenants/${confirmAction.tenant.id}/suspend`;
-            if (confirmAction.type === 'activate') url = `${API_URL}/superadmin/tenants/${confirmAction.tenant.id}/activate`;
+            if (confirmAction.type === 'suspend') url = `/superadmin/tenants/${confirmAction.tenant.id}/suspend`;
+            if (confirmAction.type === 'activate') url = `/superadmin/tenants/${confirmAction.tenant.id}/activate`;
             if (confirmAction.type === 'delete') {
-                url = `${API_URL}/superadmin/tenants/${confirmAction.tenant.id}`;
+                url = `/superadmin/tenants/${confirmAction.tenant.id}`;
                 method = 'DELETE';
             }
 
-            const res = await fetch(url, {
+            const res = await fetchApi(url, {
                 method,
-                headers: { 'Authorization': `Bearer ${getToken()}`, 'Content-Type': 'application/json' },
+                headers: { 'Content-Type': 'application/json' },
                 body: confirmAction.type === 'suspend' ? JSON.stringify({ reason: 'Admin action' }) : undefined,
             });
 
@@ -211,7 +215,7 @@ export default function TenantsPage() {
         return new Date(date).toLocaleDateString('id-ID', { day: 'numeric', month: 'short', year: 'numeric' });
     };
 
-    if (loading) {
+    if (authLoading || dataLoading) {
         return (
             <div className="flex items-center justify-center h-64">
                 <div className="w-8 h-8 border-4 border-slate-200 border-t-indigo-600 rounded-full animate-spin" />

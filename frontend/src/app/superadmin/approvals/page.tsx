@@ -1,6 +1,6 @@
 'use client';
 import { useEffect, useState, useCallback } from 'react';
-import { API_URL } from '@/lib/api';
+import { fetchApi } from '@/lib/api';
 import { Clock, CheckCircle, XCircle, Send, AlertCircle } from 'lucide-react';
 import ConfirmDialog from '@/components/ui/ConfirmDialog';
 
@@ -28,32 +28,26 @@ export default function ApprovalsPage() {
         id: string; action: 'APPROVED' | 'REJECTED';
     } | null>(null);
 
-    const token = typeof window !== 'undefined' ? localStorage.getItem('access_token') : null;
+    // const token = typeof window !== 'undefined' ? localStorage.getItem('access_token') : null; // Removed
 
     const fetchApprovals = useCallback(async () => {
         try {
-            const res = await fetch(`${API_URL}/superadmin/approvals`, {
-                headers: { 'Authorization': `Bearer ${token}` },
-            });
+            const res = await fetchApi('/superadmin/approvals');
             if (res.ok) {
                 const data = await res.json();
                 setApprovals(data);
             }
         } catch { /* ignore */ }
         setLoading(false);
-    }, [token]);
+    }, []);
 
     useEffect(() => { fetchApprovals(); }, [fetchApprovals]);
 
     const processApproval = async (id: string, status: ApprovalRequest['status']) => {
         setProcessingId(id);
         try {
-            const res = await fetch(`${API_URL}/superadmin/approvals/${id}`, {
+            const res = await fetchApi(`/superadmin/approvals/${id}`, {
                 method: 'PATCH',
-                headers: {
-                    'Authorization': `Bearer ${token}`,
-                    'Content-Type': 'application/json',
-                },
                 body: JSON.stringify({ status }),
             });
             if (res.ok) {

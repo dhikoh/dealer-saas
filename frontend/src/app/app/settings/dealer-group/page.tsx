@@ -4,7 +4,7 @@ import React, { useState, useEffect } from 'react';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faUsers, faPlus, faSignInAlt, faCopy, faSignOutAlt, faInfoCircle, faCheck, faCrown, faBuilding } from '@fortawesome/free-solid-svg-icons';
 import { toast } from 'sonner';
-import { API_URL } from '@/lib/api';
+import { API_URL, fetchApi } from '@/lib/api';
 import Link from 'next/link';
 
 interface DealerGroup {
@@ -56,22 +56,17 @@ export default function DealerGroupPage() {
         initData();
     }, []);
 
-    const getToken = () => localStorage.getItem('access_token');
-
     const initData = async () => {
         setLoading(true);
         setError(null);
         try {
-            const token = getToken();
-            const headers = { Authorization: `Bearer ${token}` };
-
             // 1. Fetch Profile (to check Plan)
-            const resProfile = await fetch(`${API_URL}/auth/profile`, { headers });
+            const resProfile = await fetchApi('/auth/profile');
             const profileData = await resProfile.json();
             setProfile(profileData);
 
             // 2. Fetch Group Status
-            const resGroup = await fetch(`${API_URL}/dealer-groups/my`, { headers });
+            const resGroup = await fetchApi('/dealer-groups/my');
             if (resGroup.ok) {
                 const groupResult = await resGroup.json();
                 setGroupData(groupResult || null);
@@ -89,9 +84,9 @@ export default function DealerGroupPage() {
         e.preventDefault();
         setSubmitting(true);
         try {
-            const res = await fetch(`${API_URL}/dealer-groups`, {
+            const res = await fetchApi('/dealer-groups', {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${getToken()}` },
+                headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ name: formName })
             });
 
@@ -114,9 +109,9 @@ export default function DealerGroupPage() {
         e.preventDefault();
         setSubmitting(true);
         try {
-            const res = await fetch(`${API_URL}/dealer-groups/join`, {
+            const res = await fetchApi('/dealer-groups/join', {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${getToken()}` },
+                headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ code: formCode })
             });
 
@@ -138,9 +133,8 @@ export default function DealerGroupPage() {
     const handleLeave = async () => {
         if (!confirm('Apakah Anda yakin ingin keluar dari grup ini? Akses data akan terputus.')) return;
         try {
-            const res = await fetch(`${API_URL}/dealer-groups/leave`, {
-                method: 'POST',
-                headers: { Authorization: `Bearer ${getToken()}` }
+            const res = await fetchApi('/dealer-groups/leave', {
+                method: 'POST'
             });
 
             if (res.ok) {
@@ -158,9 +152,9 @@ export default function DealerGroupPage() {
     const handleKick = async (memberTenantId: string) => {
         if (!confirm('Keluarkan member ini dari grup?')) return;
         try {
-            const res = await fetch(`${API_URL}/dealer-groups/kick`, {
+            const res = await fetchApi('/dealer-groups/kick', {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${getToken()}` },
+                headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ memberTenantId })
             });
 

@@ -18,7 +18,7 @@ import {
 import { useLanguage } from '@/hooks/useLanguage';
 import { useCurrency } from '@/hooks/useCurrency';
 import { toast } from 'sonner';
-import { API_URL } from '@/lib/api';
+import { API_URL, fetchApi } from '@/lib/api';
 
 interface Credit {
     id: string;
@@ -48,7 +48,7 @@ export default function CreditPage() {
     const [selectedCredit, setSelectedCredit] = useState<Credit | null>(null);
     const [paymentAmount, setPaymentAmount] = useState('');
 
-    const getToken = () => localStorage.getItem('access_token');
+
 
     const getLabel = (key: string) => {
         const labels: Record<string, Record<string, string>> = {
@@ -88,20 +88,13 @@ export default function CreditPage() {
     }, []);
 
     const fetchCredits = async () => {
-        const token = getToken();
-        if (!token) return;
-
+        setLoading(true); // Set loading to true when fetching starts
         try {
-            const res = await fetch(`${API_URL}/credit`, {
-                headers: { Authorization: `Bearer ${token}` },
-            });
+            const res = await fetchApi('/credit'); // Use fetchApi
             if (res.ok) {
                 setCredits(await res.json());
-            } else if (res.status === 401) {
-                localStorage.removeItem('access_token');
-                localStorage.removeItem('user_info');
-                window.location.href = '/auth';
             } else {
+                // fetchApi handles 401 and redirects, so other errors can be handled generally
                 toast.error(getLabel('loadFailed'));
             }
         } catch (error) {
@@ -113,8 +106,7 @@ export default function CreditPage() {
     };
 
     const handleAddPayment = async () => {
-        const token = getToken();
-        if (!token || !selectedCredit) return;
+        if (!selectedCredit) return;
 
         if (!paymentAmount || parseFloat(paymentAmount) <= 0) {
             toast.error(getLabel('invalidAmount'));
@@ -122,12 +114,8 @@ export default function CreditPage() {
         }
 
         try {
-            const res = await fetch(`${API_URL}/credit/${selectedCredit.id}/payments`, {
+            const res = await fetchApi(`/credit/${selectedCredit.id}/payments`, { // Use fetchApi
                 method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    Authorization: `Bearer ${token}`,
-                },
                 body: JSON.stringify({
                     month: selectedCredit.payments.length + 1,
                     amount: parseFloat(paymentAmount),

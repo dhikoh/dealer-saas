@@ -2,8 +2,9 @@
 
 import React, { useState, useEffect, useCallback } from 'react';
 import { User, Shield, Users, Key, CreditCard, Save, Plus, X, Eye, EyeOff, Settings, Trash2, CheckCircle } from 'lucide-react';
-import { API_URL } from '@/lib/api';
+import { API_URL, fetchApi } from '@/lib/api';
 import ConfirmDialog from '@/components/ui/ConfirmDialog';
+import { useAuthProtection } from '@/hooks/useAuthProtection';
 
 import { SuperadminStaff, ApiKey, BillingConfig, ActivityLog } from '@/types/superadmin';
 
@@ -11,6 +12,7 @@ type Tab = 'general' | 'security' | 'staff' | 'api' | 'billing';
 
 const TABS: { id: Tab; label: string; icon: any }[] = [
     { id: 'general', label: 'General Profile', icon: User },
+    // { id: 'security', label: 'Security & Access', icon: Shield }, // Security tab handles its own password change
     { id: 'security', label: 'Security & Access', icon: Shield },
     { id: 'staff', label: 'Staff Management', icon: Users },
     { id: 'api', label: 'API Configurations', icon: Key },
@@ -19,6 +21,7 @@ const TABS: { id: Tab; label: string; icon: any }[] = [
 
 export default function SettingsPage() {
     const [activeTab, setActiveTab] = useState<Tab>('general');
+    const { user, refreshUser } = useAuthProtection();
 
     return (
         <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
@@ -41,7 +44,7 @@ export default function SettingsPage() {
 
             {/* Content */}
             <div className="lg:col-span-3">
-                {activeTab === 'general' && <GeneralProfileTab />}
+                {activeTab === 'general' && <GeneralProfileTab user={user} refreshUser={refreshUser} />}
                 {activeTab === 'security' && <SecurityTab />}
                 {activeTab === 'staff' && <StaffManagementTab />}
                 {activeTab === 'api' && <ApiConfigTab />}
@@ -53,25 +56,21 @@ export default function SettingsPage() {
 
 // ================== TAB 1: GENERAL PROFILE ==================
 
-function GeneralProfileTab() {
+function GeneralProfileTab({ user, refreshUser }: { user: any; refreshUser: () => void }) {
     const [form, setForm] = useState({ name: '', email: '', phone: '', language: 'id' });
     const [loading, setLoading] = useState(false);
     const [toast, setToast] = useState<string | null>(null);
 
     useEffect(() => {
-        const userInfo = localStorage.getItem('user_info');
-        if (userInfo) {
-            try {
-                const user = JSON.parse(userInfo);
-                setForm({
-                    name: user.name || '',
-                    email: user.email || '',
-                    phone: user.phone || '',
-                    language: user.language || 'id',
-                });
-            } catch { /* ignore */ }
+        if (user) {
+            setForm({
+                name: user.name || '',
+                email: user.email || '',
+                phone: user.phone || '',
+                language: user.language || 'id',
+            });
         }
-    }, []);
+    }, [user]);
 
     useEffect(() => {
         if (toast) { const t = setTimeout(() => setToast(null), 3000); return () => clearTimeout(t); }
@@ -80,21 +79,16 @@ function GeneralProfileTab() {
     const handleSave = async () => {
         setLoading(true);
         try {
-            const token = localStorage.getItem('access_token');
-            const res = await fetch(`${API_URL}/auth/profile`, {
+            const res = await fetchApi('/auth/profile', {
                 method: 'PUT',
-                headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
                 body: JSON.stringify({ name: form.name, phone: form.phone }),
             });
+
             if (!res.ok) throw new Error('Failed');
-            // Update local storage
-            const userInfo = localStorage.getItem('user_info');
-            if (userInfo) {
-                const user = JSON.parse(userInfo);
-                user.name = form.name;
-                user.phone = form.phone;
-                localStorage.setItem('user_info', JSON.stringify(user));
-            }
+
+            // Refresh user data globally
+            await refreshUser();
+
             setToast('Profile berhasil diperbarui');
         } catch {
             setToast('Gagal memperbarui profile');
@@ -172,10 +166,7 @@ function SecurityTab() {
 
     const fetchLoginHistory = async () => {
         try {
-            const token = localStorage.getItem('access_token');
-            const res = await fetch(`${API_URL}/superadmin/activity/full?limit=10&action=LOGIN`, {
-                headers: { 'Authorization': `Bearer ${token}` },
-            });
+            const res = await fetchApi('/superadmin/activity/full?limit=10&action=LOGIN');
             if (res.ok) {
                 const data = await res.json();
                 // getActivityLog returns { data: [], pagination: {} }
@@ -196,12 +187,11 @@ function SecurityTab() {
         }
         setLoading(true);
         try {
-            const token = localStorage.getItem('access_token');
-            const res = await fetch(`${API_URL}/auth/change-password`, {
+            const res = await fetchApi('/auth/change-password', {
                 method: 'POST',
-                headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
                 body: JSON.stringify({ currentPassword: form.currentPassword, newPassword: form.newPassword }),
             });
+
             if (!res.ok) {
                 const error = await res.json().catch(() => ({}));
                 throw new Error(error.message || 'Failed');
@@ -293,14 +283,12 @@ function StaffManagementTab() {
     const [deleteId, setDeleteId] = useState<string | null>(null);
     const [deleteLoading, setDeleteLoading] = useState(false);
 
-    const getToken = () => localStorage.getItem('access_token');
+    // const getToken = () => localStorage.getItem('access_token'); // Removed
 
     const fetchStaff = useCallback(async () => {
         setLoading(true);
         try {
-            const res = await fetch(`${API_URL}/superadmin/staff`, {
-                headers: { 'Authorization': `Bearer ${getToken()}` },
-            });
+            const res = await fetchApi('/superadmin/staff');
             if (res.ok) {
                 const data = await res.json();
                 setStaff(data);
@@ -320,9 +308,8 @@ function StaffManagementTab() {
 
     const handleAddStaff = async () => {
         try {
-            const res = await fetch(`${API_URL}/superadmin/staff`, {
+            const res = await fetchApi('/superadmin/staff', {
                 method: 'POST',
-                headers: { 'Authorization': `Bearer ${getToken()}`, 'Content-Type': 'application/json' },
                 body: JSON.stringify(addForm),
             });
             if (!res.ok) throw new Error('Failed to create staff');
@@ -339,9 +326,8 @@ function StaffManagementTab() {
         if (!deleteId) return;
         setDeleteLoading(true);
         try {
-            const res = await fetch(`${API_URL}/superadmin/staff/${deleteId}`, {
+            const res = await fetchApi(`/superadmin/staff/${deleteId}`, {
                 method: 'DELETE',
-                headers: { 'Authorization': `Bearer ${getToken()}` },
             });
             if (!res.ok) throw new Error('Failed to delete');
             setToast('Staff berhasil dihapus');
@@ -617,7 +603,7 @@ function ApiConfigTab() {
 // ================== TAB 5: BILLING INTEGRATION ==================
 
 function BillingIntegrationTab() {
-    const getToken = () => localStorage.getItem('access_token') || '';
+    // const getToken = () => localStorage.getItem('access_token') || '';
     const [gateway, setGateway] = useState('manual');
     const [bankInfo, setBankInfo] = useState({ bankName: 'BCA', accountNumber: '', accountHolder: '' });
     const [autoInvoice, setAutoInvoice] = useState(true);
@@ -629,9 +615,7 @@ function BillingIntegrationTab() {
     useEffect(() => {
         (async () => {
             try {
-                const res = await fetch(`${API_URL}/superadmin/platform-settings/billing_config`, {
-                    headers: { 'Authorization': `Bearer ${getToken()}` },
-                });
+                const res = await fetchApi('/superadmin/platform-settings/billing_config');
                 if (res.ok) {
                     const data = await res.json();
                     if (data.value) {
@@ -652,9 +636,8 @@ function BillingIntegrationTab() {
     const handleSave = async () => {
         setSaving(true);
         try {
-            const res = await fetch(`${API_URL}/superadmin/platform-settings/billing_config`, {
+            const res = await fetchApi('/superadmin/platform-settings/billing_config', {
                 method: 'PATCH',
-                headers: { 'Authorization': `Bearer ${getToken()}`, 'Content-Type': 'application/json' },
                 body: JSON.stringify({ value: { gateway, bankInfo, autoInvoice } }),
             });
             if (!res.ok) throw new Error('Failed to save');

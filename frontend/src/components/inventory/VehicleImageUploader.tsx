@@ -10,7 +10,7 @@ import {
     faStar,
 } from '@fortawesome/free-solid-svg-icons';
 import { toast } from 'sonner';
-import { API_URL } from '@/lib/api';
+import { API_URL, fetchApi } from '@/lib/api';
 
 interface VehicleImageUploaderProps {
     vehicleId?: string; // Optional: if null, we are in "Create Mode" (offline)
@@ -72,17 +72,15 @@ export default function VehicleImageUploader({
     };
 
     const uploadDirectly = async (files: File[]) => {
-        const token = localStorage.getItem('access_token');
-        if (!token || !vehicleId) return;
+        if (!vehicleId) return;
 
         setUploading(true);
         try {
             const formData = new FormData();
             files.forEach(f => formData.append('images', f));
 
-            const res = await fetch(`${API_URL}/upload/vehicle/${vehicleId}/multiple`, {
+            const res = await fetchApi(`/upload/vehicle/${vehicleId}/multiple`, {
                 method: 'POST',
-                headers: { Authorization: `Bearer ${token}` },
                 body: formData,
             });
 

@@ -18,7 +18,7 @@ interface TenantProfile {
     subscriptionStatus: string;
 }
 
-import { API_URL } from '@/lib/api';
+import { API_URL, fetchApi } from '@/lib/api';
 
 export default function SettingsPage() {
     const { t } = useLanguage();
@@ -68,10 +68,7 @@ export default function SettingsPage() {
 
     const fetchProfile = async () => {
         try {
-            const token = localStorage.getItem('access_token');
-            const res = await fetch(`${API_URL}/tenant/profile`, {
-                headers: { 'Authorization': `Bearer ${token}` },
-            });
+            const res = await fetchApi('/tenant/profile');
 
             if (!res.ok) throw new Error('Failed to fetch profile');
 
@@ -97,13 +94,8 @@ export default function SettingsPage() {
         setSaving(true);
 
         try {
-            const token = localStorage.getItem('access_token');
-            const res = await fetch(`${API_URL}/tenant/profile`, {
+            const res = await fetchApi('/tenant/profile', {
                 method: 'PATCH',
-                headers: {
-                    'Authorization': `Bearer ${token}`,
-                    'Content-Type': 'application/json',
-                },
                 body: JSON.stringify(formData),
             });
 
@@ -133,13 +125,8 @@ export default function SettingsPage() {
 
         setSaving(true);
         try {
-            const token = localStorage.getItem('access_token');
-            const res = await fetch(`${API_URL}/auth/change-password`, {
+            const res = await fetchApi('/auth/change-password', {
                 method: 'POST',
-                headers: {
-                    'Authorization': `Bearer ${token}`,
-                    'Content-Type': 'application/json',
-                },
                 body: JSON.stringify({
                     currentPassword: passwordForm.currentPassword,
                     newPassword: passwordForm.newPassword,

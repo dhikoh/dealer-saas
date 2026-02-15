@@ -26,7 +26,7 @@ import {
 import { useLanguage } from '@/hooks/useLanguage';
 import { useCurrency } from '@/hooks/useCurrency';
 import { toast } from 'sonner';
-import { API_URL } from '@/lib/api';
+import { fetchApi } from '@/lib/api';
 import CrossTenantTransferModal from '@/components/inventory/CrossTenantTransferModal';
 import IncomingTransfers from '@/components/inventory/IncomingTransfers';
 import VehicleImageUploader from '@/components/inventory/VehicleImageUploader';
@@ -275,30 +275,6 @@ export default function InventoryPage() {
         }
     }, [vehicleForm.category, showVehicleModal]);
 
-    const fetchBrands = async () => {
-        const token = getToken();
-        if (!token) return;
-        try {
-            const res = await fetch(`${API_URL}/vehicles/brands/list?category=${vehicleForm.category}`, {
-                headers: { Authorization: `Bearer ${token}` }
-            });
-            if (res.ok) {
-                setBrands(await res.json());
-            }
-        } catch (error) {
-            console.error('Failed to fetch brands');
-        }
-    };
-
-    // Update available models when Make changes
-    useEffect(() => {
-        const selectedBrand = brands.find(b => b.name === vehicleForm.make);
-        if (selectedBrand) {
-            setAvailableModels(selectedBrand.models || []);
-        } else {
-            setAvailableModels([]);
-        }
-    }, [vehicleForm.make, brands]);
     const [costForm, setCostForm] = useState({
         costType: 'MAINTENANCE',
         amount: '',
@@ -308,7 +284,7 @@ export default function InventoryPage() {
     const [currentPage, setCurrentPage] = useState(1);
     const ITEMS_PER_PAGE = 15;
 
-    const getToken = () => localStorage.getItem('access_token');
+    // const getToken = () => localStorage.getItem('access_token'); // Removed
 
     const resetVehicleForm = () => {
         setVehicleForm({
@@ -324,9 +300,20 @@ export default function InventoryPage() {
         setEditingVehicle(null);
     };
 
+    const fetchBrands = async () => {
+        try {
+            const res = await fetchApi(`/vehicles/brands/list?category=${vehicleForm.category}`);
+            if (res.ok) {
+                setBrands(await res.json());
+            }
+        } catch (error) {
+            console.error('Failed to fetch brands');
+        }
+    };
+
+    // ...
+
     const fetchGroupVehicles = async () => {
-        const token = getToken();
-        if (!token) return;
         setGroupLoading(true);
 
         // Construct params for search term
@@ -336,17 +323,13 @@ export default function InventoryPage() {
         }
 
         try {
-            const res = await fetch(`${API_URL}/vehicles/group/stock?${params}`, {
-                headers: { 'Authorization': `Bearer ${token}` },
-            });
+            const res = await fetchApi(`/vehicles/group/stock?${params}`);
             if (!res.ok) throw new Error('Failed to fetch group vehicles');
             const data = await res.json();
             setGroupVehicles(data);
 
             // Fetch Analytics
-            const resAnalytics = await fetch(`${API_URL}/analytics/group/stock`, {
-                headers: { 'Authorization': `Bearer ${token}` },
-            });
+            const resAnalytics = await fetchApi('/analytics/group/stock');
             if (resAnalytics.ok) {
                 const analyticsData = await resAnalytics.json();
                 setGroupAnalytics(analyticsData);
@@ -360,13 +343,11 @@ export default function InventoryPage() {
     };
 
     const handleCopyVehicle = async () => {
-        const token = getToken();
-        if (!token || !copyTarget) return;
+        if (!copyTarget) return;
 
         try {
-            const res = await fetch(`${API_URL}/vehicles/copy/${copyTarget.id}`, {
+            const res = await fetchApi(`/vehicles/copy/${copyTarget.id}`, {
                 method: 'POST',
-                headers: { Authorization: `Bearer ${token}` },
             });
 
             if (res.ok) {
@@ -384,20 +365,11 @@ export default function InventoryPage() {
         }
     };
 
-    useEffect(() => {
-        if (pageTab === 'INVENTORY') fetchVehicles();
-        if (pageTab === 'GROUP') fetchGroupVehicles();
-    }, [pageTab, searchTerm]); // Added searchTerm to dependency array for group stock search
-
     const fetchVehicles = async () => {
-        const token = getToken();
-        if (!token) return;
         setLoading(true);
 
         try {
-            const res = await fetch(`${API_URL}/vehicles`, {
-                headers: { Authorization: `Bearer ${token}` },
-            });
+            const res = await fetchApi('/vehicles');
             if (res.ok) {
                 setVehicles(await res.json());
             }
@@ -409,14 +381,9 @@ export default function InventoryPage() {
     };
 
     const fetchVehicleDetail = async (vehicleId: string) => {
-        const token = getToken();
-        if (!token) return;
-
         setDetailLoading(true);
         try {
-            const res = await fetch(`${API_URL}/vehicles/${vehicleId}/costs`, {
-                headers: { Authorization: `Bearer ${token}` },
-            });
+            const res = await fetchApi(`/vehicles/${vehicleId}/costs`);
             if (res.ok) {
                 setSelectedVehicle(await res.json());
             }
@@ -428,16 +395,11 @@ export default function InventoryPage() {
     };
 
     const handleAddCost = async () => {
-        const token = getToken();
-        if (!token || !selectedVehicle) return;
+        if (!selectedVehicle) return;
 
         try {
-            const res = await fetch(`${API_URL}/vehicles/${selectedVehicle.id}/costs`, {
+            const res = await fetchApi(`/vehicles/${selectedVehicle.id}/costs`, {
                 method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    Authorization: `Bearer ${token}`,
-                },
                 body: JSON.stringify({
                     ...costForm,
                     amount: parseFloat(costForm.amount),
@@ -459,8 +421,7 @@ export default function InventoryPage() {
     };
 
     const handleSaveVehicle = async () => {
-        const token = getToken();
-        if (!token || !vehicleForm.make || !vehicleForm.model || !vehicleForm.price) {
+        if (!vehicleForm.make || !vehicleForm.model || !vehicleForm.price) {
             toast.error('Mohon lengkapi merk, model, dan harga');
             return;
         }
@@ -488,17 +449,13 @@ export default function InventoryPage() {
 
         setSubmitting(true);
         try {
-            const url = editingVehicle
-                ? `${API_URL}/vehicles/${editingVehicle.id}`
-                : `${API_URL}/vehicles`;
+            const endpoint = editingVehicle
+                ? `/vehicles/${editingVehicle.id}`
+                : `/vehicles`;
             const method = editingVehicle ? 'PUT' : 'POST';
 
-            const res = await fetch(url, {
+            const res = await fetchApi(endpoint, {
                 method,
-                headers: {
-                    'Content-Type': 'application/json',
-                    Authorization: `Bearer ${token}`,
-                },
                 body: JSON.stringify({
                     ...vehicleForm,
                     price: parseFloat(vehicleForm.price),
@@ -522,9 +479,8 @@ export default function InventoryPage() {
                     const formData = new FormData();
                     pendingFiles.forEach(f => formData.append('images', f));
 
-                    const uploadRes = await fetch(`${API_URL}/upload/vehicle/${vehicleId}/multiple`, {
+                    const uploadRes = await fetchApi(`/upload/vehicle/${vehicleId}/multiple`, {
                         method: 'POST',
-                        headers: { Authorization: `Bearer ${token}` },
                         body: formData,
                     });
 
@@ -544,9 +500,8 @@ export default function InventoryPage() {
                         formData.append('image', file);
 
                         try {
-                            const docRes = await fetch(`${API_URL}/upload/vehicle/${vehicleId}`, {
+                            const docRes = await fetchApi(`/upload/vehicle/${vehicleId}`, {
                                 method: 'POST',
-                                headers: { Authorization: `Bearer ${token}` },
                                 body: formData
                             });
 
@@ -554,19 +509,10 @@ export default function InventoryPage() {
                                 const docData = await docRes.json();
                                 // We need to update the vehicle with this new URL
                                 // Since we already saved the vehicle, we need a separate PATCH/PUT
-                                // But honestly, the cleanest way is just to let the user know or silent update?
-                                // The endpoint `/upload/vehicle/${vehicleId}` MIGHT already update the DB if it knows the key?
-                                // CHECK: UploadService/Controller. 
-                                // Result: Controller @Post('vehicle/:id') calls uploadService.processUpload -> returns URL.
-                                // It does NOT update the vehicle record in DB.
-                                // So we MUST update the vehicle record with the new URL.
+                                // but honestly, if fetchApi handles cookies, this just works.
 
-                                await fetch(`${API_URL}/vehicles/${vehicleId}`, {
+                                await fetchApi(`/vehicles/${vehicleId}`, {
                                     method: 'PUT',
-                                    headers: {
-                                        'Content-Type': 'application/json',
-                                        Authorization: `Bearer ${token}`
-                                    },
                                     body: JSON.stringify({ [key]: docData.url })
                                 });
                             }
@@ -592,13 +538,11 @@ export default function InventoryPage() {
     };
 
     const handleDeleteVehicle = async () => {
-        const token = getToken();
-        if (!token || !deleteTarget) return;
+        if (!deleteTarget) return;
 
         try {
-            const res = await fetch(`${API_URL}/vehicles/${deleteTarget.id}`, {
+            const res = await fetchApi(`/vehicles/${deleteTarget.id}`, {
                 method: 'DELETE',
-                headers: { Authorization: `Bearer ${token}` },
             });
 
             if (res.ok) {
@@ -1249,12 +1193,18 @@ export default function InventoryPage() {
                                         )}
                                     </div>
 
-                                    {/* ACTIONS */}
                                     <div className="flex gap-3 pt-4 border-t border-gray-200">
                                         <button
-                                            onClick={() => {
-                                                const token = localStorage.getItem('access_token');
-                                                window.open(`${API_URL}/pdf/vehicle/${selectedVehicle.id}/internal?token=${token}`, '_blank');
+                                            onClick={async () => {
+                                                try {
+                                                    const res = await fetchApi(`/pdf/vehicle/${selectedVehicle.id}/internal`);
+                                                    if (!res.ok) throw new Error('Download failed');
+                                                    const blob = await res.blob();
+                                                    const url = window.URL.createObjectURL(blob);
+                                                    window.open(url, '_blank');
+                                                } catch (e) {
+                                                    toast.error('Gagal mendownload PDF');
+                                                }
                                             }}
                                             className="flex-1 py-3 rounded-xl bg-blue-500 text-white font-medium hover:bg-blue-600 flex items-center justify-center gap-2"
                                         >
@@ -1262,9 +1212,16 @@ export default function InventoryPage() {
                                             {getLabel('exportPdfInternal')}
                                         </button>
                                         <button
-                                            onClick={() => {
-                                                const token = localStorage.getItem('access_token');
-                                                window.open(`${API_URL}/pdf/vehicle/${selectedVehicle.id}/customer?token=${token}`, '_blank');
+                                            onClick={async () => {
+                                                try {
+                                                    const res = await fetchApi(`/pdf/vehicle/${selectedVehicle.id}/customer`);
+                                                    if (!res.ok) throw new Error('Download failed');
+                                                    const blob = await res.blob();
+                                                    const url = window.URL.createObjectURL(blob);
+                                                    window.open(url, '_blank');
+                                                } catch (e) {
+                                                    toast.error('Gagal mendownload PDF');
+                                                }
                                             }}
                                             className="flex-1 py-3 rounded-xl bg-green-500 text-white font-medium hover:bg-green-600 flex items-center justify-center gap-2"
                                         >

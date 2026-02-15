@@ -2,7 +2,7 @@
 
 import React, { useEffect, useState } from 'react';
 import { Check, X, Crown, Zap, Rocket, Star, Pencil, Save } from 'lucide-react';
-import { API_URL } from '@/lib/api';
+import { fetchApi } from '@/lib/api';
 
 import ConfirmDialog from '@/components/ui/ConfirmDialog';
 
@@ -65,13 +65,11 @@ export default function PlansPage() {
         }
     }, [toast]);
 
-    const getToken = () => localStorage.getItem('access_token');
+    // const getToken = () => localStorage.getItem('access_token'); // Removed
 
     const fetchPlans = async () => {
         try {
-            const res = await fetch(`${API_URL}/superadmin/plans`, {
-                headers: { 'Authorization': `Bearer ${getToken()}` },
-            });
+            const res = await fetchApi('/superadmin/plans');
             if (!res.ok) throw new Error('Failed');
             const data = await res.json();
             setPlans(data);
@@ -102,9 +100,8 @@ export default function PlansPage() {
         setConfirmSave(false); // Close confirm dialog immediately
         setSaving(true);
         try {
-            const res = await fetch(`${API_URL}/superadmin/plans/${editPlan.id}`, {
+            const res = await fetchApi(`/superadmin/plans/${editPlan.id}`, {
                 method: 'PATCH',
-                headers: { 'Authorization': `Bearer ${getToken()}`, 'Content-Type': 'application/json' },
                 body: JSON.stringify(editForm),
             });
             if (!res.ok) throw new Error('Update failed');

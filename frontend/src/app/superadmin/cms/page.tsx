@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { toast } from 'sonner';
-import { API_URL } from '@/lib/api';
+import { fetchApi } from '@/lib/api';
 import {
     Save, Loader2, Plus, Trash2, LayoutTemplate,
     List, CreditCard, HelpCircle, Footprints, Globe
@@ -60,7 +60,7 @@ export default function CMSEditorPage() {
 
     const fetchContent = async () => {
         try {
-            const res = await fetch(`${API_URL}/public/content`);
+            const res = await fetchApi('/public/content');
             if (res.ok) {
                 const data = await res.json();
                 // Ensure defaults if data is partial
@@ -82,14 +82,9 @@ export default function CMSEditorPage() {
     const handleSave = async () => {
         if (!content) return;
         setSaving(true);
-        const token = localStorage.getItem('access_token');
         try {
-            const res = await fetch(`${API_URL}/superadmin/cms`, {
+            const res = await fetchApi('/superadmin/cms', {
                 method: 'PATCH',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${token}`
-                },
                 body: JSON.stringify(content)
             });
 

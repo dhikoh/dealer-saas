@@ -8,10 +8,16 @@ import { Request } from 'express';
  * then falls back to ?token= query param (for PDF window.open).
  */
 function extractJwt(req: Request): string | null {
+    // 1. Try Cookie first (Premium Flow)
+    if (req.cookies && req.cookies['auth_token']) {
+        return req.cookies['auth_token'];
+    }
+
+    // 2. Try Authorization Header
     const fromHeader = ExtractJwt.fromAuthHeaderAsBearerToken()(req);
     if (fromHeader) return fromHeader;
 
-    // Fallback: read token from query parameter (used by PDF export via window.open)
+    // 3. Fallback: Query Parameter (PDF export, etc.)
     const queryToken = req.query?.token;
     if (typeof queryToken === 'string' && queryToken.length > 0) {
         return queryToken;

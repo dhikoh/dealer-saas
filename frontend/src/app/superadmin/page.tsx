@@ -2,7 +2,8 @@
 
 import React, { useEffect, useState } from 'react';
 import { UserCheck, TrendingUp, TrendingDown, Users, FileText, AlertCircle, Building2 } from 'lucide-react';
-import { API_URL } from '@/lib/api';
+import { fetchApi } from '@/lib/api';
+import { useAuthProtection } from '@/hooks/useAuthProtection';
 
 import { DashboardStats, ActivityLog } from '@/types/superadmin';
 
@@ -13,23 +14,23 @@ interface RevenueData {
 }
 
 export default function SuperadminDashboard() {
+    const { user, loading: authLoading } = useAuthProtection('SUPERADMIN');
     const [stats, setStats] = useState<DashboardStats | null>(null);
     const [revenue, setRevenue] = useState<RevenueData[]>([]);
-    const [loading, setLoading] = useState(true);
+    const [dataLoading, setDataLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
 
     useEffect(() => {
-        fetchDashboardData();
-    }, []);
+        if (!authLoading && user) {
+            fetchDashboardData();
+        }
+    }, [authLoading, user]);
 
     const fetchDashboardData = async () => {
         try {
-            const token = localStorage.getItem('access_token');
-            const headers = { 'Authorization': `Bearer ${token}` };
-
             const [statsRes, revenueRes] = await Promise.all([
-                fetch(`${API_URL}/superadmin/stats`, { headers }),
-                fetch(`${API_URL}/superadmin/analytics/revenue`, { headers }),
+                fetchApi('/superadmin/stats'),
+                fetchApi('/superadmin/analytics/revenue'),
             ]);
 
             if (!statsRes.ok || !revenueRes.ok) {
@@ -44,7 +45,7 @@ export default function SuperadminDashboard() {
         } catch (err: any) {
             setError(err.message);
         } finally {
-            setLoading(false);
+            setDataLoading(false);
         }
     };
 
@@ -80,7 +81,7 @@ export default function SuperadminDashboard() {
         return `${Math.floor(diff / 86400)} hari lalu`;
     };
 
-    if (loading) {
+    if (authLoading || (dataLoading && user)) {
         return (
             <div className="p-8 text-center">
                 <div className="animate-spin w-8 h-8 border-4 border-indigo-600 border-t-transparent rounded-full mx-auto mb-4"></div>

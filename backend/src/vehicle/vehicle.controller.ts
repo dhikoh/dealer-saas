@@ -24,14 +24,39 @@ export class VehicleController {
     // ==================== VEHICLE CRUD ====================
 
     @Get()
-    findAll(
+    async findAll(
         @Request() req,
         @Query('category') category?: string,
         @Query('status') status?: string,
         @Query('condition') condition?: string,
         @Query('branchId') branchId?: string,
+        @Query('page') page?: number,
+        @Query('limit') limit?: number,
     ) {
         if (!req.user.tenantId) throw new ForbiddenException('No tenant associated');
+
+        if (page && limit) {
+            const pageNum = Number(page);
+            const limitNum = Number(limit);
+            const skip = (pageNum - 1) * limitNum;
+
+            const result = await this.vehicleService.findAll(req.user.tenantId, {
+                category, status, condition, branchId
+            }, { skip, take: limitNum });
+
+            // If pagination was used, result is { data, total }
+            if ('total' in result) {
+                return {
+                    data: result.data,
+                    meta: {
+                        total: result.total,
+                        page: pageNum,
+                        last_page: Math.ceil(result.total / limitNum)
+                    }
+                };
+            }
+        }
+
         return this.vehicleService.findAll(req.user.tenantId, {
             category,
             status,

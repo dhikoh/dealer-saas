@@ -4,7 +4,7 @@ import React, { useEffect, useState } from 'react';
 import { Plus, Search, Edit2, Trash2, MapPin, Building, Phone, Users, X, Check, Crown, AlertTriangle } from 'lucide-react';
 import Link from 'next/link';
 import { toast } from 'sonner';
-import { API_URL } from '@/lib/api';
+import { API_URL, fetchApi } from '@/lib/api';
 import { useLanguage } from '@/hooks/useLanguage';
 
 interface Branch {
@@ -73,10 +73,7 @@ export default function BranchesPage() {
 
     const checkPlanStatus = async () => {
         try {
-            const token = localStorage.getItem('access_token');
-            const res = await fetch(`${API_URL}/tenant/profile`, {
-                headers: { 'Authorization': `Bearer ${token}` }
-            });
+            const res = await fetchApi('/tenant/profile');
             if (res.ok) {
                 const data = await res.json();
                 setIsPro(data.planTier === 'PRO' || data.planTier === 'UNLIMITED');
@@ -89,10 +86,7 @@ export default function BranchesPage() {
 
     const fetchBranches = async () => {
         try {
-            const token = localStorage.getItem('access_token');
-            const res = await fetch(`${API_URL}/tenant/branches`, {
-                headers: { 'Authorization': `Bearer ${token}` }
-            });
+            const res = await fetchApi('/tenant/branches');
             if (res.ok) {
                 const data = await res.json();
                 // Map API response to component format
@@ -115,17 +109,12 @@ export default function BranchesPage() {
 
     const handleSave = async () => {
         try {
-            const token = localStorage.getItem('access_token');
-            const url = editingBranch
-                ? `${API_URL}/tenant/branches/${editingBranch.id}`
-                : `${API_URL}/tenant/branches`;
+            const endpoint = editingBranch
+                ? `/tenant/branches/${editingBranch.id}`
+                : `/tenant/branches`;
 
-            const res = await fetch(url, {
+            const res = await fetchApi(endpoint, {
                 method: editingBranch ? 'PUT' : 'POST',
-                headers: {
-                    'Authorization': `Bearer ${token}`,
-                    'Content-Type': 'application/json',
-                },
                 body: JSON.stringify(form),
             });
 
@@ -147,10 +136,8 @@ export default function BranchesPage() {
     const handleDelete = async (id: string) => {
         setDeleteTargetId(null);
         try {
-            const token = localStorage.getItem('access_token');
-            const res = await fetch(`${API_URL}/tenant/branches/${id}`, {
+            const res = await fetchApi(`/tenant/branches/${id}`, {
                 method: 'DELETE',
-                headers: { 'Authorization': `Bearer ${token}` },
             });
             if (res.ok) {
                 toast.success(t.success);

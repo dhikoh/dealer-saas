@@ -12,7 +12,7 @@ import {
     faEye,
 } from '@fortawesome/free-solid-svg-icons';
 import { toast } from 'sonner';
-import { API_URL } from '@/lib/api';
+import { API_URL, fetchApi } from '@/lib/api';
 
 interface DocumentField {
     key: string;
@@ -54,17 +54,15 @@ export default function DocumentUploader({ vehicleId, documents, onDocumentChang
         }
 
         // MODE 2: DIRECT UPLOAD (Edit Existing Vehicle)
-        const token = localStorage.getItem('access_token');
-        if (!token) return;
-
         setUploadingKey(key);
         try {
             const formData = new FormData();
             formData.append('image', file);
 
-            const res = await fetch(`${API_URL}/upload/vehicle/${vehicleId}`, {
+            // Use fetchApi - it handles Authorization and cookies automatically.
+            // Do NOT set Content-Type header locally; standard fetch handles FormData boundary.
+            const res = await fetchApi(`/upload/vehicle/${vehicleId}`, {
                 method: 'POST',
-                headers: { Authorization: `Bearer ${token}` },
                 body: formData,
             });
 
@@ -128,8 +126,8 @@ export default function DocumentUploader({ vehicleId, documents, onDocumentChang
                                     onClick={() => fileRefs.current[field.key]?.click()}
                                     disabled={isUploading}
                                     className={`px-3 py-1.5 text-xs rounded-lg transition-all font-medium disabled:opacity-50 ${isPending
-                                            ? 'bg-blue-50 text-blue-600 hover:bg-blue-100'
-                                            : 'bg-[#00bfa5]/10 text-[#00bfa5] hover:bg-[#00bfa5]/20'
+                                        ? 'bg-blue-50 text-blue-600 hover:bg-blue-100'
+                                        : 'bg-[#00bfa5]/10 text-[#00bfa5] hover:bg-[#00bfa5]/20'
                                         }`}
                                 >
                                     {isUploading ? (

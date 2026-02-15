@@ -17,16 +17,31 @@ export class VehicleService {
         status?: string;
         condition?: string;
         branchId?: string;
-    }) {
+    }, pagination?: { skip: number; take: number }) {
+        const where = {
+            tenantId,
+            deletedAt: null,
+            ...(filters?.category && { category: filters.category }),
+            ...(filters?.status && { status: filters.status }),
+            ...(filters?.condition && { condition: filters.condition }),
+            ...(filters?.branchId && { branchId: filters.branchId }),
+        };
+
+        if (pagination) {
+            const [data, total] = await this.prisma.$transaction([
+                this.prisma.vehicle.findMany({
+                    where,
+                    orderBy: { createdAt: 'desc' },
+                    skip: pagination.skip,
+                    take: pagination.take,
+                }),
+                this.prisma.vehicle.count({ where }),
+            ]);
+            return { data, total };
+        }
+
         return this.prisma.vehicle.findMany({
-            where: {
-                tenantId,
-                deletedAt: null,
-                ...(filters?.category && { category: filters.category }),
-                ...(filters?.status && { status: filters.status }),
-                ...(filters?.condition && { condition: filters.condition }),
-                ...(filters?.branchId && { branchId: filters.branchId }),
-            },
+            where,
             orderBy: { createdAt: 'desc' },
         });
     }
@@ -371,15 +386,16 @@ export class VehicleService {
                 select: { id: true },
             });
             const vehicleLabel = `${sourceVehicle.make} ${sourceVehicle.model} ${sourceVehicle.year}`;
-            for (const owner of sourceOwners) {
-                await this.notificationService.createNotification({
+            const notifications = sourceOwners.map(owner =>
+                this.notificationService.createNotification({
                     userId: owner.id,
                     title: 'Unit Disalin',
                     message: `${requestor.name} menyalin data kendaraan ${vehicleLabel} dari inventaris Anda.`,
                     type: 'info',
                     link: '/app/inventory',
-                });
-            }
+                })
+            );
+            await Promise.all(notifications);
         } catch {
             // Non-critical: don't fail the copy if notification fails
         }

@@ -3,7 +3,7 @@
 import React, { useEffect, useState } from 'react';
 import { CreditCard, Check, X, AlertCircle, Upload, Clock, Crown, Zap, Star, FileText, ChevronRight, Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
-import { API_URL } from '@/lib/api';
+import { API_URL, fetchApi } from '@/lib/api';
 import { useLanguage } from '@/hooks/useLanguage';
 import { useCurrency } from '@/hooks/useCurrency';
 import PaymentModal from '@/components/billing/PaymentModal';
@@ -127,14 +127,10 @@ export default function BillingPage() {
 
     const fetchData = async () => {
         try {
-            const token = localStorage.getItem('access_token');
-            const headers = { 'Authorization': `Bearer ${token}` };
-            const baseUrl = API_URL;
-
             const [profileRes, plansRes, invoicesRes] = await Promise.all([
-                fetch(`${baseUrl}/billing/my-subscription`, { headers }),
-                fetch(`${baseUrl}/billing/plans`, { headers }),
-                fetch(`${baseUrl}/billing/my-invoices`, { headers }),
+                fetchApi('/billing/my-subscription'),
+                fetchApi('/billing/plans'),
+                fetchApi('/billing/my-invoices'),
             ]);
 
             if (profileRes.ok) setProfile(await profileRes.json());
@@ -152,13 +148,8 @@ export default function BillingPage() {
         setUpgrading(true);
         setSelectedPlan(planId);
         try {
-            const token = localStorage.getItem('access_token');
-            const res = await fetch(`${API_URL}/tenant/upgrade`, {
+            const res = await fetchApi('/tenant/upgrade', {
                 method: 'POST',
-                headers: {
-                    'Authorization': `Bearer ${token}`,
-                    'Content-Type': 'application/json',
-                },
                 body: JSON.stringify({ planTier: planId }),
             });
 

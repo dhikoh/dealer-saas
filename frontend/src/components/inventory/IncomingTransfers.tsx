@@ -15,7 +15,7 @@ import {
 } from '@fortawesome/free-solid-svg-icons';
 import { toast } from 'sonner';
 import { useCurrency } from '@/hooks/useCurrency';
-import { API_URL } from '@/lib/api';
+import { fetchApi } from '@/lib/api';
 
 interface Transfer {
     id: string;
@@ -57,16 +57,12 @@ export default function IncomingTransfers() {
         fetchTransfers();
     }, []);
 
-    const getToken = () => localStorage.getItem('access_token');
+    // const getToken = () => localStorage.getItem('access_token'); // Removed
 
     const fetchTransfers = async () => {
-        const token = getToken();
-        if (!token) return;
         setLoading(true);
         try {
-            const res = await fetch(`${API_URL}/stock-transfers`, {
-                headers: { Authorization: `Bearer ${token}` },
-            });
+            const res = await fetchApi('/stock-transfers');
             if (res.ok) {
                 setTransfers(await res.json());
             }
@@ -80,16 +76,14 @@ export default function IncomingTransfers() {
     const handleAction = async () => {
         if (!confirmAction) return;
         const { id, action } = confirmAction;
-        const token = getToken();
-        if (!token) return;
+
         setProcessingId(id);
 
         try {
-            const res = await fetch(`${API_URL}/stock-transfers/${id}/${action}`, {
+            const res = await fetchApi(`/stock-transfers/${id}/${action}`, {
                 method: 'PATCH',
                 headers: {
                     'Content-Type': 'application/json',
-                    Authorization: `Bearer ${token}`,
                 },
                 body: JSON.stringify({ notes: confirmNotes || undefined }),
             });
@@ -111,13 +105,10 @@ export default function IncomingTransfers() {
     };
 
     const handleCancel = async (id: string) => {
-        const token = getToken();
-        if (!token) return;
         setProcessingId(id);
         try {
-            const res = await fetch(`${API_URL}/stock-transfers/${id}/cancel`, {
+            const res = await fetchApi(`/stock-transfers/${id}/cancel`, {
                 method: 'PATCH',
-                headers: { Authorization: `Bearer ${token}` },
             });
             if (res.ok) {
                 toast.success('Transfer dibatalkan');

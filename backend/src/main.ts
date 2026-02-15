@@ -11,6 +11,7 @@ import { TenantGuard } from './auth/tenant.guard';
 import { HttpExceptionFilter } from './common/filters/http-exception.filter';
 import { NestExpressApplication } from '@nestjs/platform-express';
 import { join } from 'path';
+import cookieParser from 'cookie-parser';
 
 async function bootstrap() {
   const logger = new Logger('Bootstrap');
@@ -18,6 +19,10 @@ async function bootstrap() {
   const app = await NestFactory.create<NestExpressApplication>(AppModule);
   // Trust Proxy for Throttler (Coolify/Docker/Nginx)
   app.set('trust proxy', 1);
+
+  // Enable Cookie Parser
+  app.use(cookieParser());
+
   const configService = app.get(ConfigService);
 
   // ==================== STATIC FILES (Uploads) ====================

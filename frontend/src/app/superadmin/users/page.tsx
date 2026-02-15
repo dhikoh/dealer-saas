@@ -7,12 +7,14 @@ import {
     Search, Trash2, Shield, User, Building2,
     MoreVertical, AlertTriangle, Loader2
 } from 'lucide-react';
-import { API_URL } from '@/lib/api';
+import { fetchApi } from '@/lib/api';
+import { useAuthProtection } from '@/hooks/useAuthProtection';
 
 import { SuperadminUser } from '@/types/superadmin';
 
 export default function SuperadminUsersPage() {
     const router = useRouter();
+    const { user, loading: authLoading } = useAuthProtection('SUPERADMIN');
     const [users, setUsers] = useState<SuperadminUser[]>([]);
     const [loading, setLoading] = useState(true);
     const [search, setSearch] = useState('');
@@ -35,7 +37,6 @@ export default function SuperadminUsersPage() {
     const fetchUsers = useCallback(async () => {
         setLoading(true);
         try {
-            const token = localStorage.getItem('access_token');
             const params = new URLSearchParams({
                 page: page.toString(),
                 limit: '20',
@@ -47,9 +48,7 @@ export default function SuperadminUsersPage() {
             if (activeTab === 'tenant') params.append('hasTenant', 'true');
             if (activeTab === 'ghost') params.append('hasTenant', 'false');
 
-            const res = await fetch(`${API_URL}/superadmin/users?${params}`, {
-                headers: { Authorization: `Bearer ${token}` },
-            });
+            const res = await fetchApi(`/superadmin/users?${params}`);
 
             if (!res.ok) throw new Error('Failed to fetch users');
 
@@ -64,27 +63,20 @@ export default function SuperadminUsersPage() {
     }, [page, search, roleFilter, activeTab]); // Added activeTab dependency
 
     useEffect(() => {
-        const timer = setTimeout(() => {
-            fetchUsers();
-        }, 300); // Debounce search
-        return () => clearTimeout(timer);
-    }, [fetchUsers]);
-
-    useEffect(() => {
-        const timer = setTimeout(() => {
-            fetchUsers();
-        }, 300); // Debounce search
-        return () => clearTimeout(timer);
-    }, [fetchUsers]);
+        if (!authLoading && user) {
+            const timer = setTimeout(() => {
+                fetchUsers();
+            }, 300);
+            return () => clearTimeout(timer);
+        }
+    }, [fetchUsers, authLoading, user]);
 
     const handleDeleteUser = async () => {
         if (!userToDelete) return;
         setIsDeleting(true);
         try {
-            const token = localStorage.getItem('access_token');
-            const res = await fetch(`${API_URL}/superadmin/users/${userToDelete.id}`, {
+            const res = await fetchApi(`/superadmin/users/${userToDelete.id}`, {
                 method: 'DELETE',
-                headers: { Authorization: `Bearer ${token}` },
             });
 
             if (!res.ok) {
@@ -184,8 +176,8 @@ export default function SuperadminUsersPage() {
             <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
                 <div className="overflow-x-auto">
                     <table className="w-full text-left border-collapse">
-                        <thead>
-                            <tr className="bg-slate-50 border-b border-slate-200 text-xs text-slate-500 uppercase font-semibold">
+                        <thead className="bg-slate-50 border-b border-slate-200 text-xs text-slate-500 uppercase font-semibold">
+                            <tr>
                                 <th className="p-4">User Info</th>
                                 <th className="p-4">Role</th>
                                 <th className="p-4">Tenant / Dealership</th>
@@ -194,7 +186,7 @@ export default function SuperadminUsersPage() {
                             </tr>
                         </thead>
                         <tbody className="divide-y divide-slate-100">
-                            {loading ? (
+                            {loading || authLoading ? (
                                 <tr>
                                     <td colSpan={5} className="p-8 text-center text-slate-500">
                                         <Loader2 className="w-8 h-8 mx-auto mb-2 animate-spin text-indigo-500" />

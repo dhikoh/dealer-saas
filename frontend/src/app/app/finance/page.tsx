@@ -24,11 +24,12 @@ const CATEGORIES = [
     { id: "OTHER", label: "Lain-lain", icon: faMoneyBill, color: "bg-gray-100 text-gray-600" },
 ];
 
+import { API_URL, fetchApi } from "@/lib/api";
+
 export default function FinancePage() {
     const [costs, setCosts] = useState<OperatingCost[]>([]);
     const [loading, setLoading] = useState(true);
     const [showModal, setShowModal] = useState(false);
-    const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:4000";
 
     // Form State
     const [formData, setFormData] = useState({
@@ -43,10 +44,7 @@ export default function FinancePage() {
 
     const fetchCosts = async () => {
         try {
-            const token = localStorage.getItem("access_token");
-            const res = await fetch(`${API_URL}/finance/costs`, {
-                headers: { Authorization: `Bearer ${token}` },
-            });
+            const res = await fetchApi('/finance/costs');
             if (res.ok) {
                 const data = await res.json();
                 setCosts(data);
@@ -65,7 +63,6 @@ export default function FinancePage() {
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
         try {
-            const token = localStorage.getItem("access_token");
             let proofUrl = "";
 
             // 1. Upload Proof if exists
@@ -74,9 +71,8 @@ export default function FinancePage() {
                 formData.append('proof', proofFile);
 
                 try {
-                    const uploadRes = await fetch(`${API_URL}/upload/finance/proof`, {
+                    const uploadRes = await fetchApi('/upload/finance/proof', {
                         method: "POST",
-                        headers: { Authorization: `Bearer ${token}` },
                         body: formData
                     });
 
@@ -94,12 +90,8 @@ export default function FinancePage() {
             }
 
             // 2. Create Cost
-            const res = await fetch(`${API_URL}/finance/costs`, {
+            const res = await fetchApi('/finance/costs', {
                 method: "POST",
-                headers: {
-                    "Content-Type": "application/json",
-                    Authorization: `Bearer ${token}`,
-                },
                 body: JSON.stringify({ ...formData, proofImage: proofUrl || undefined }),
             });
 
@@ -120,10 +112,8 @@ export default function FinancePage() {
     const handleDelete = async (id: string) => {
         if (!confirm("Hapus biaya ini?")) return;
         try {
-            const token = localStorage.getItem("access_token");
-            const res = await fetch(`${API_URL}/finance/costs/${id}`, {
+            const res = await fetchApi(`/finance/costs/${id}`, {
                 method: "DELETE",
-                headers: { Authorization: `Bearer ${token}` },
             });
             if (res.ok) {
                 toast.success("Terhapus");

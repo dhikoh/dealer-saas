@@ -4,6 +4,7 @@ import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
+import { fetchApi } from '@/lib/api';
 import {
     faThLarge,
     faCar,
@@ -217,23 +218,27 @@ export default function Sidebar({ isOpen, onToggle }: SidebarProps) {
                         onClick={async () => {
                             // Invalidate refresh token on server
                             const refreshToken = localStorage.getItem('refresh_token');
-                            const accessToken = localStorage.getItem('access_token');
+
                             if (refreshToken) {
                                 try {
-                                    await fetch(`${(await import('@/lib/api')).API_URL}/auth/logout`, {
+                                    // Use fetchApi for logout
+                                    await fetchApi('/auth/logout', {
                                         method: 'POST',
                                         headers: {
                                             'Content-Type': 'application/json',
-                                            ...(accessToken ? { 'Authorization': `Bearer ${accessToken}` } : {}),
                                         },
                                         body: JSON.stringify({ refresh_token: refreshToken }),
                                     });
                                 } catch { /* ignore */ }
                             }
+
+                            // Clear all storage
                             localStorage.removeItem('access_token');
                             localStorage.removeItem('refresh_token');
                             localStorage.removeItem('user_info');
                             document.cookie = 'auth_token=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;';
+
+                            // Redirect to auth
                             window.location.href = '/auth';
                         }}
                         className={`w-full flex items-center gap-3 px-5 py-3 rounded-xl text-red-500 transition-all duration-300 ${theme === 'dark'
@@ -245,7 +250,7 @@ export default function Sidebar({ isOpen, onToggle }: SidebarProps) {
                         <span className="font-medium text-sm">{t.logout}</span>
                     </button>
                 </div>
-            </aside>
+            </aside >
         </>
     );
 }
