@@ -194,6 +194,7 @@ export default function AuthPage() {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ email, password }),
+                    credentials: 'include', // Enable cookie storage
                 });
 
                 if (!res.ok) throw new Error(t.authErrLoginFailed);
@@ -233,6 +234,7 @@ export default function AuthPage() {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ username, email, password }),
+                    credentials: 'include', // Enable cookie storage
                 });
 
                 if (!res.ok) {
@@ -303,6 +305,7 @@ export default function AuthPage() {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
                         body: JSON.stringify({ credential: response.credential }),
+                        credentials: 'include', // Enable cookie storage
                     });
 
                     if (!res.ok) {
