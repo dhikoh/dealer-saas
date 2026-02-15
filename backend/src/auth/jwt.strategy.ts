@@ -10,8 +10,10 @@ import { Request } from 'express';
 function extractJwt(req: Request): string | null {
     // 1. Try Cookie first (Premium Flow)
     if (req.cookies && req.cookies['auth_token']) {
+        console.log('[JWT Strategy] Found auth_token in cookie');
         return req.cookies['auth_token'];
     }
+    console.log('[JWT Strategy] No auth_token in cookie. Cookies:', req.cookies);
 
     // 2. Try Authorization Header
     const fromHeader = ExtractJwt.fromAuthHeaderAsBearerToken()(req);

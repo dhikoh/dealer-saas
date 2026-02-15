@@ -56,8 +56,12 @@ async function bootstrap() {
 
   // ==================== CORS CONFIGURATION ====================
   const corsOrigins = configService.get('CORS_ORIGINS', 'http://localhost:3000');
+  const origins = corsOrigins.split(',');
+  const logger = new Logger('Bootstrap');
+  logger.log(`🔐 CORS Origins Configured: ${origins.join(', ')}`);
+
   app.enableCors({
-    origin: corsOrigins.split(','),
+    origin: origins,
     methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
     credentials: true,
     allowedHeaders: ['Content-Type', 'Authorization', 'X-Tenant-ID'],

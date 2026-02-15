@@ -74,6 +74,8 @@ export class AuthController {
     officeAddress: string;
     language: string;
   }, @Request() req, @Res({ passthrough: true }) response: Response) {
+    console.log('[Auth] Onboarding Request Cookies:', req.cookies); // DEBUG LOG
+    console.log('[Auth] Onboarding Request Headers:', req.headers); // DEBUG LOG
     const data = await this.authService.completeOnboarding(req.user.userId, {
       fullName: body.fullName,
       phone: body.phone,
