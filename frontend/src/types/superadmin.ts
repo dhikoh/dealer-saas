@@ -103,3 +103,79 @@ export interface DashboardStats {
     churnRate: number;
     recentActivity: ActivityLog[];
 }
+
+// Approval Types
+export interface ApprovalRequest {
+    id: string;
+    requestedById: string;
+    approvedById: string | null;
+    type: string;
+    payload: string;
+    status: 'PENDING' | 'APPROVED' | 'REJECTED';
+    note: string | null;
+    createdAt: string;
+    updatedAt: string;
+}
+
+// Settings Types
+export interface SuperadminStaff {
+    id: string;
+    name: string;
+    email: string;
+    role: string;
+    phone?: string;
+    subscriptionStatus?: string;
+}
+
+export interface ApiKey {
+    id: string;
+    name: string;
+    key: string;
+    created: string;
+    status: 'active' | 'revoked';
+}
+
+export interface BillingConfig {
+    gateway: string;
+    bankInfo: {
+        bankName: string;
+        accountNumber: string;
+        accountHolder: string;
+    };
+    autoInvoice: boolean;
+}
+
+// Plan Types
+// Plan Types
+export interface PlanFeatures {
+    maxVehicles: number;
+    maxUsers: number;
+    maxCustomers: number;
+    maxBranches: number;
+    pdfExport: boolean;
+    internalReports: boolean;
+    blacklistAccess: boolean;
+    reminderNotifications: boolean;
+    multiLanguage: boolean;
+    prioritySupport: boolean;
+    apiAccess: boolean;
+    customBranding: boolean;
+    advancedAnalytics: boolean;
+    dataExport: boolean;
+    whatsappIntegration: boolean;
+}
+
+export interface Plan {
+    id: string;
+    name: string;
+    price: number;
+    priceLabel: string;
+    description: string;
+    descriptionId: string;
+    trialDays: number;
+    yearlyDiscount: number;
+    badge: string;
+    badgeColor: string;
+    recommended: boolean;
+    features: PlanFeatures;
+}

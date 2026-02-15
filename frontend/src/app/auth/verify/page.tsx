@@ -106,6 +106,12 @@ function VerifyPageContent() {
             // Redirect to Onboarding
             setTimeout(() => {
                 router.push('/onboarding');
+                // Fallback if router fails or takes too long (common in some auth states)
+                setTimeout(() => {
+                    if (window.location.pathname !== '/onboarding') {
+                        window.location.href = '/onboarding';
+                    }
+                }, 500);
             }, 1000);
 
         } catch (error: any) {

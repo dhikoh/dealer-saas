@@ -5,6 +5,8 @@ import { User, Shield, Users, Key, CreditCard, Save, Plus, X, Eye, EyeOff, Setti
 import { API_URL } from '@/lib/api';
 import ConfirmDialog from '@/components/ui/ConfirmDialog';
 
+import { SuperadminStaff, ApiKey, BillingConfig, ActivityLog } from '@/types/superadmin';
+
 type Tab = 'general' | 'security' | 'staff' | 'api' | 'billing';
 
 const TABS: { id: Tab; label: string; icon: any }[] = [
@@ -158,7 +160,7 @@ function SecurityTab() {
     const [loading, setLoading] = useState(false);
     const [toast, setToast] = useState<{ msg: string; type: 'success' | 'error' } | null>(null);
     const [showPw, setShowPw] = useState({ current: false, new: false, confirm: false });
-    const [loginHistory, setLoginHistory] = useState<any[]>([]);
+    const [loginHistory, setLoginHistory] = useState<ActivityLog[]>([]);
 
     useEffect(() => {
         fetchLoginHistory();
@@ -262,7 +264,7 @@ function SecurityTab() {
                 </h3>
                 {loginHistory.length > 0 ? (
                     <div className="space-y-3">
-                        {loginHistory.map((log: any, i: number) => (
+                        {loginHistory.map((log: ActivityLog, i: number) => (
                             <div key={i} className="flex justify-between items-center text-sm p-3 bg-slate-50 rounded-lg">
                                 <div>
                                     <span className="font-medium text-slate-700">{log.entityName || 'Login'}</span>
@@ -283,7 +285,7 @@ function SecurityTab() {
 // ================== TAB 3: STAFF MANAGEMENT ==================
 
 function StaffManagementTab() {
-    const [staff, setStaff] = useState<any[]>([]);
+    const [staff, setStaff] = useState<SuperadminStaff[]>([]);
     const [loading, setLoading] = useState(true);
     const [showAdd, setShowAdd] = useState(false);
     const [addForm, setAddForm] = useState({ name: '', email: '', password: '', role: 'Admin', phone: '' });
@@ -468,7 +470,7 @@ function StaffManagementTab() {
 // ================== TAB 4: API CONFIGURATION ==================
 
 function ApiConfigTab() {
-    const [apiKeys, setApiKeys] = useState([
+    const [apiKeys, setApiKeys] = useState<ApiKey[]>([
         { id: '1', name: 'Production Key', key: 'otohub_pk_live_*****', created: '2026-01-15', status: 'active' },
         { id: '2', name: 'Test Key', key: 'otohub_pk_test_*****', created: '2026-02-01', status: 'active' },
     ]);

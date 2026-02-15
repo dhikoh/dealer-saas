@@ -4,17 +4,7 @@ import { API_URL } from '@/lib/api';
 import { Clock, CheckCircle, XCircle, Send, AlertCircle } from 'lucide-react';
 import ConfirmDialog from '@/components/ui/ConfirmDialog';
 
-interface ApprovalRequest {
-    id: string;
-    requestedById: string;
-    approvedById: string | null;
-    type: string;
-    payload: string;
-    status: string;
-    note: string | null;
-    createdAt: string;
-    updatedAt: string;
-}
+import { ApprovalRequest } from '@/types/superadmin';
 
 const statusConfig: Record<string, { label: string; icon: any; color: string; bg: string }> = {
     PENDING: { label: 'Menunggu', icon: Clock, color: 'text-amber-600', bg: 'bg-amber-50' },
@@ -32,7 +22,7 @@ const typeLabels: Record<string, string> = {
 export default function ApprovalsPage() {
     const [approvals, setApprovals] = useState<ApprovalRequest[]>([]);
     const [loading, setLoading] = useState(true);
-    const [filter, setFilter] = useState<'ALL' | 'PENDING' | 'APPROVED' | 'REJECTED'>('ALL');
+    const [filter, setFilter] = useState<'ALL' | ApprovalRequest['status']>('ALL');
     const [processingId, setProcessingId] = useState<string | null>(null);
     const [confirmAction, setConfirmAction] = useState<{
         id: string; action: 'APPROVED' | 'REJECTED';
@@ -55,7 +45,7 @@ export default function ApprovalsPage() {
 
     useEffect(() => { fetchApprovals(); }, [fetchApprovals]);
 
-    const processApproval = async (id: string, status: 'APPROVED' | 'REJECTED') => {
+    const processApproval = async (id: string, status: ApprovalRequest['status']) => {
         setProcessingId(id);
         try {
             const res = await fetch(`${API_URL}/superadmin/approvals/${id}`, {

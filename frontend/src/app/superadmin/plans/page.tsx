@@ -6,38 +6,13 @@ import { API_URL } from '@/lib/api';
 
 import ConfirmDialog from '@/components/ui/ConfirmDialog';
 
-interface PlanFeatures {
-    maxVehicles: number;
-    maxUsers: number;
-    maxCustomers: number;
-    maxBranches: number;
-    pdfExport: boolean;
-    internalReports: boolean;
-    blacklistAccess: boolean;
-    reminderNotifications: boolean;
-    multiLanguage: boolean;
-    prioritySupport: boolean;
-    apiAccess: boolean;
-    customBranding: boolean;
-    advancedAnalytics: boolean;
-    dataExport: boolean;
-    whatsappIntegration: boolean;
-}
+import { Plan, PlanFeatures } from '@/types/superadmin';
 
-interface PlanTier {
-    id: string;
-    name: string;
-    price: number;
-    priceLabel: string;
-    description: string;
-    descriptionId: string;
-    trialDays: number;
-    yearlyDiscount: number;
-    badge: string;
-    badgeColor: string;
-    recommended: boolean;
-    features: PlanFeatures;
-}
+// Mapping local usage to shared type if needed, or just using shared type directly. 
+// The shared Plan type has `features: string[]` but the page uses an object. 
+// I need to update the Plan type in shared types to match this page first if I want to use it here without breaking changes.
+// Wait, I saw I updated Plan type in previous turn but I might have made it `features: string[]` which contradicts to `PlanFeatures` object here.
+// Let me check shared type again.
 
 const ICONS: Record<string, any> = { DEMO: Star, BASIC: Zap, PRO: Rocket, UNLIMITED: Crown };
 const BADGE_COLORS: Record<string, string> = {
@@ -71,10 +46,10 @@ const formatCurrency = (value: number) =>
     new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', minimumFractionDigits: 0 }).format(value);
 
 export default function PlansPage() {
-    const [plans, setPlans] = useState<PlanTier[]>([]);
+    const [plans, setPlans] = useState<Plan[]>([]);
     const [loading, setLoading] = useState(true);
-    const [editPlan, setEditPlan] = useState<PlanTier | null>(null);
-    const [editForm, setEditForm] = useState<any>(null);
+    const [editPlan, setEditPlan] = useState<Plan | null>(null);
+    const [editForm, setEditForm] = useState<Partial<Plan> | null>(null);
     const [saving, setSaving] = useState(false);
     const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
     const [confirmSave, setConfirmSave] = useState(false);
@@ -108,7 +83,7 @@ export default function PlansPage() {
         }
     };
 
-    const openEdit = (plan: PlanTier) => {
+    const openEdit = (plan: Plan) => {
         setEditPlan(plan);
         setEditForm({
             name: plan.name,
@@ -143,11 +118,14 @@ export default function PlansPage() {
         }
     };
 
-    const updateFeature = (key: string, value: any) => {
-        setEditForm((prev: any) => ({
-            ...prev,
-            features: { ...prev.features, [key]: value },
-        }));
+    const updateFeature = (key: string, value: number | boolean) => {
+        setEditForm((prev) => {
+            if (!prev || !prev.features) return prev;
+            return {
+                ...prev,
+                features: { ...prev.features, [key]: value },
+            };
+        });
     };
 
     if (loading) {
@@ -338,10 +316,10 @@ export default function PlansPage() {
                             <div>
                                 <h4 className="text-sm font-semibold text-slate-800 mb-3">Batas Kuota</h4>
                                 <div className="grid grid-cols-2 gap-3">
-                                    {['maxVehicles', 'maxUsers', 'maxCustomers', 'maxBranches'].map(key => (
+                                    {editForm.features && ['maxVehicles', 'maxUsers', 'maxCustomers', 'maxBranches'].map(key => (
                                         <div key={key}>
                                             <label className="block text-xs text-slate-500 mb-1">{FEATURE_LABELS[key]} <span className="text-slate-400">(-1 = unlimited)</span></label>
-                                            <input type="number" value={editForm.features[key]}
+                                            <input type="number" value={editForm.features[key as keyof PlanFeatures] as number}
                                                 onChange={e => updateFeature(key, parseInt(e.target.value))}
                                                 className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500" />
                                         </div>
@@ -353,7 +331,7 @@ export default function PlansPage() {
                             <div>
                                 <h4 className="text-sm font-semibold text-slate-800 mb-3">Fitur</h4>
                                 <div className="grid grid-cols-2 gap-3">
-                                    {Object.entries(editForm.features)
+                                    {editForm.features && Object.entries(editForm.features)
                                         .filter(([key]) => !key.startsWith('max'))
                                         .map(([key, value]) => (
                                             <label key={key} className="flex items-center gap-2 text-sm cursor-pointer">
