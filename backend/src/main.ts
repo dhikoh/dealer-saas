@@ -16,6 +16,8 @@ async function bootstrap() {
   const logger = new Logger('Bootstrap');
 
   const app = await NestFactory.create<NestExpressApplication>(AppModule);
+  // Trust Proxy for Throttler (Coolify/Docker/Nginx)
+  app.set('trust proxy', 1);
   const configService = app.get(ConfigService);
 
   // ==================== STATIC FILES (Uploads) ====================
