@@ -40,54 +40,68 @@ export function middleware(request: NextRequest) {
     }
 
     const token = request.cookies.get('auth_token')?.value;
+    let payload: any = null;
 
-    // 2. ROOT PATH / LANDING PAGE HANDLER
-    if (pathname === '/') {
-        // Allow everyone to see the Landing Page
-        return NextResponse.next();
-    }
-
-    // 3. Allow public routes without authentication
-    if (PUBLIC_ROUTES.some(route => pathname === route || pathname.startsWith(route + '/'))) {
-        return NextResponse.next();
-    }
-
-    // 4. Check for authentication token
-    if (!token) {
-        // No token found - redirect to login
-        const loginUrl = new URL('/auth', request.url);
-        loginUrl.searchParams.set('redirect', pathname);
-        return NextResponse.redirect(loginUrl);
-    }
-
-    // 4. Validate token format and decode payload
-    let payload: any;
-    try {
-        // JWT format: xxx.xxx.xxx
-        const parts = token.split('.');
-        if (parts.length !== 3) {
-            throw new Error('Invalid token format');
+    // 2. CHECK FOR TOKEN & VALIDATE IF PRESENT
+    if (token) {
+        console.log(`[Middleware] Token found for path: ${pathname}`);
+        try {
+            const parts = token.split('.');
+            if (parts.length === 3) {
+                const decoded = atob(parts[1]);
+                if (decoded) {
+                    const parsed = JSON.parse(decoded);
+                    // Check expiration
+                    if (parsed.exp && Date.now() < parsed.exp * 1000) {
+                        payload = parsed;
+                    } else {
+                        console.log('[Middleware] Token expired');
+                    }
+                }
+            }
+        } catch (e) {
+            console.log('[Middleware] Invalid token:', e);
         }
+    }
 
-        // Decode payload
-        const decoded = atob(parts[1]);
-        if (!decoded) throw new Error('Empty payload');
-        payload = JSON.parse(decoded);
-
-        // Check expiration
-        if (payload.exp && Date.now() >= payload.exp * 1000) {
-            const response = NextResponse.redirect(new URL('/auth', request.url));
-            response.cookies.delete('auth_token');
-            return response;
-        }
-    } catch {
-        // Invalid token - clear and redirect
+    // 3. IF TOKEN INVALID/EXPIRED
+    if (!payload && token) {
+        // If token exists but invalid, clear it
         const response = NextResponse.redirect(new URL('/auth', request.url));
         response.cookies.delete('auth_token');
         return response;
     }
 
-    // 5. FLOW ENFORCEMENT - Based on user state in JWT
+    // 4. GUEST GUARD: Redirect authenticated users away from /auth pages
+    if (payload && (pathname === '/auth' || pathname === '/auth/verify')) {
+        // Special case: Allow verify page if user is NOT verified
+        if (pathname === '/auth/verify' && !payload.isVerified) {
+            return NextResponse.next();
+        }
+
+        console.log('[Middleware] Authenticated user on auth page. Redirecting...');
+        if (payload.role === 'SUPERADMIN') {
+            return NextResponse.redirect(new URL('/superadmin', request.url));
+        } else if (!payload.onboardingCompleted) {
+            return NextResponse.redirect(new URL('/onboarding', request.url));
+        } else {
+            return NextResponse.redirect(new URL('/app', request.url));
+        }
+    }
+
+    // 5. PUBLIC ROUTES (If no valid payload)
+    if (!payload) {
+        if (pathname === '/') return NextResponse.next(); // Landing page
+        if (PUBLIC_ROUTES.some(route => pathname === route || pathname.startsWith(route + '/'))) {
+            return NextResponse.next();
+        }
+        // Redirect to login if accessing protected route without token
+        const loginUrl = new URL('/auth', request.url);
+        loginUrl.searchParams.set('redirect', pathname);
+        return NextResponse.redirect(loginUrl);
+    }
+
+    // 6. PROTECTED ROUTES FLOW ENFORCEMENT (Payload exists)
     const { isVerified, onboardingCompleted, role } = payload;
 
     // SUPERADMIN bypasses flow checks
@@ -97,8 +111,10 @@ export function middleware(request: NextRequest) {
 
     // === UNVERIFIED USER ===
     if (!isVerified) {
-        // Unverified users can only access /auth/verify
-        if (pathname !== '/auth/verify' && !pathname.startsWith('/auth')) {
+        // Unverified users can only access /auth/verify (handled above in Guest Guard / Public check sort of)
+        // If we are here, path is NOT /auth/verify (caught by Guest Guard logic or Public check?)
+        // Wait, if path is /app, we need to redirect to /auth/verify
+        if (pathname !== '/auth/verify') {
             return NextResponse.redirect(new URL('/auth/verify', request.url));
         }
         return NextResponse.next();
@@ -106,7 +122,6 @@ export function middleware(request: NextRequest) {
 
     // === VERIFIED BUT NOT ONBOARDED ===
     if (isVerified && !onboardingCompleted) {
-        // Can access: /onboarding only
         if (pathname !== ONBOARDING_ROUTE) {
             return NextResponse.redirect(new URL('/onboarding', request.url));
         }
@@ -115,18 +130,14 @@ export function middleware(request: NextRequest) {
 
     // === FULLY ONBOARDED ===
     if (isVerified && onboardingCompleted) {
-        // Redirect away from onboarding/verify pages
+        // Already handled Guest Guard above.
+        // If accessing /onboarding, redirect to app
         if (pathname === ONBOARDING_ROUTE) {
             return NextResponse.redirect(new URL('/app', request.url));
         }
-        if (pathname === '/auth/verify') {
-            return NextResponse.redirect(new URL('/app', request.url));
-        }
-        // Allow access to /app routes
         return NextResponse.next();
     }
 
-    // Default: allow access
     return NextResponse.next();
 }
 

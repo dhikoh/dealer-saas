@@ -212,8 +212,21 @@ export default function AuthPage() {
 
                 toast.success(`Welcome ${data.user.name}!`);
 
-                // Role-based redirect (must match Google login logic)
-                setTimeout(() => {
+                // Wait for cookie propagation & Toast
+                setTimeout(async () => {
+                    // Force router refresh to update middleware state (cookie visibility)
+                    router.refresh();
+
+                    // Check for redirect param
+                    const params = new URLSearchParams(window.location.search);
+                    const redirectUrl = params.get('redirect');
+
+                    if (redirectUrl) {
+                        router.push(redirectUrl);
+                        return;
+                    }
+
+                    // Role-based redirect fallback
                     if (data.user.role === 'SUPERADMIN') {
                         router.push('/superadmin');
                     } else if (!data.user.onboardingCompleted) {
@@ -320,7 +333,17 @@ export default function AuthPage() {
 
                     toast.success(`Welcome ${data.user.name}!`);
 
-                    setTimeout(() => {
+                    setTimeout(async () => {
+                        router.refresh();
+
+                        const params = new URLSearchParams(window.location.search);
+                        const redirectUrl = params.get('redirect');
+
+                        if (redirectUrl) {
+                            router.push(redirectUrl);
+                            return;
+                        }
+
                         if (data.user.role === 'SUPERADMIN') {
                             router.push('/superadmin');
                         } else if (!data.user.onboardingCompleted) {
