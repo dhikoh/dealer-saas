@@ -42,7 +42,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         }
 
         try {
-            const res = await fetchApi('/auth/me');
+            const res = await fetchApi('/auth/me', {
+                // Custom option to prevent auto-redirect on 401 for this specific call
+                // We handle it manually here
+                headers: { 'X-Skip-Redirect': 'true' }
+            });
+
             if (res.ok) {
                 const data = await res.json();
                 setUser(data);
@@ -50,16 +55,20 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
                 setLoading(false);
                 localStorage.setItem('user_info', JSON.stringify(data));
             } else {
-                // If 401, we are not authenticated.
-                // We do NOT redirect here (global provider).
-                // Specialized hooks/layouts will handle redirect.
+                // Valid response but not OK (e.g. 401, 403)
+                // If 401, it's expected when not logged in.
+                if (res.status !== 401) {
+                    console.warn(`Auth check failed with status: ${res.status}`);
+                }
+
                 setUser(null);
                 setIsAuthenticated(false);
                 setLoading(false);
                 localStorage.removeItem('user_info');
             }
         } catch (error) {
-            console.error('Auth verification failed:', error);
+            // Network error or other issues
+            console.error('Auth verification network error:', error);
             setUser(null);
             setIsAuthenticated(false);
             setLoading(false);
