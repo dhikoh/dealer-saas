@@ -65,7 +65,11 @@ function clearAuthAndRedirect() {
         localStorage.removeItem('access_token');
         localStorage.removeItem('refresh_token');
         localStorage.removeItem('user_info');
-        window.location.href = '/auth';
+
+        // Prevent infinite loop: Only redirect if NOT already on an auth page
+        if (!window.location.pathname.startsWith('/auth')) {
+            window.location.href = '/auth';
+        }
     }
 }
 
