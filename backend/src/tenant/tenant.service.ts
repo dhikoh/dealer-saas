@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
+import { Injectable, NotFoundException, BadRequestException, ForbiddenException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { getPlanById, PLAN_TIERS, canUpgrade } from '../config/plan-tiers.config';
 import { TENANT_ROLES } from '../config/roles.config';
@@ -248,7 +248,7 @@ export class TenantService {
   }
 
   // Create new staff member
-  async createStaff(tenantId: string, data: {
+  async createStaff(tenantId: string, currentUser: any, data: {
     name: string;
     email: string;
     password: string;
@@ -256,6 +256,21 @@ export class TenantService {
     role: string;
     branchId?: string;
   }) {
+    // PRIVILEGE CHECK
+    if (currentUser.role !== 'OWNER' && currentUser.role !== 'MANAGER') {
+      throw new ForbiddenException('Hanya Owner dan Manager yang dapat menambahkan staff.');
+    }
+
+    // Prevent creating OWNER role (Ownership transfer is a separate process)
+    if (data.role === 'OWNER') {
+      throw new ForbiddenException('Tidak dapat membuat user dengan role OWNER secara manual.');
+    }
+
+    // MANAGER cannot create MANAGER (Only Owner can)
+    if (currentUser.role === 'MANAGER' && data.role === 'MANAGER') {
+      throw new ForbiddenException('Manager tidak dapat membuat user Manager lain.');
+    }
+
     // Check plan limit
     const tenant = await this.prisma.tenant.findUnique({
       where: { id: tenantId },
@@ -330,24 +345,51 @@ export class TenantService {
   }
 
   // Update staff member
-  async updateStaff(tenantId: string, staffId: string, data: {
+  async updateStaff(tenantId: string, staffId: string, currentUser: any, data: {
     name?: string;
     phone?: string;
     role?: string;
     branchId?: string | null;
   }) {
+    // PRIVILEGE CHECK: STAFF cannot access this endpoint
+    if (currentUser.role !== 'OWNER' && currentUser.role !== 'MANAGER') {
+      throw new ForbiddenException('Hanya Owner dan Manager yang dapat mengelola staff.');
+    }
+
     // Verify staff belongs to tenant
-    const staff = await this.prisma.user.findFirst({
+    const targetStaff = await this.prisma.user.findFirst({
       where: { id: staffId, tenantId },
     });
 
-    if (!staff) {
+    if (!targetStaff) {
       throw new NotFoundException('Staff tidak ditemukan');
     }
 
-    // Validate Role
-    if (data.role && !TENANT_ROLES.includes(data.role)) {
-      throw new BadRequestException('Role tidak valid. Role yang diperbolehkan: ' + TENANT_ROLES.join(', '));
+    // PROTECTION: Cannot modify OWNER
+    if (targetStaff.role === 'OWNER' && currentUser.role !== 'OWNER') {
+      throw new ForbiddenException('Hanya Owner yang dapat mengubah data Owner.');
+    }
+
+    // PROTECTION: Manager cannot modify other Managers
+    if (currentUser.role === 'MANAGER' && targetStaff.role === 'MANAGER' && targetStaff.id !== currentUser.id) {
+      throw new ForbiddenException('Manager tidak dapat mengubah data Manager lain.');
+    }
+
+    // Validate New Role
+    if (data.role) {
+      if (!TENANT_ROLES.includes(data.role)) {
+        throw new BadRequestException('Role tidak valid. Role yang diperbolehkan: ' + TENANT_ROLES.join(', '));
+      }
+
+      // PREVENT ELEVATION to OWNER
+      if (data.role === 'OWNER') {
+        throw new ForbiddenException('Tidak dapat mengubah role menjadi OWNER secara manual.');
+      }
+
+      // PREVENT ELEVATION by MANAGER
+      if (currentUser.role === 'MANAGER' && data.role === 'MANAGER') {
+        throw new ForbiddenException('Manager tidak dapat mempromosikan user menjadi Manager.');
+      }
     }
 
     return this.prisma.user.update({

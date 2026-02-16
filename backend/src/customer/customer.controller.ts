@@ -15,26 +15,25 @@ import type { Response } from 'express';
 import { CustomerService } from './customer.service';
 import { CreateCustomerDto } from './dto/create-customer.dto';
 import { UpdateCustomerDto } from './dto/update-customer.dto';
+import { ActiveTenant } from '../common/decorators/active-tenant.decorator';
 
 @Controller('customers')
 export class CustomerController {
     constructor(private readonly customerService: CustomerService) { }
 
     @Get()
-    findAll(@Request() req, @Query('search') search?: string) {
-        if (!req.user.tenantId) throw new ForbiddenException('No tenant associated');
-        return this.customerService.findAll(req.user.tenantId, search);
+    findAll(@ActiveTenant() tenantId: string, @Query('search') search?: string) {
+        return this.customerService.findAll(tenantId, search);
     }
 
     @Get(':id')
-    findOne(@Param('id') id: string, @Request() req) {
-        if (!req.user.tenantId) throw new ForbiddenException('No tenant associated');
-        return this.customerService.findOne(id, req.user.tenantId);
+    findOne(@Param('id') id: string, @ActiveTenant() tenantId: string) {
+        return this.customerService.findOne(id, tenantId);
     }
 
     @Get(':id/pdf')
-    async downloadPdf(@Param('id') id: string, @Request() req, @Res() res: Response) {
-        const buffer = await this.customerService.generatePdf(id, req.user.tenantId);
+    async downloadPdf(@Param('id') id: string, @ActiveTenant() tenantId: string, @Res() res: Response) {
+        const buffer = await this.customerService.generatePdf(id, tenantId);
 
         res.set({
             'Content-Type': 'application/pdf',
@@ -46,26 +45,22 @@ export class CustomerController {
     }
 
     @Get(':id/documents')
-    getDocumentStatus(@Param('id') id: string, @Request() req) {
-        if (!req.user.tenantId) throw new ForbiddenException('No tenant associated');
-        return this.customerService.getDocumentStatus(id, req.user.tenantId);
+    getDocumentStatus(@Param('id') id: string, @ActiveTenant() tenantId: string) {
+        return this.customerService.getDocumentStatus(id, tenantId);
     }
 
     @Post()
-    create(@Body() data: CreateCustomerDto, @Request() req) {
-        if (!req.user.tenantId) throw new ForbiddenException('No tenant associated');
-        return this.customerService.create(req.user.tenantId, data);
+    create(@Body() data: CreateCustomerDto, @ActiveTenant() tenantId: string) {
+        return this.customerService.create(tenantId, data);
     }
 
     @Put(':id')
-    update(@Param('id') id: string, @Body() data: UpdateCustomerDto, @Request() req) {
-        if (!req.user.tenantId) throw new ForbiddenException('No tenant associated');
-        return this.customerService.update(id, req.user.tenantId, data);
+    update(@Param('id') id: string, @Body() data: UpdateCustomerDto, @ActiveTenant() tenantId: string) {
+        return this.customerService.update(id, tenantId, data);
     }
 
     @Delete(':id')
-    delete(@Param('id') id: string, @Request() req) {
-        if (!req.user.tenantId) throw new ForbiddenException('No tenant associated');
-        return this.customerService.delete(id, req.user.tenantId);
+    delete(@Param('id') id: string, @ActiveTenant() tenantId: string) {
+        return this.customerService.delete(id, tenantId);
     }
 }

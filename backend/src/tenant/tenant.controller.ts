@@ -1,5 +1,6 @@
-import { Controller, Get, Patch, Post, Put, Delete, Body, Request, Param, ForbiddenException } from '@nestjs/common';
+import { Controller, Get, Patch, Post, Put, Delete, Body, Param, Request } from '@nestjs/common';
 import { TenantService } from './tenant.service';
+import { ActiveTenant } from '../common/decorators/active-tenant.decorator';
 
 // Protected by global JwtAuthGuard
 @Controller('tenant')
@@ -8,68 +9,62 @@ export class TenantController {
 
   // Get current tenant profile (for logged-in user)
   @Get('profile')
-  async getProfile(@Request() req: any) {
-    if (!req.user.tenantId) throw new ForbiddenException('SuperAdmin tidak memiliki tenant profile');
-    return this.tenantService.getProfile(req.user.tenantId);
+  async getProfile(@ActiveTenant() tenantId: string) {
+    return this.tenantService.getProfile(tenantId);
   }
 
   // Update tenant profile
   @Patch('profile')
   async updateProfile(
-    @Request() req: any,
+    @ActiveTenant() tenantId: string,
     @Body() data: { name?: string; address?: string; phone?: string; email?: string }
   ) {
-    if (!req.user.tenantId) throw new ForbiddenException('SuperAdmin tidak memiliki tenant profile');
-    return this.tenantService.updateProfile(req.user.tenantId, data);
+    return this.tenantService.updateProfile(tenantId, data);
   }
 
   // Get available plans for upgrade
   @Get('plans')
-  async getAvailablePlans(@Request() req: any) {
-    if (!req.user.tenantId) throw new ForbiddenException('No tenant associated');
-    return this.tenantService.getAvailablePlans(req.user.tenantId);
+  async getAvailablePlans(@ActiveTenant() tenantId: string) {
+    return this.tenantService.getAvailablePlans(tenantId);
   }
 
   // Request plan upgrade
   @Post('upgrade')
   async requestUpgrade(
-    @Request() req: any,
+    @ActiveTenant() tenantId: string,
     @Body('planTier') planTier: string
   ) {
-    if (!req.user.tenantId) throw new ForbiddenException('No tenant associated');
-    return this.tenantService.requestUpgrade(req.user.tenantId, planTier);
+    return this.tenantService.requestUpgrade(tenantId, planTier);
   }
 
   // Upload payment proof for invoice
   @Post('invoice/:invoiceId/proof')
   async uploadPaymentProof(
-    @Request() req: any,
+    @ActiveTenant() tenantId: string,
     @Param('invoiceId') invoiceId: string,
     @Body('proofUrl') proofUrl: string
   ) {
-    if (!req.user.tenantId) throw new ForbiddenException('No tenant associated');
-    return this.tenantService.uploadPaymentProof(req.user.tenantId, invoiceId, proofUrl);
+    return this.tenantService.uploadPaymentProof(tenantId, invoiceId, proofUrl);
   }
 
   // Get tenant's invoices
   @Get('invoices')
-  async getInvoices(@Request() req: any) {
-    if (!req.user.tenantId) throw new ForbiddenException('No tenant associated');
-    return this.tenantService.getInvoices(req.user.tenantId);
+  async getInvoices(@ActiveTenant() tenantId: string) {
+    return this.tenantService.getInvoices(tenantId);
   }
 
   // ==================== STAFF MANAGEMENT ====================
 
   // Get all staff
   @Get('staff')
-  async getStaff(@Request() req: any) {
-    if (!req.user.tenantId) throw new ForbiddenException('No tenant associated');
-    return this.tenantService.getStaff(req.user.tenantId);
+  async getStaff(@ActiveTenant() tenantId: string) {
+    return this.tenantService.getStaff(tenantId);
   }
 
   // Create new staff
   @Post('staff')
   async createStaff(
+    @ActiveTenant() tenantId: string,
     @Request() req: any,
     @Body() data: {
       name: string;
@@ -80,13 +75,13 @@ export class TenantController {
       branchId?: string;
     }
   ) {
-    if (!req.user.tenantId) throw new ForbiddenException('No tenant associated');
-    return this.tenantService.createStaff(req.user.tenantId, data);
+    return this.tenantService.createStaff(tenantId, req.user, data);
   }
 
   // Update staff
   @Put('staff/:id')
   async updateStaff(
+    @ActiveTenant() tenantId: string,
     @Request() req: any,
     @Param('id') staffId: string,
     @Body() data: {
@@ -96,68 +91,61 @@ export class TenantController {
       branchId?: string | null;
     }
   ) {
-    if (!req.user.tenantId) throw new ForbiddenException('No tenant associated');
-    return this.tenantService.updateStaff(req.user.tenantId, staffId, data);
+    return this.tenantService.updateStaff(tenantId, staffId, req.user, data);
   }
 
   // Delete staff
   @Delete('staff/:id')
   async deleteStaff(
-    @Request() req: any,
+    @ActiveTenant() tenantId: string,
     @Param('id') staffId: string
   ) {
-    if (!req.user.tenantId) throw new ForbiddenException('No tenant associated');
-    return this.tenantService.deleteStaff(req.user.tenantId, staffId);
+    return this.tenantService.deleteStaff(tenantId, staffId);
   }
 
   // Assign staff to branch
   @Patch('staff/:id/branch')
   async assignBranch(
-    @Request() req: any,
+    @ActiveTenant() tenantId: string,
     @Param('id') staffId: string,
     @Body('branchId') branchId: string | null
   ) {
-    if (!req.user.tenantId) throw new ForbiddenException('No tenant associated');
-    return this.tenantService.assignBranch(req.user.tenantId, staffId, branchId);
+    return this.tenantService.assignBranch(tenantId, staffId, branchId);
   }
 
   // ==================== BRANCH MANAGEMENT ====================
 
   // Get all branches
   @Get('branches')
-  async getBranches(@Request() req: any) {
-    if (!req.user.tenantId) throw new ForbiddenException('No tenant associated');
-    return this.tenantService.getBranches(req.user.tenantId);
+  async getBranches(@ActiveTenant() tenantId: string) {
+    return this.tenantService.getBranches(tenantId);
   }
 
   // Create new branch
   @Post('branches')
   async createBranch(
-    @Request() req: any,
+    @ActiveTenant() tenantId: string,
     @Body() data: { name: string; address: string; phone?: string }
   ) {
-    if (!req.user.tenantId) throw new ForbiddenException('No tenant associated');
-    return this.tenantService.createBranch(req.user.tenantId, data);
+    return this.tenantService.createBranch(tenantId, data);
   }
 
   // Update branch
   @Put('branches/:id')
   async updateBranch(
-    @Request() req: any,
+    @ActiveTenant() tenantId: string,
     @Param('id') branchId: string,
     @Body() data: { name?: string; address?: string; phone?: string }
   ) {
-    if (!req.user.tenantId) throw new ForbiddenException('No tenant associated');
-    return this.tenantService.updateBranch(req.user.tenantId, branchId, data);
+    return this.tenantService.updateBranch(tenantId, branchId, data);
   }
 
   // Delete branch
   @Delete('branches/:id')
   async deleteBranch(
-    @Request() req: any,
+    @ActiveTenant() tenantId: string,
     @Param('id') branchId: string
   ) {
-    if (!req.user.tenantId) throw new ForbiddenException('No tenant associated');
-    return this.tenantService.deleteBranch(req.user.tenantId, branchId);
+    return this.tenantService.deleteBranch(tenantId, branchId);
   }
 }

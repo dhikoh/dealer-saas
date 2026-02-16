@@ -16,6 +16,7 @@ import { UpdateVehicleDto } from './dto/update-vehicle.dto';
 import { CreateBrandDto } from './dto/create-brand.dto';
 import { CreateModelDto } from './dto/create-model.dto';
 import { AddCostDto } from './dto/add-cost.dto';
+import { ActiveTenant } from '../common/decorators/active-tenant.decorator';
 
 @Controller('vehicles')
 export class VehicleController {
@@ -25,7 +26,7 @@ export class VehicleController {
 
     @Get()
     async findAll(
-        @Request() req,
+        @ActiveTenant() tenantId: string,
         @Query('category') category?: string,
         @Query('status') status?: string,
         @Query('condition') condition?: string,
@@ -33,14 +34,12 @@ export class VehicleController {
         @Query('page') page?: number,
         @Query('limit') limit?: number,
     ) {
-        if (!req.user.tenantId) throw new ForbiddenException('No tenant associated');
-
         if (page && limit) {
             const pageNum = Number(page);
             const limitNum = Number(limit);
             const skip = (pageNum - 1) * limitNum;
 
-            const result = await this.vehicleService.findAll(req.user.tenantId, {
+            const result = await this.vehicleService.findAll(tenantId, {
                 category, status, condition, branchId
             }, { skip, take: limitNum });
 
@@ -57,7 +56,7 @@ export class VehicleController {
             }
         }
 
-        return this.vehicleService.findAll(req.user.tenantId, {
+        return this.vehicleService.findAll(tenantId, {
             category,
             status,
             condition,
@@ -66,9 +65,8 @@ export class VehicleController {
     }
 
     @Get('stats')
-    getStats(@Request() req) {
-        if (!req.user.tenantId) throw new ForbiddenException('No tenant associated');
-        return this.vehicleService.getStats(req.user.tenantId);
+    getStats(@ActiveTenant() tenantId: string) {
+        return this.vehicleService.getStats(tenantId);
     }
 
     // ==================== DEALER GROUP FEATURES ====================
@@ -77,68 +75,59 @@ export class VehicleController {
 
     @Get('group/stock')
     findGroupStock(
-        @Request() req,
+        @ActiveTenant() tenantId: string,
         @Query('category') category?: string,
     ) {
-        if (!req.user.tenantId) throw new ForbiddenException('No tenant associated');
-        return this.vehicleService.findGroupStock(req.user.tenantId, { category });
+        return this.vehicleService.findGroupStock(tenantId, { category });
     }
 
     @Post('copy/:id')
-    copyVehicle(@Param('id') id: string, @Request() req) {
-        if (!req.user.tenantId) throw new ForbiddenException('No tenant associated');
-        return this.vehicleService.copyVehicle(req.user.tenantId, id);
+    copyVehicle(@Param('id') id: string, @ActiveTenant() tenantId: string) {
+        return this.vehicleService.copyVehicle(tenantId, id);
     }
 
     // ==================== VEHICLE CRUD (Parameterized) ====================
 
     @Get(':id')
-    findOne(@Param('id') id: string, @Request() req) {
-        if (!req.user.tenantId) throw new ForbiddenException('No tenant associated');
-        return this.vehicleService.findOne(id, req.user.tenantId);
+    findOne(@Param('id') id: string, @ActiveTenant() tenantId: string) {
+        return this.vehicleService.findOne(id, tenantId);
     }
 
     @Post()
-    create(@Body() data: CreateVehicleDto, @Request() req) {
-        if (!req.user.tenantId) throw new ForbiddenException('No tenant associated');
-        return this.vehicleService.create(req.user.tenantId, data);
+    create(@Body() data: CreateVehicleDto, @ActiveTenant() tenantId: string) {
+        return this.vehicleService.create(tenantId, data);
     }
 
     @Put(':id')
-    update(@Param('id') id: string, @Body() data: UpdateVehicleDto, @Request() req) {
-        if (!req.user.tenantId) throw new ForbiddenException('No tenant associated');
-        return this.vehicleService.update(id, req.user.tenantId, data);
+    update(@Param('id') id: string, @Body() data: UpdateVehicleDto, @ActiveTenant() tenantId: string) {
+        return this.vehicleService.update(id, tenantId, data);
     }
 
     @Delete(':id')
-    delete(@Param('id') id: string, @Request() req) {
-        if (!req.user.tenantId) throw new ForbiddenException('No tenant associated');
-        return this.vehicleService.delete(id, req.user.tenantId);
+    delete(@Param('id') id: string, @ActiveTenant() tenantId: string) {
+        return this.vehicleService.delete(id, tenantId);
     }
 
     // ==================== MASTER DATA ====================
 
     @Get('brands/list')
-    findAllBrands(@Request() req, @Query('category') category?: string) {
-        if (!req.user.tenantId) throw new ForbiddenException('No tenant associated');
-        return this.vehicleService.findAllBrands(req.user.tenantId, category);
+    findAllBrands(@ActiveTenant() tenantId: string, @Query('category') category?: string) {
+        return this.vehicleService.findAllBrands(tenantId, category);
     }
 
     @Post('brands')
-    createBrand(@Body() body: CreateBrandDto, @Request() req) {
-        if (!req.user.tenantId) throw new ForbiddenException('No tenant associated');
+    createBrand(@Body() body: CreateBrandDto, @ActiveTenant() tenantId: string) {
         return this.vehicleService.createBrand(
-            req.user.tenantId,
+            tenantId,
             body.name,
             body.category,
         );
     }
 
     @Post('models')
-    createModel(@Body() body: CreateModelDto, @Request() req) {
-        if (!req.user.tenantId) throw new ForbiddenException('No tenant associated');
+    createModel(@Body() body: CreateModelDto, @ActiveTenant() tenantId: string) {
         return this.vehicleService.createModel(
-            req.user.tenantId,
+            tenantId,
             body.brandId,
             body.name,
             body.variants,
@@ -146,32 +135,28 @@ export class VehicleController {
     }
 
     @Post('seed-master-data')
-    seedMasterData(@Request() req) {
-        if (!req.user.tenantId) throw new ForbiddenException('No tenant associated');
-        return this.vehicleService.seedDefaultBrands(req.user.tenantId);
+    seedMasterData(@ActiveTenant() tenantId: string) {
+        return this.vehicleService.seedDefaultBrands(tenantId);
     }
 
     // ==================== VEHICLE COSTS ====================
 
     @Get(':id/costs')
-    getVehicleWithCosts(@Param('id') id: string, @Request() req) {
-        if (!req.user.tenantId) throw new ForbiddenException('No tenant associated');
-        return this.vehicleService.getVehicleWithCosts(id, req.user.tenantId);
+    getVehicleWithCosts(@Param('id') id: string, @ActiveTenant() tenantId: string) {
+        return this.vehicleService.getVehicleWithCosts(id, tenantId);
     }
 
     @Post(':id/costs')
     addCost(
         @Param('id') id: string,
         @Body() data: AddCostDto,
-        @Request() req,
+        @ActiveTenant() tenantId: string,
     ) {
-        if (!req.user.tenantId) throw new ForbiddenException('No tenant associated');
-        return this.vehicleService.addCost(id, req.user.tenantId, data);
+        return this.vehicleService.addCost(id, tenantId, data);
     }
 
     @Delete('costs/:costId')
-    deleteCost(@Param('costId') costId: string, @Request() req) {
-        if (!req.user.tenantId) throw new ForbiddenException('No tenant associated');
-        return this.vehicleService.deleteCost(costId, req.user.tenantId);
+    deleteCost(@Param('costId') costId: string, @ActiveTenant() tenantId: string) {
+        return this.vehicleService.deleteCost(costId, tenantId);
     }
 }

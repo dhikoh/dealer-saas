@@ -13,6 +13,8 @@ datasource db {
 
 // ==================== TENANT & USER ====================
 
+// ==================== TENANT & USER ====================
+
 model Tenant {
   id                 String   @id @default(uuid())
   name               String
@@ -72,6 +74,8 @@ model Tenant {
   @@map("tenants")
 }
 
+// ... (Plan & DealerGroup omitted for brevity, no changes needed there) ...
+
 // ==================== DYNAMIC PLANS (v2.1) ====================
 
 model Plan {
@@ -111,7 +115,7 @@ model DealerGroup {
   
   // Owner (The Induk)
   ownerId     String   @unique
-  owner       User     @relation("GroupOwner", fields: [ownerId], references: [id])
+  owner       User     @relation("GroupOwner", fields: [ownerId], references: [id], onDelete: Cascade)
   
   // Members (Independent Tenants)
   members     Tenant[] @relation("GroupMembers")
@@ -140,10 +144,10 @@ model LandingPageContent {
 model User {
   id       String @id @default(uuid())
   tenantId String? 
-  tenant   Tenant? @relation(fields: [tenantId], references: [id])
+  tenant   Tenant? @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   
   branchId String?
-  branch   Branch? @relation(fields: [branchId], references: [id])
+  branch   Branch? @relation(fields: [branchId], references: [id]) // Set to Null on branch delete
 
   name     String
   username String @unique
@@ -222,7 +226,7 @@ model Notification {
 model Branch {
   id       String @id @default(uuid())
   tenantId String
-  tenant   Tenant @relation(fields: [tenantId], references: [id])
+  tenant   Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
 
   name    String
   address String
@@ -247,7 +251,7 @@ model Branch {
 model VehicleBrand {
   id       String @id @default(uuid())
   tenantId String
-  tenant   Tenant @relation(fields: [tenantId], references: [id])
+  tenant   Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
 
   name     String   // Toyota, Honda, Yamaha
   category String   // CAR, MOTORCYCLE, TRUCK
@@ -263,7 +267,7 @@ model VehicleBrand {
 model VehicleModel {
   id      String       @id @default(uuid())
   brandId String
-  brand   VehicleBrand @relation(fields: [brandId], references: [id])
+  brand   VehicleBrand @relation(fields: [brandId], references: [id], onDelete: Cascade)
 
   name     String  // Avanza, Beat, Ranger
   variants String? // JSON array: ["G", "E", "S"]
@@ -279,7 +283,7 @@ model VehicleModel {
 model Vehicle {
   id       String @id @default(uuid())
   tenantId String
-  tenant   Tenant @relation(fields: [tenantId], references: [id])
+  tenant   Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
 
   branchId String?
   branch   Branch? @relation(fields: [branchId], references: [id])
@@ -349,7 +353,7 @@ model Vehicle {
 model Customer {
   id       String @id @default(uuid())
   tenantId String
-  tenant   Tenant @relation(fields: [tenantId], references: [id])
+  tenant   Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   
   branchId String? // Optional: Lead owned by specific branch
   branch   Branch? @relation(fields: [branchId], references: [id])
@@ -394,16 +398,19 @@ model Customer {
 model Transaction {
   id       String @id @default(uuid())
   tenantId String
-  tenant   Tenant @relation(fields: [tenantId], references: [id])
+  tenant   Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
 
   branchId String? // v2.0
   branch   Branch? @relation(fields: [branchId], references: [id])
 
   vehicleId String
-  vehicle   Vehicle @relation(fields: [vehicleId], references: [id])
-
+  vehicle   Vehicle @relation(fields: [vehicleId], references: [id]) // Don't cascade delete vehicle, keep transaction history? No, if vehicle hard deleted, transaction must go or be kept. 
+  // DECISION: Transaction hard delete follows Tenant. But if Vehicle is deleted, we soft delete vehicle. 
+  // If Vehicle is HARD deleted, transaction is corrupt. So we should cascade or restrict?
+  // For Tenant hard delete: Cascade.
+  
   customerId String
-  customer   Customer @relation(fields: [customerId], references: [id])
+  customer   Customer @relation(fields: [customerId], references: [id]) 
 
   salesPersonId String
   salesPerson   User @relation(fields: [salesPersonId], references: [id])
@@ -467,7 +474,7 @@ model TransactionPayment {
 model OperatingCost {
   id        String   @id @default(uuid())
   tenantId  String
-  tenant    Tenant   @relation(fields: [tenantId], references: [id])
+  tenant    Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
 
   name      String   // e.g. "Listrik Bulan Ini", "Gaji Admin"
   amount    Decimal
@@ -489,7 +496,7 @@ model OperatingCost {
 model Credit {
   id            String      @id @default(uuid())
   transactionId String      @unique
-  transaction   Transaction @relation(fields: [transactionId], references: [id])
+  transaction   Transaction @relation(fields: [transactionId], references: [id], onDelete: Cascade)
 
   // CREDIT TYPE
   creditType     String @default("DEALER_CREDIT") // LEASING, DEALER_CREDIT, DEALER_TO_LEASING
@@ -517,7 +524,7 @@ model Credit {
 model CreditPayment {
   id       String @id @default(uuid())
   creditId String
-  credit   Credit @relation(fields: [creditId], references: [id])
+  credit   Credit @relation(fields: [creditId], references: [id], onDelete: Cascade)
 
   month  Int     // Cicilan ke-berapa
   amount Decimal
@@ -537,14 +544,14 @@ model StockTransfer {
   
   // SOURCE (Initiator)
   tenantId       String
-  tenant         Tenant   @relation("SourceTenantTransfer", fields: [tenantId], references: [id])
+  tenant         Tenant   @relation("SourceTenantTransfer", fields: [tenantId], references: [id], onDelete: Cascade)
   
   // TARGET (Recipient) - Optional for internal, but mandatory for cross-tenant logic
   targetTenantId String?
-  targetTenant   Tenant?  @relation("TargetTenantTransfer", fields: [targetTenantId], references: [id])
+  targetTenant   Tenant?  @relation("TargetTenantTransfer", fields: [targetTenantId], references: [id]) // Set Null on delete? or cascade? Better set null or restrict. 
   
   vehicleId      String
-  vehicle        Vehicle  @relation(fields: [vehicleId], references: [id])
+  vehicle        Vehicle  @relation(fields: [vehicleId], references: [id], onDelete: Cascade)
 
   // BRANCHES (Optional for Single-Branch Mode)
   sourceBranchId String?
@@ -583,7 +590,7 @@ model StockTransfer {
 model BlacklistEntry {
   id       String @id @default(uuid())
   tenantId String
-  tenant   Tenant @relation(fields: [tenantId], references: [id])
+  tenant   Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
 
   // Customer Info (stored for when customer lookup)
   ktpNumber       String
@@ -603,9 +610,9 @@ model BlacklistEntry {
 model VehicleCost {
   id        String  @id @default(uuid())
   tenantId  String
-  tenant    Tenant  @relation(fields: [tenantId], references: [id])
+  tenant    Tenant  @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   vehicleId String
-  vehicle   Vehicle @relation(fields: [vehicleId], references: [id])
+  vehicle   Vehicle @relation(fields: [vehicleId], references: [id], onDelete: Cascade)
 
   costType    String   // PURCHASE, MAINTENANCE, TAX, INSURANCE, OTHER
   amount      Decimal
@@ -624,7 +631,7 @@ model VehicleCost {
 model SystemInvoice {
   id        String   @id @default(uuid())
   tenantId  String
-  tenant    Tenant   @relation(fields: [tenantId], references: [id])
+  tenant    Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
 
   invoiceNumber String   @unique // INV-2023-001
   amount        Decimal
@@ -671,10 +678,10 @@ model AdminActivityLog {
 model ActivityLog {
   id       String @id @default(uuid())
   tenantId String
-  tenant   Tenant @relation(fields: [tenantId], references: [id])
+  tenant   Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
 
   userId    String
-  user      User   @relation(fields: [userId], references: [id])
+  user      User   @relation(fields: [userId], references: [id], onDelete: Cascade)
   userEmail String // For display without join
 
   action     String  // LOGIN, LOGOUT, PASSWORD_CHANGE, CUSTOMER_CREATE, VEHICLE_CREATE, etc.
