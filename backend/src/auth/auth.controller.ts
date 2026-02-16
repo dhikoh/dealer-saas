@@ -22,10 +22,13 @@ export class AuthController {
 
     response.cookie('auth_token', token, {
       httpOnly: true,
-      secure: isProd,
-      sameSite: 'lax',
+      secure: isProd, // HTTPS required in production
+      // CRITICAL: 'lax' blocks cookies on cross-origin POST (fetch from oto.modula.click → api.modula.click).
+      // 'none' + secure:true allows cookies on all cross-origin requests including POST /auth/refresh.
+      // In dev, use 'lax' since frontend and backend share localhost.
+      sameSite: isProd ? 'none' : 'lax',
       path: '/',
-      domain, // Allow sharing across subdomains (api.modula.click -> oto.modula.click)
+      domain, // Allow sharing across subdomains (api.modula.click ↔ oto.modula.click)
       maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
     });
   }

@@ -10,7 +10,10 @@ RUN apk add --no-cache openssl
 COPY package*.json ./
 COPY prisma ./prisma/
 
-# Install ALL dependencies (dev needed for build tools)
+# CRITICAL: Force development mode so devDependencies (@nestjs/cli, typescript, etc.)
+# are installed. Without this, Coolify/Docker may inherit NODE_ENV=production from
+# the host or runtime config, causing npm ci to skip devDependencies → "nest: not found".
+ENV NODE_ENV=development
 RUN npm ci
 
 # Generate Prisma Client (needs openssl to detect libssl version)
@@ -19,9 +22,6 @@ RUN npx prisma generate
 # Copy source code and build
 COPY . .
 RUN npm run build
-
-# Prune dev dependencies for production
-RUN npm prune --production
 
 # ==================== PRODUCTION STAGE ====================
 FROM node:20-alpine AS runner
@@ -35,11 +35,13 @@ RUN apk add --no-cache openssl dumb-init
 RUN addgroup -S appgroup && adduser -S appuser -G appgroup
 
 # Copy only production artifacts from builder
-COPY --from=builder --chown=appuser:appgroup /app/node_modules ./node_modules
 COPY --from=builder --chown=appuser:appgroup /app/dist ./dist
 COPY --from=builder --chown=appuser:appgroup /app/prisma ./prisma
 COPY --from=builder --chown=appuser:appgroup /app/package*.json ./
-# NOTE: scripts/ intentionally NOT copied — not needed in production
+
+# Install ONLY production dependencies in the final image
+ENV NODE_ENV=production
+RUN npm ci --omit=dev && npx prisma generate
 
 # Switch to non-root user
 USER appuser
