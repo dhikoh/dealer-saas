@@ -104,10 +104,20 @@ export default function SuperadminLayout({ children }: { children: React.ReactNo
 
     const handleLogout = async () => {
         try {
-            await fetchApi('/auth/logout', { method: 'POST' });
+            const refreshToken = localStorage.getItem('refresh_token');
+            if (refreshToken) {
+                await fetchApi('/auth/logout', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ refresh_token: refreshToken })
+                });
+            }
         } catch { /* ignore */ }
+
         localStorage.removeItem('access_token');
+        localStorage.removeItem('refresh_token');
         localStorage.removeItem('user_info');
+        document.cookie = 'auth_token=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;';
         router.push('/auth');
     };
 
