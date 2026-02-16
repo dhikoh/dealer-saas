@@ -1,4 +1,4 @@
-import { IsString, IsNotEmpty, IsOptional, IsNumber, IsEnum, Min } from 'class-validator';
+import { IsString, IsNotEmpty, IsOptional, IsNumber, Min, MaxLength } from 'class-validator';
 
 export class CreateStockTransferDto {
     @IsString()
@@ -19,6 +19,7 @@ export class CreateStockTransferDto {
 
     @IsString()
     @IsOptional()
+    @MaxLength(20, { message: 'Tipe transfer maksimal 20 karakter' })
     type?: string; // 'MUTATION' | 'SALE'
 
     @IsNumber()
@@ -28,5 +29,6 @@ export class CreateStockTransferDto {
 
     @IsString()
     @IsOptional()
+    @MaxLength(2000, { message: 'Catatan maksimal 2000 karakter' })
     notes?: string;
 }

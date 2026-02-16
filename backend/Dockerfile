@@ -39,7 +39,7 @@ COPY --from=builder --chown=appuser:appgroup /app/node_modules ./node_modules
 COPY --from=builder --chown=appuser:appgroup /app/dist ./dist
 COPY --from=builder --chown=appuser:appgroup /app/prisma ./prisma
 COPY --from=builder --chown=appuser:appgroup /app/package*.json ./
-COPY --from=builder --chown=appuser:appgroup /app/scripts ./scripts
+# NOTE: scripts/ intentionally NOT copied — not needed in production
 
 # Switch to non-root user
 USER appuser
