@@ -153,7 +153,14 @@ export class AuthController {
   @HttpCode(HttpStatus.OK)
   @Post('logout')
   async logout(@Body() body: LogoutDto, @Res({ passthrough: true }) response: Response) {
-    response.clearCookie('auth_token');
+    const isProd = process.env.NODE_ENV === 'production';
+    response.clearCookie('auth_token', {
+      httpOnly: true,
+      secure: isProd,
+      sameSite: isProd ? 'none' : 'lax',
+      path: '/',
+      domain: process.env.COOKIE_DOMAIN || (isProd ? '.modula.click' : undefined),
+    });
     return this.authService.logout(body.refresh_token);
   }
 }

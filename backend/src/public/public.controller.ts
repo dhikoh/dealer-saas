@@ -1,7 +1,6 @@
 
-import { Controller, Get, Param, Query, UseGuards } from '@nestjs/common';
+import { Controller, Get, Param, Query } from '@nestjs/common';
 import { PublicService } from './public.service';
-import { ApiKeyGuard } from '../auth/api-key.guard';
 import { Public } from '../auth/public.decorator';
 
 @Controller('api/public')
