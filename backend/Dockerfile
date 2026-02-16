@@ -43,14 +43,17 @@ COPY --from=builder --chown=appuser:appgroup /app/package*.json ./
 ENV NODE_ENV=production
 RUN npm ci --omit=dev && npx prisma generate
 
+# Create uploads directory BEFORE switching to non-root user
+RUN mkdir -p ./uploads && chown -R appuser:appgroup ./uploads
+
 # Switch to non-root user
 USER appuser
 
 # Expose port (configurable at runtime via PORT env var)
 EXPOSE 4000
 
-# Health check
-HEALTHCHECK --interval=30s --timeout=3s --start-period=10s --retries=3 \
+# Health check (start-period=30s to allow prisma db push + Nest bootstrap)
+HEALTHCHECK --interval=30s --timeout=5s --start-period=30s --retries=3 \
     CMD wget --no-verbose --tries=1 --spider http://localhost:4000/health || exit 1
 
 # NOTE: All secrets (JWT_SECRET, DATABASE_URL, etc.) must be injected
