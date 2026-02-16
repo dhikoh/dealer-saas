@@ -10,20 +10,16 @@ import { Request } from 'express';
 function extractJwt(req: Request): string | null {
     // 1. Try Cookie first (Premium Flow)
     if (req.cookies && req.cookies['auth_token']) {
-        console.log('[JWT Strategy] Found auth_token in cookie');
         return req.cookies['auth_token'];
     }
-    console.log('[JWT Strategy] No auth_token in cookie. Cookies:', req.cookies);
 
     // 2. Try Authorization Header
     const fromHeader = ExtractJwt.fromAuthHeaderAsBearerToken()(req);
     if (fromHeader) return fromHeader;
 
-    // 3. Fallback: Query Parameter (PDF export, etc.)
-    const queryToken = req.query?.token;
-    if (typeof queryToken === 'string' && queryToken.length > 0) {
-        return queryToken;
-    }
+    // NOTE: Query param tokens (?token=) intentionally removed.
+    // Tokens in URLs leak to server logs, browser history, and Referer headers.
+    // For PDF exports, use a dedicated short-lived token endpoint instead.
 
     return null;
 }
@@ -34,7 +30,11 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
         super({
             jwtFromRequest: extractJwt,
             ignoreExpiration: false,
-            secretOrKey: process.env.JWT_SECRET || 'super-secret-key',
+            secretOrKey: (() => {
+                const secret = process.env.JWT_SECRET;
+                if (!secret) throw new Error('FATAL: JWT_SECRET environment variable is not set');
+                return secret;
+            })(),
         });
     }
 

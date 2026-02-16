@@ -26,6 +26,7 @@ export class AuthController {
   }
 
   @Public()
+  @Throttle({ default: { limit: 3, ttl: 60000 } }) // Stricter: 3 registrations per minute
   @Post('register')
   async register(@Body() createAuthDto: CreateAuthDto, @Res({ passthrough: true }) response: Response) {
     const data = await this.authService.register(createAuthDto);
@@ -74,8 +75,6 @@ export class AuthController {
     officeAddress: string;
     language: string;
   }, @Request() req, @Res({ passthrough: true }) response: Response) {
-    console.log('[Auth] Onboarding Request Cookies:', req.cookies); // DEBUG LOG
-    console.log('[Auth] Onboarding Request Headers:', req.headers); // DEBUG LOG
     const data = await this.authService.completeOnboarding(req.user.userId, {
       fullName: body.fullName,
       phone: body.phone,
@@ -128,6 +127,7 @@ export class AuthController {
   // ==================== FORGOT / RESET PASSWORD ====================
   @Public()
   @HttpCode(HttpStatus.OK)
+  @Throttle({ default: { limit: 3, ttl: 60000 } }) // Stricter: 3 per minute
   @Post('forgot-password')
   async forgotPassword(@Body() body: { email: string }) {
     return this.authService.forgotPassword(body.email);

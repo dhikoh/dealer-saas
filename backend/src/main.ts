@@ -1,13 +1,9 @@
-import { NestFactory, Reflector } from '@nestjs/core';
+import { NestFactory } from '@nestjs/core';
 import { AppModule } from './app.module';
 import { ValidationPipe, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 import helmet from 'helmet';
-import { JwtAuthGuard } from './auth/jwt-auth.guard';
-import { RolesGuard } from './auth/roles.guard';
-import { UserStateGuard } from './auth/user-state.guard';
-import { TenantGuard } from './auth/tenant.guard';
 import { HttpExceptionFilter } from './common/filters/http-exception.filter';
 import { NestExpressApplication } from '@nestjs/platform-express';
 import { join } from 'path';
@@ -79,14 +75,9 @@ async function bootstrap() {
   // ==================== GLOBAL EXCEPTION FILTER ====================
   app.useGlobalFilters(new HttpExceptionFilter());
 
-  // ==================== GLOBAL GUARDS ====================
-  const reflector = app.get(Reflector);
-  app.useGlobalGuards(
-    new JwtAuthGuard(reflector),
-    new UserStateGuard(reflector),
-    new RolesGuard(reflector),
-    new TenantGuard()
-  );
+  // NOTE: Global guards (JwtAuthGuard, UserStateGuard, RolesGuard, TenantGuard)
+  // are registered via APP_GUARD providers in app.module.ts.
+  // Do NOT use app.useGlobalGuards() here — it bypasses DI and causes double execution.
 
   const port = configService.get('PORT', 4000);
   await app.listen(port);

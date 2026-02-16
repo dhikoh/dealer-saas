@@ -1,4 +1,4 @@
-import { IsString, IsNotEmpty, IsNumber, IsOptional, IsIn, Min, ValidateNested } from 'class-validator';
+import { IsString, IsNotEmpty, IsNumber, IsOptional, IsIn, Min, ValidateNested, MaxLength } from 'class-validator';
 import { Type } from 'class-transformer';
 
 class CreditDataDto {
@@ -49,14 +49,17 @@ export class CreateTransactionDto {
 
     @IsOptional()
     @IsString({ message: 'Metode pembayaran harus berupa teks' })
+    @MaxLength(100, { message: 'Metode pembayaran maksimal 100 karakter' })
     paymentMethod?: string;
 
     @IsOptional()
     @IsString({ message: 'Nomor referensi harus berupa teks' })
+    @MaxLength(255, { message: 'Nomor referensi maksimal 255 karakter' })
     referenceNumber?: string;
 
     @IsOptional()
     @IsString({ message: 'Catatan harus berupa teks' })
+    @MaxLength(2000, { message: 'Catatan maksimal 2000 karakter' })
     notes?: string;
 
     @IsOptional()

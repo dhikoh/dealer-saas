@@ -42,7 +42,6 @@ export class HttpExceptionFilter implements ExceptionFilter {
                 message = resp.message || exception.message;
                 error = resp.error || 'Error';
                 code = resp.code;
-                code = resp.code;
                 details = resp.details;
             }
 
@@ -78,7 +77,8 @@ export class HttpExceptionFilter implements ExceptionFilter {
                         code = 'FOREIGN_KEY_CONSTRAINT';
                         break;
                     default:
-                        code = `PRISMA_${prismaError.code}`;
+                        // Don't expose Prisma error codes to clients
+                        code = 'DATABASE_ERROR';
                 }
             }
         }

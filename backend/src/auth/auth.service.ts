@@ -67,7 +67,7 @@ export class AuthService {
   }
 
   async register(createAuthDto: CreateAuthDto, tenantId?: string) {
-    const { email, password, username, role = 'STAFF' } = createAuthDto;
+    const { email, password, username } = createAuthDto;
 
     // Normalize inputs to lowercase
     const normalizedEmail = email.toLowerCase();
@@ -120,7 +120,7 @@ export class AuthService {
     }
 
     let targetTenantId = tenantId;
-    let userRole = role;
+    let userRole = 'STAFF'; // Default role — OWNER is set below when creating a new tenant
 
     if (!targetTenantId) {
       // Create a new Tenant for this Owner with DEMO (Trial) plan

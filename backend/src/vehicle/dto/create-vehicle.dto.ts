@@ -1,4 +1,4 @@
-import { IsString, IsNotEmpty, IsNumber, IsOptional, IsInt, IsBoolean, IsDateString, Min, IsIn } from 'class-validator';
+import { IsString, IsNotEmpty, IsNumber, IsOptional, IsInt, IsBoolean, IsDateString, Min, IsIn, MaxLength } from 'class-validator';
 import { Transform } from 'class-transformer';
 
 export class CreateVehicleDto {
@@ -9,10 +9,12 @@ export class CreateVehicleDto {
 
     @IsString({ message: 'Merek harus berupa teks' })
     @IsNotEmpty({ message: 'Merek wajib diisi' })
+    @MaxLength(100, { message: 'Merek maksimal 100 karakter' })
     make: string;
 
     @IsString({ message: 'Model harus berupa teks' })
     @IsNotEmpty({ message: 'Model wajib diisi' })
+    @MaxLength(100, { message: 'Model maksimal 100 karakter' })
     model: string;
 
     @IsOptional()
@@ -53,6 +55,7 @@ export class CreateVehicleDto {
 
     @IsOptional()
     @IsString()
+    @MaxLength(2000, { message: 'Catatan kondisi maksimal 2000 karakter' })
     conditionNote?: string;
 
     @IsOptional()
@@ -75,9 +78,6 @@ export class CreateVehicleDto {
     @IsString()
     bpkbNumber?: string;
 
-    @IsOptional()
-    @Transform(({ value }) => (value === '' || value === null ? undefined : value))
-    @IsDateString({}, { message: 'Format tanggal STNK tidak valid' })
     @IsOptional()
     @Transform(({ value }) => (value === '' || value === null ? undefined : value))
     @IsDateString({}, { message: 'Format tanggal STNK tidak valid' })
@@ -106,6 +106,7 @@ export class CreateVehicleDto {
 
     @IsOptional()
     @IsString()
+    @MaxLength(5000, { message: 'Spesifikasi maksimal 5000 karakter' })
     specs?: string;
 
     @IsOptional()
