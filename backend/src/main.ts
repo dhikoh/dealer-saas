@@ -64,7 +64,7 @@ async function bootstrap() {
     origin: origins,
     methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
     credentials: true,
-    allowedHeaders: ['Content-Type', 'Authorization', 'X-Tenant-ID'],
+    allowedHeaders: ['Content-Type', 'Authorization', 'X-Tenant-ID', 'X-Skip-Redirect'],
   });
 
   // ==================== GLOBAL VALIDATION ====================
