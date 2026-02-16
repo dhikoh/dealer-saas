@@ -1,7 +1,8 @@
-import { Controller, Get, Query, Request, ForbiddenException } from '@nestjs/common';
+import { Controller, Get, Query } from '@nestjs/common';
 import { ActivityLogService } from './activity-log.service';
+import { ActiveTenant } from '../common/decorators/active-tenant.decorator';
 
-// Protected by global JwtAuthGuard
+// Protected by global JwtAuthGuard + TenantGuard
 @Controller('activity-logs')
 export class ActivityLogController {
     constructor(private readonly activityLogService: ActivityLogService) { }
@@ -12,10 +13,9 @@ export class ActivityLogController {
         @Query('limit') limit: string,
         @Query('action') action: string,
         @Query('userId') userId: string,
-        @Request() req,
+        @ActiveTenant() tenantId: string,
     ) {
-        if (!req.user.tenantId) throw new ForbiddenException('No tenant associated');
-        return this.activityLogService.findAll(req.user.tenantId, {
+        return this.activityLogService.findAll(tenantId, {
             page: page ? parseInt(page) : 1,
             limit: limit ? parseInt(limit) : 50,
             action: action || undefined,

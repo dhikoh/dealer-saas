@@ -1,56 +1,50 @@
 import {
     Controller,
     Get,
-    Request,
     Query,
-    ForbiddenException,
 } from '@nestjs/common';
 import { ReminderService } from './reminder.service';
+import { ActiveTenant } from '../common/decorators/active-tenant.decorator';
 
-// Protected by global JwtAuthGuard
+// Protected by global JwtAuthGuard + TenantGuard
 @Controller('reminders')
 export class ReminderController {
     constructor(private readonly reminderService: ReminderService) { }
 
     @Get()
-    getAllReminders(@Request() req) {
-        if (!req.user.tenantId) throw new ForbiddenException('No tenant associated');
-        return this.reminderService.getAllReminders(req.user.tenantId);
+    getAllReminders(@ActiveTenant() tenantId: string) {
+        return this.reminderService.getAllReminders(tenantId);
     }
 
     @Get('tax')
     getTaxReminders(
-        @Request() req,
+        @ActiveTenant() tenantId: string,
         @Query('days') days?: string,
     ) {
-        if (!req.user.tenantId) throw new ForbiddenException('No tenant associated');
         return this.reminderService.getTaxExpiringVehicles(
-            req.user.tenantId,
+            tenantId,
             days ? parseInt(days) : 30,
         );
     }
 
     @Get('tax/expired')
-    getExpiredTax(@Request() req) {
-        if (!req.user.tenantId) throw new ForbiddenException('No tenant associated');
-        return this.reminderService.getExpiredTaxVehicles(req.user.tenantId);
+    getExpiredTax(@ActiveTenant() tenantId: string) {
+        return this.reminderService.getExpiredTaxVehicles(tenantId);
     }
 
     @Get('credit')
     getCreditReminders(
-        @Request() req,
+        @ActiveTenant() tenantId: string,
         @Query('days') days?: string,
     ) {
-        if (!req.user.tenantId) throw new ForbiddenException('No tenant associated');
         return this.reminderService.getCreditDueReminders(
-            req.user.tenantId,
+            tenantId,
             days ? parseInt(days) : 7,
         );
     }
 
     @Get('credit/overdue')
-    getOverdueCredits(@Request() req) {
-        if (!req.user.tenantId) throw new ForbiddenException('No tenant associated');
-        return this.reminderService.getOverdueCredits(req.user.tenantId);
+    getOverdueCredits(@ActiveTenant() tenantId: string) {
+        return this.reminderService.getOverdueCredits(tenantId);
     }
 }

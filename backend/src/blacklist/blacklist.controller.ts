@@ -5,12 +5,11 @@ import {
     Delete,
     Body,
     Param,
-    Request,
-    ForbiddenException,
 } from '@nestjs/common';
 import { BlacklistService } from './blacklist.service';
+import { ActiveTenant } from '../common/decorators/active-tenant.decorator';
 
-// Protected by global JwtAuthGuard
+// Protected by global JwtAuthGuard + TenantGuard
 @Controller('blacklist')
 export class BlacklistController {
     constructor(private readonly blacklistService: BlacklistService) { }
@@ -18,14 +17,13 @@ export class BlacklistController {
     // ==================== TENANT-SPECIFIC (Protected) ====================
 
     @Get()
-    findAll(@Request() req) {
-        if (!req.user.tenantId) throw new ForbiddenException('No tenant associated');
-        return this.blacklistService.findAllByTenant(req.user.tenantId);
+    findAll(@ActiveTenant() tenantId: string) {
+        return this.blacklistService.findAllByTenant(tenantId);
     }
 
     @Post()
     create(
-        @Request() req,
+        @ActiveTenant() tenantId: string,
         @Body() data: {
             ktpNumber: string;
             customerName: string;
@@ -33,14 +31,12 @@ export class BlacklistController {
             reason: string;
         },
     ) {
-        if (!req.user.tenantId) throw new ForbiddenException('No tenant associated');
-        return this.blacklistService.create(req.user.tenantId, data);
+        return this.blacklistService.create(tenantId, data);
     }
 
     @Delete(':ktp')
-    delete(@Param('ktp') ktpNumber: string, @Request() req) {
-        if (!req.user.tenantId) throw new ForbiddenException('No tenant associated');
-        return this.blacklistService.delete(ktpNumber, req.user.tenantId);
+    delete(@Param('ktp') ktpNumber: string, @ActiveTenant() tenantId: string) {
+        return this.blacklistService.delete(ktpNumber, tenantId);
     }
 
     // ==================== CROSS-TENANT CHECK (For all registered dealers) ====================
@@ -50,4 +46,3 @@ export class BlacklistController {
         return this.blacklistService.checkBlacklist(ktpNumber);
     }
 }
-

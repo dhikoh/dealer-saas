@@ -1,7 +1,8 @@
-import { Controller, Get, Query, Request, ForbiddenException } from '@nestjs/common';
+import { Controller, Get, Query } from '@nestjs/common';
 import { SearchService } from './search.service';
+import { ActiveTenant } from '../common/decorators/active-tenant.decorator';
 
-// Protected by global JwtAuthGuard
+// Protected by global JwtAuthGuard + TenantGuard
 @Controller('search')
 export class SearchController {
     constructor(private readonly searchService: SearchService) { }
@@ -10,11 +11,10 @@ export class SearchController {
     search(
         @Query('q') query: string,
         @Query('limit') limit: string,
-        @Request() req,
+        @ActiveTenant() tenantId: string,
     ) {
-        if (!req.user.tenantId) throw new ForbiddenException('No tenant associated');
         return this.searchService.search(
-            req.user.tenantId,
+            tenantId,
             query,
             limit ? parseInt(limit) : 10,
         );

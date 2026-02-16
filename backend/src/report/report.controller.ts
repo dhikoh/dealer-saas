@@ -1,6 +1,7 @@
-import { Controller, Get, Query, Request, ForbiddenException } from '@nestjs/common';
+import { Controller, Get, Query } from '@nestjs/common';
 import { ReportService } from './report.service';
 import { Roles } from '../auth/roles.decorator';
+import { ActiveTenant } from '../common/decorators/active-tenant.decorator';
 
 @Roles('OWNER')
 @Controller('reports')
@@ -9,7 +10,7 @@ export class ReportController {
 
     @Get('profit-loss')
     async getProfitLoss(
-        @Request() req,
+        @ActiveTenant() tenantId: string,
         @Query('startDate') startDate?: string,
         @Query('endDate') endDate?: string,
     ) {
@@ -20,25 +21,22 @@ export class ReportController {
             ? new Date(endDate)
             : new Date();
 
-        if (!req.user.tenantId) throw new ForbiddenException('No tenant associated');
-        return this.reportService.getProfitLossReport(req.user.tenantId, start, end);
+        return this.reportService.getProfitLossReport(tenantId, start, end);
     }
 
     @Get('monthly-summary')
     async getMonthlySummary(
-        @Request() req,
+        @ActiveTenant() tenantId: string,
         @Query('months') months?: string,
     ) {
-        if (!req.user.tenantId) throw new ForbiddenException('No tenant associated');
         return this.reportService.getMonthlySummary(
-            req.user.tenantId,
+            tenantId,
             months ? parseInt(months) : 12,
         );
     }
 
     @Get('inventory')
-    async getInventorySummary(@Request() req) {
-        if (!req.user.tenantId) throw new ForbiddenException('No tenant associated');
-        return this.reportService.getInventorySummary(req.user.tenantId);
+    async getInventorySummary(@ActiveTenant() tenantId: string) {
+        return this.reportService.getInventorySummary(tenantId);
     }
 }

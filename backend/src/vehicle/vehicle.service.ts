@@ -3,6 +3,7 @@ import { PrismaService } from '../prisma/prisma.service';
 import { NotificationService } from '../notification/notification.service';
 import { getPlanById } from '../config/plan-tiers.config';
 import { Prisma } from '@prisma/client';
+import { sanitizeInput } from '../common/helpers/tenant-security.helper';
 
 @Injectable()
 export class VehicleService {
@@ -84,9 +85,9 @@ export class VehicleService {
             }
         }
 
-        // PRE-PROCESSING: Ensure Dates are Dates
-        const { id: _id, createdAt: _c, updatedAt: _u, ...rest } = data;
-        const createData: any = { ...rest };
+        // SECURITY: Strip protected fields at RUNTIME (TypeScript Omit is compile-time only)
+        const sanitized = sanitizeInput(data);
+        const createData: any = { ...sanitized };
 
         if (createData.stnkExpiry) createData.stnkExpiry = new Date(createData.stnkExpiry);
         if (createData.taxExpiry) createData.taxExpiry = new Date(createData.taxExpiry);
@@ -136,12 +137,9 @@ export class VehicleService {
             }
         }
 
-        // PRE-PROCESSING: Ensure Dates are Dates
-        // Sanitize - remove immutable/protected fields using destructuring
-        const { id: _id, createdAt: _c, updatedAt: _u, ...rest } = data;
-
-        // Create a new object for update to avoid type issues with proper casting
-        const updateData: any = { ...rest };
+        // SECURITY: Strip protected fields at RUNTIME
+        const sanitized = sanitizeInput(data);
+        const updateData: any = { ...sanitized };
 
         if (updateData.stnkExpiry) updateData.stnkExpiry = new Date(updateData.stnkExpiry);
         if (updateData.taxExpiry) updateData.taxExpiry = new Date(updateData.taxExpiry);

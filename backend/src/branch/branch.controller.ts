@@ -1,44 +1,43 @@
 
-import { Controller, Get, Post, Body, Patch, Param, Delete, UseGuards, Request } from '@nestjs/common';
+import { Controller, Get, Post, Body, Patch, Param, Delete } from '@nestjs/common';
 import { BranchService } from './branch.service';
-import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { ApiTags, ApiOperation, ApiBearerAuth } from '@nestjs/swagger';
 import { CreateBranchDto, UpdateBranchDto } from './dto/branch.dto';
+import { ActiveTenant } from '../common/decorators/active-tenant.decorator';
 
 @ApiTags('Branches')
 @ApiBearerAuth()
-@UseGuards(JwtAuthGuard)
 @Controller('branches')
 export class BranchController {
     constructor(private readonly branchService: BranchService) { }
 
     @Post()
     @ApiOperation({ summary: 'Create a new branch' })
-    create(@Request() req, @Body() createBranchDto: CreateBranchDto) {
-        return this.branchService.create(createBranchDto, req.user.tenantId);
+    create(@ActiveTenant() tenantId: string, @Body() createBranchDto: CreateBranchDto) {
+        return this.branchService.create(createBranchDto, tenantId);
     }
 
     @Get()
     @ApiOperation({ summary: 'Get all branches for tenant' })
-    findAll(@Request() req) {
-        return this.branchService.findAll(req.user.tenantId);
+    findAll(@ActiveTenant() tenantId: string) {
+        return this.branchService.findAll(tenantId);
     }
 
     @Get(':id')
     @ApiOperation({ summary: 'Get branch details' })
-    findOne(@Request() req, @Param('id') id: string) {
-        return this.branchService.findOne(id, req.user.tenantId);
+    findOne(@ActiveTenant() tenantId: string, @Param('id') id: string) {
+        return this.branchService.findOne(id, tenantId);
     }
 
     @Patch(':id')
     @ApiOperation({ summary: 'Update branch details' })
-    update(@Request() req, @Param('id') id: string, @Body() updateBranchDto: UpdateBranchDto) {
-        return this.branchService.update(id, updateBranchDto, req.user.tenantId);
+    update(@ActiveTenant() tenantId: string, @Param('id') id: string, @Body() updateBranchDto: UpdateBranchDto) {
+        return this.branchService.update(id, updateBranchDto, tenantId);
     }
 
     @Delete(':id')
     @ApiOperation({ summary: 'Delete a branch' })
-    remove(@Request() req, @Param('id') id: string) {
-        return this.branchService.remove(id, req.user.tenantId);
+    remove(@ActiveTenant() tenantId: string, @Param('id') id: string) {
+        return this.branchService.remove(id, tenantId);
     }
 }

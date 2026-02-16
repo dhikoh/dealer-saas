@@ -1,8 +1,9 @@
-import { Controller, Get, Request, Res, UseGuards, ForbiddenException } from '@nestjs/common';
+import { Controller, Get, Res, UseGuards } from '@nestjs/common';
 import { ExportService } from './export.service';
 import type { Response } from 'express';
 import { Roles } from '../auth/roles.decorator';
 import { RolesGuard } from '../auth/roles.guard';
+import { ActiveTenant } from '../common/decorators/active-tenant.decorator';
 
 @Roles('OWNER')
 @Controller('export')
@@ -10,9 +11,8 @@ export class ExportController {
     constructor(private readonly exportService: ExportService) { }
 
     @Get('vehicles')
-    async exportVehicles(@Request() req, @Res() res: Response) {
-        if (!req.user.tenantId) throw new ForbiddenException('No tenant associated');
-        const csv = await this.exportService.exportVehiclesCsv(req.user.tenantId);
+    async exportVehicles(@ActiveTenant() tenantId: string, @Res() res: Response) {
+        const csv = await this.exportService.exportVehiclesCsv(tenantId);
         const filename = `kendaraan_${new Date().toISOString().slice(0, 10)}.csv`;
 
         res.setHeader('Content-Type', 'text/csv; charset=utf-8');
@@ -21,9 +21,8 @@ export class ExportController {
     }
 
     @Get('customers')
-    async exportCustomers(@Request() req, @Res() res: Response) {
-        if (!req.user.tenantId) throw new ForbiddenException('No tenant associated');
-        const csv = await this.exportService.exportCustomersCsv(req.user.tenantId);
+    async exportCustomers(@ActiveTenant() tenantId: string, @Res() res: Response) {
+        const csv = await this.exportService.exportCustomersCsv(tenantId);
         const filename = `pelanggan_${new Date().toISOString().slice(0, 10)}.csv`;
 
         res.setHeader('Content-Type', 'text/csv; charset=utf-8');
@@ -32,9 +31,8 @@ export class ExportController {
     }
 
     @Get('transactions')
-    async exportTransactions(@Request() req, @Res() res: Response) {
-        if (!req.user.tenantId) throw new ForbiddenException('No tenant associated');
-        const csv = await this.exportService.exportTransactionsCsv(req.user.tenantId);
+    async exportTransactions(@ActiveTenant() tenantId: string, @Res() res: Response) {
+        const csv = await this.exportService.exportTransactionsCsv(tenantId);
         const filename = `transaksi_${new Date().toISOString().slice(0, 10)}.csv`;
 
         res.setHeader('Content-Type', 'text/csv; charset=utf-8');

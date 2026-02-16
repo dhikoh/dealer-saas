@@ -1,21 +1,21 @@
-import { Controller, Get, Post, Put, Delete, Body, Param, Query, Request, ForbiddenException } from '@nestjs/common';
+import { Controller, Get, Post, Put, Delete, Body, Param, Query } from '@nestjs/common';
 import { FinanceService } from './finance.service';
+import { ActiveTenant } from '../common/decorators/active-tenant.decorator';
 
-// Protected by global JwtAuthGuard
+// Protected by global JwtAuthGuard + TenantGuard
 @Controller('finance')
 export class FinanceController {
     constructor(private readonly financeService: FinanceService) { }
 
     // GET /finance/costs — list operating costs
     @Get('costs')
-    async findAllCosts(
-        @Request() req: any,
+    findAllCosts(
+        @ActiveTenant() tenantId: string,
         @Query('startDate') startDate?: string,
         @Query('endDate') endDate?: string,
         @Query('category') category?: string,
     ) {
-        if (!req.user.tenantId) throw new ForbiddenException('No tenant associated');
-        return this.financeService.findAllCosts(req.user.tenantId, {
+        return this.financeService.findAllCosts(tenantId, {
             startDate: startDate ? new Date(startDate) : undefined,
             endDate: endDate ? new Date(endDate) : undefined,
             category,
@@ -24,8 +24,8 @@ export class FinanceController {
 
     // POST /finance/costs — create operating cost
     @Post('costs')
-    async createCost(
-        @Request() req: any,
+    createCost(
+        @ActiveTenant() tenantId: string,
         @Body() data: {
             name: string;
             amount: number;
@@ -35,43 +35,39 @@ export class FinanceController {
             proofImage?: string;
         },
     ) {
-        if (!req.user.tenantId) throw new ForbiddenException('No tenant associated');
-        return this.financeService.createCost(req.user.tenantId, data);
+        return this.financeService.createCost(tenantId, data);
     }
 
     // PUT /finance/costs/:id — update operating cost
     @Put('costs/:id')
-    async updateCost(
-        @Request() req: any,
+    updateCost(
+        @ActiveTenant() tenantId: string,
         @Param('id') id: string,
         @Body() data: any,
     ) {
-        if (!req.user.tenantId) throw new ForbiddenException('No tenant associated');
-        return this.financeService.updateCost(id, req.user.tenantId, data);
+        return this.financeService.updateCost(id, tenantId, data);
     }
 
     // DELETE /finance/costs/:id — delete operating cost
     @Delete('costs/:id')
-    async deleteCost(
-        @Request() req: any,
+    deleteCost(
+        @ActiveTenant() tenantId: string,
         @Param('id') id: string,
     ) {
-        if (!req.user.tenantId) throw new ForbiddenException('No tenant associated');
-        return this.financeService.deleteCost(id, req.user.tenantId);
+        return this.financeService.deleteCost(id, tenantId);
     }
 
     // GET /finance/summary — cost summary by category
     @Get('summary')
-    async getCostSummary(
-        @Request() req: any,
+    getCostSummary(
+        @ActiveTenant() tenantId: string,
         @Query('startDate') startDate?: string,
         @Query('endDate') endDate?: string,
     ) {
-        if (!req.user.tenantId) throw new ForbiddenException('No tenant associated');
         const start = startDate
             ? new Date(startDate)
             : new Date(new Date().getFullYear(), new Date().getMonth(), 1);
         const end = endDate ? new Date(endDate) : new Date();
-        return this.financeService.getCostSummary(req.user.tenantId, start, end);
+        return this.financeService.getCostSummary(tenantId, start, end);
     }
 }

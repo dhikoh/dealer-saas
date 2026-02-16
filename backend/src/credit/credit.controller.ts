@@ -5,12 +5,11 @@ import {
     Body,
     Param,
     Query,
-    Request,
-    ForbiddenException,
 } from '@nestjs/common';
 import { CreditService } from './credit.service';
 import { CreateCreditDto } from './dto/create-credit.dto';
 import { AddPaymentDto } from './dto/add-payment.dto';
+import { ActiveTenant } from '../common/decorators/active-tenant.decorator';
 
 @Controller('credit')
 export class CreditController {
@@ -49,39 +48,34 @@ export class CreditController {
     // ==================== CREDIT MANAGEMENT ====================
 
     @Get()
-    findAll(@Request() req) {
-        if (!req.user.tenantId) throw new ForbiddenException('No tenant associated');
-        return this.creditService.findAllByTenant(req.user.tenantId);
+    findAll(@ActiveTenant() tenantId: string) {
+        return this.creditService.findAllByTenant(tenantId);
     }
 
     @Get('overdue')
-    getOverdue(@Request() req) {
-        if (!req.user.tenantId) throw new ForbiddenException('No tenant associated');
-        return this.creditService.getOverdueCredits(req.user.tenantId);
+    getOverdue(@ActiveTenant() tenantId: string) {
+        return this.creditService.getOverdueCredits(tenantId);
     }
 
     @Get(':id')
-    findOne(@Param('id') id: string, @Request() req) {
-        if (!req.user.tenantId) throw new ForbiddenException('No tenant associated');
-        return this.creditService.findOne(id, req.user.tenantId);
+    findOne(@Param('id') id: string, @ActiveTenant() tenantId: string) {
+        return this.creditService.findOne(id, tenantId);
     }
 
     @Post()
-    create(@Body() data: CreateCreditDto, @Request() req) {
-        if (!req.user.tenantId) throw new ForbiddenException('No tenant associated');
-        return this.creditService.create(data.transactionId, data, req.user.tenantId);
+    create(@Body() data: CreateCreditDto, @ActiveTenant() tenantId: string) {
+        return this.creditService.create(data.transactionId, data, tenantId);
     }
 
     @Post(':id/payments')
     addPayment(
         @Param('id') creditId: string,
         @Body() data: AddPaymentDto,
-        @Request() req,
+        @ActiveTenant() tenantId: string,
     ) {
-        if (!req.user.tenantId) throw new ForbiddenException('No tenant associated');
         return this.creditService.addPayment(
             creditId,
-            req.user.tenantId,
+            tenantId,
             data.month,
             data.amount,
             new Date(data.paidAt),

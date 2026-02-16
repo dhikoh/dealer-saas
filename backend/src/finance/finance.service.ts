@@ -1,6 +1,7 @@
 import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { Decimal } from '@prisma/client/runtime/library';
+import { sanitizeInput } from '../common/helpers/tenant-security.helper';
 
 @Injectable()
 export class FinanceService {
@@ -59,7 +60,8 @@ export class FinanceService {
         });
         if (!cost) throw new NotFoundException('Biaya tidak ditemukan');
 
-        const updateData = { ...data };
+        // SECURITY: Strip protected fields to prevent tenantId injection
+        const updateData = sanitizeInput(data);
         if (updateData.amount) updateData.amount = new Decimal(updateData.amount);
         if (updateData.date) updateData.date = new Date(updateData.date);
 

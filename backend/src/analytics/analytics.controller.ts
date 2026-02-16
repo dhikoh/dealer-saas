@@ -1,52 +1,47 @@
-import { Controller, Get, Query, Request, ForbiddenException } from '@nestjs/common';
+import { Controller, Get, Query } from '@nestjs/common';
 import { AnalyticsService } from './analytics.service';
+import { ActiveTenant } from '../common/decorators/active-tenant.decorator';
 
 @Controller('analytics')
 export class AnalyticsController {
     constructor(private readonly analyticsService: AnalyticsService) { }
 
     @Get('dashboard')
-    getDashboardStats(@Request() req) {
-        if (!req.user.tenantId) throw new ForbiddenException('No tenant associated');
-        return this.analyticsService.getDashboardStats(req.user.tenantId);
+    getDashboardStats(@ActiveTenant() tenantId: string) {
+        return this.analyticsService.getDashboardStats(tenantId);
     }
 
     @Get('top-brands')
-    getTopBrands(@Request() req, @Query('months') months?: string) {
-        if (!req.user.tenantId) throw new ForbiddenException('No tenant associated');
+    getTopBrands(@ActiveTenant() tenantId: string, @Query('months') months?: string) {
         return this.analyticsService.getTopSellingBrands(
-            req.user.tenantId,
+            tenantId,
             months ? parseInt(months) : 6,
         );
     }
 
     @Get('revenue-breakdown')
-    getRevenueBreakdown(@Request() req, @Query('months') months?: string) {
-        if (!req.user.tenantId) throw new ForbiddenException('No tenant associated');
+    getRevenueBreakdown(@ActiveTenant() tenantId: string, @Query('months') months?: string) {
         return this.analyticsService.getRevenueByCategory(
-            req.user.tenantId,
+            tenantId,
             months ? parseInt(months) : 6,
         );
     }
 
     @Get('performance')
-    getPerformance(@Request() req) {
-        if (!req.user.tenantId) throw new ForbiddenException('No tenant associated');
-        return this.analyticsService.getPerformanceMetrics(req.user.tenantId);
+    getPerformance(@ActiveTenant() tenantId: string) {
+        return this.analyticsService.getPerformanceMetrics(tenantId);
     }
 
     @Get('monthly-sales')
-    getMonthlySales(@Request() req, @Query('months') months?: string) {
-        if (!req.user.tenantId) throw new ForbiddenException('No tenant associated');
+    getMonthlySales(@ActiveTenant() tenantId: string, @Query('months') months?: string) {
         return this.analyticsService.getMonthlySales(
-            req.user.tenantId,
+            tenantId,
             months ? parseInt(months) : 6,
         );
     }
 
     @Get('group/stock')
-    getGroupAnalytics(@Request() req) {
-        if (!req.user.tenantId) throw new ForbiddenException('No tenant associated');
-        return this.analyticsService.getGroupAnalytics(req.user.tenantId);
+    getGroupAnalytics(@ActiveTenant() tenantId: string) {
+        return this.analyticsService.getGroupAnalytics(tenantId);
     }
 }

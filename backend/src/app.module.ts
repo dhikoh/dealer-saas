@@ -1,14 +1,14 @@
-import { MiddlewareConsumer, Module, RequestMethod } from '@nestjs/common';
+import { Module } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
 import { ThrottlerModule, ThrottlerGuard } from '@nestjs/throttler';
 import { APP_GUARD } from '@nestjs/core';
 import { JwtAuthGuard } from './auth/jwt-auth.guard';
 import { UserStateGuard } from './auth/user-state.guard';
+import { TenantGuard } from './auth/tenant.guard';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
 import { PrismaModule } from './prisma/prisma.module';
 import { TenantModule } from './tenant/tenant.module';
-import { TenantMiddleware } from './middleware/tenant.middleware';
 import { AuthModule } from './auth/auth.module';
 import { EmailModule } from './email/email.module';
 
@@ -113,13 +113,11 @@ import { FinanceModule } from './finance/finance.module';
       provide: APP_GUARD,
       useClass: UserStateGuard,
     },
-
+    // 4. Tenant isolation globally (strict tenant context enforcement)
+    {
+      provide: APP_GUARD,
+      useClass: TenantGuard,
+    },
   ],
 })
-export class AppModule {
-  configure(consumer: MiddlewareConsumer) {
-    consumer
-      .apply(TenantMiddleware)
-      .forRoutes({ path: '*', method: RequestMethod.ALL });
-  }
-}
+export class AppModule { }

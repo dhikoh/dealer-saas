@@ -3,6 +3,7 @@ import { BillingService } from './billing.service';
 import { RolesGuard } from '../auth/roles.guard';
 import { Roles } from '../auth/roles.decorator';
 import { Public } from '../auth/public.decorator';
+import { ActiveTenant } from '../common/decorators/active-tenant.decorator';
 
 // Protected by global JwtAuthGuard (except @Public routes)
 @Controller('billing')
@@ -91,32 +92,26 @@ export class BillingController {
     // ==================== TENANT-FACING ENDPOINTS ====================
 
     @Get('my-subscription')
-    async getMySubscription(@Request() req) {
-        if (!req.user.tenantId) throw new ForbiddenException('No tenant associated');
-        return this.billingService.checkSubscriptionStatus(req.user.tenantId);
+    async getMySubscription(@ActiveTenant() tenantId: string) {
+        return this.billingService.checkSubscriptionStatus(tenantId);
     }
 
     @Get('my-invoices')
-    async getMyInvoices(@Request() req) {
-        if (!req.user.tenantId) throw new ForbiddenException('No tenant associated');
-        return this.billingService.getMyInvoices(req.user.tenantId);
+    async getMyInvoices(@ActiveTenant() tenantId: string) {
+        return this.billingService.getMyInvoices(tenantId);
     }
 
     @Post('my-invoices/:id/upload-proof')
     async uploadPaymentProof(
         @Param('id') invoiceId: string,
         @Body() body: { proofUrl: string },
-        @Request() req
+        @ActiveTenant() tenantId: string,
     ) {
-        if (!req.user.tenantId) throw new ForbiddenException('No tenant associated');
-        return this.billingService.uploadPaymentProof(invoiceId, req.user.tenantId, body.proofUrl);
+        return this.billingService.uploadPaymentProof(invoiceId, tenantId, body.proofUrl);
     }
 
     @Post('subscribe')
-    async subscribeToPlan(@Body('planId') planId: string, @Request() req) {
-        if (!req.user.tenantId) throw new ForbiddenException('No tenant associated');
-        // Re-use logic: Requesting an upgrade creates a pending invoice.
-        return this.billingService.upgradePlan(req.user.tenantId, planId);
+    async subscribeToPlan(@Body('planId') planId: string, @ActiveTenant() tenantId: string) {
+        return this.billingService.upgradePlan(tenantId, planId);
     }
 }
-

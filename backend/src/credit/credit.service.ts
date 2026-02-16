@@ -79,9 +79,13 @@ export class CreditService {
     }
 
     async findOne(id: string, tenantId: string) {
-        // SECURITY: Verify credit belongs to tenant via transaction chain
-        const credit = await this.prisma.credit.findUnique({
-            where: { id },
+        // SECURITY: Use findFirst with tenantId filter via transaction relation
+        // Never use findUnique({ id }) alone for tenant-scoped models (IDOR risk)
+        const credit = await this.prisma.credit.findFirst({
+            where: {
+                id,
+                transaction: { tenantId },
+            },
             include: {
                 transaction: {
                     include: {
@@ -95,7 +99,7 @@ export class CreditService {
             },
         });
 
-        if (!credit || credit.transaction.tenantId !== tenantId) {
+        if (!credit) {
             throw new NotFoundException('Data kredit tidak ditemukan');
         }
 
@@ -108,15 +112,13 @@ export class CreditService {
         interestRate: number;
         tenorMonths: number;
         monthlyPayment: number;
-    }, tenantId?: string) {
-        // SECURITY: Verify transaction belongs to tenant
-        if (tenantId) {
-            const transaction = await this.prisma.transaction.findFirst({
-                where: { id: transactionId, tenantId },
-            });
-            if (!transaction) {
-                throw new NotFoundException('Transaksi tidak ditemukan');
-            }
+    }, tenantId: string) {
+        // SECURITY: Always verify transaction belongs to tenant (mandatory)
+        const transaction = await this.prisma.transaction.findFirst({
+            where: { id: transactionId, tenantId },
+        });
+        if (!transaction) {
+            throw new NotFoundException('Transaksi tidak ditemukan');
         }
 
         return this.prisma.credit.create({
@@ -132,15 +134,18 @@ export class CreditService {
     }
 
     async addPayment(creditId: string, tenantId: string, month: number, amount: number, paidAt: Date, status: string = 'PAID') {
-        // SECURITY: Verify credit → transaction → tenant chain
-        const credit = await this.prisma.credit.findUnique({
-            where: { id: creditId },
+        // SECURITY: Verify credit → transaction → tenant chain using findFirst
+        const credit = await this.prisma.credit.findFirst({
+            where: {
+                id: creditId,
+                transaction: { tenantId },
+            },
             include: {
                 transaction: { select: { tenantId: true, id: true } },
                 payments: { select: { id: true } },
             },
         });
-        if (!credit || credit.transaction.tenantId !== tenantId) {
+        if (!credit) {
             throw new NotFoundException('Data kredit tidak ditemukan');
         }
 

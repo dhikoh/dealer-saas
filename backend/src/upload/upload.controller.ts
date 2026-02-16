@@ -10,7 +10,6 @@ import {
     Request,
     BadRequestException,
     NotFoundException,
-    ForbiddenException,
     UseGuards,
 } from '@nestjs/common';
 import { FileInterceptor, FilesInterceptor, FileFieldsInterceptor } from '@nestjs/platform-express';
@@ -18,6 +17,7 @@ import { UploadService } from './upload.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { Roles } from '../auth/roles.decorator';
 import { RolesGuard } from '../auth/roles.guard';
+import { ActiveTenant } from '../common/decorators/active-tenant.decorator';
 
 /**
  * Upload Controller
@@ -43,7 +43,7 @@ export class UploadController {
     async uploadVehicleImage(
         @UploadedFile() file: Express.Multer.File,
         @Param('vehicleId') vehicleId: string,
-        @Request() req: any,
+        @ActiveTenant() tenantId: string,
     ) {
         if (!file) {
             throw new BadRequestException('No file uploaded');
@@ -54,9 +54,8 @@ export class UploadController {
         }
 
         // SECURITY: Verify vehicle belongs to tenant
-        if (!req.user.tenantId) throw new ForbiddenException('No tenant associated');
         const vehicle = await this.prisma.vehicle.findFirst({
-            where: { id: vehicleId, tenantId: req.user.tenantId },
+            where: { id: vehicleId, tenantId },
         });
         if (!vehicle) {
             throw new NotFoundException('Kendaraan tidak ditemukan');
@@ -72,7 +71,7 @@ export class UploadController {
     async uploadVehicleImages(
         @UploadedFiles() files: Express.Multer.File[],
         @Param('vehicleId') vehicleId: string,
-        @Request() req: any,
+        @ActiveTenant() tenantId: string,
     ) {
         if (!files || files.length === 0) {
             throw new BadRequestException('No files uploaded');
@@ -86,9 +85,8 @@ export class UploadController {
         }
 
         // SECURITY: Verify vehicle belongs to tenant
-        if (!req.user.tenantId) throw new ForbiddenException('No tenant associated');
         const vehicle = await this.prisma.vehicle.findFirst({
-            where: { id: vehicleId, tenantId: req.user.tenantId },
+            where: { id: vehicleId, tenantId },
         });
         if (!vehicle) {
             throw new NotFoundException('Kendaraan tidak ditemukan');
@@ -108,7 +106,7 @@ export class UploadController {
         @UploadedFile() file: Express.Multer.File,
         @Param('customerId') customerId: string,
         @Param('docType') docType: string,
-        @Request() req: any,
+        @ActiveTenant() tenantId: string,
     ) {
         const validDocTypes = ['ktp', 'kk', 'home-proof', 'salary-slip', 'bank-statement', 'business-license'];
 
@@ -121,9 +119,8 @@ export class UploadController {
         // Customer docs allow PDF, so module-level filter is sufficient
 
         // SECURITY: Verify customer belongs to tenant
-        if (!req.user.tenantId) throw new ForbiddenException('No tenant associated');
         const customer = await this.prisma.customer.findFirst({
-            where: { id: customerId, tenantId: req.user.tenantId },
+            where: { id: customerId, tenantId },
         });
         if (!customer) {
             throw new NotFoundException('Customer tidak ditemukan');
@@ -161,7 +158,6 @@ export class UploadController {
     @UseInterceptors(FileInterceptor('proof'))
     uploadFinanceProof(
         @UploadedFile() file: Express.Multer.File,
-        @Request() req: any,
     ) {
         if (!file) {
             throw new BadRequestException('No file uploaded');
@@ -235,16 +231,15 @@ export class UploadController {
             tax?: Express.Multer.File[];
         },
         @Param('vehicleId') vehicleId: string,
-        @Request() req: any,
+        @ActiveTenant() tenantId: string,
     ) {
         if (!files || Object.keys(files).length === 0) {
             throw new BadRequestException('Tidak ada dokumen yang diupload');
         }
 
         // SECURITY: Verify vehicle belongs to tenant
-        if (!req.user.tenantId) throw new ForbiddenException('No tenant associated');
         const vehicle = await this.prisma.vehicle.findFirst({
-            where: { id: vehicleId, tenantId: req.user.tenantId, deletedAt: null },
+            where: { id: vehicleId, tenantId, deletedAt: null },
         });
         if (!vehicle) {
             throw new NotFoundException('Kendaraan tidak ditemukan');

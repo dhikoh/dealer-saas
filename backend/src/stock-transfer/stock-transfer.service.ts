@@ -1,6 +1,7 @@
 import { Injectable, NotFoundException, BadRequestException, ForbiddenException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { NotificationService } from '../notification/notification.service';
+import { sanitizeInput } from '../common/helpers/tenant-security.helper';
 
 @Injectable()
 export class StockTransferService {
@@ -10,11 +11,24 @@ export class StockTransferService {
     ) { }
 
     async create(data: any, tenantId: string, userId: string) {
-        const { vehicleId, sourceBranchId, targetBranchId, targetTenantId, type, price, notes } = data;
+        // SECURITY: Strip protected fields from input
+        const safeData = sanitizeInput(data);
+        const { vehicleId, sourceBranchId, targetBranchId, targetTenantId, type, price, notes } = safeData;
 
         // Validations
         if (targetTenantId && targetTenantId === tenantId) {
             throw new BadRequestException('Target tenant cannot be the same as source tenant');
+        }
+
+        // SECURITY: Validate targetTenantId exists in DB (prevent transfer to phantom tenant)
+        if (targetTenantId) {
+            const targetTenant = await this.prisma.tenant.findUnique({
+                where: { id: targetTenantId },
+                select: { id: true },
+            });
+            if (!targetTenant) {
+                throw new BadRequestException('Target tenant does not exist');
+            }
         }
 
         if (type === 'SALE' && (!price || price <= 0)) {

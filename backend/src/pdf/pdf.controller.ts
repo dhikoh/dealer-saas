@@ -3,12 +3,12 @@ import {
     Get,
     Param,
     Query,
-    Request,
     Res,
 } from '@nestjs/common';
 import { PdfService } from './pdf.service';
+import { ActiveTenant } from '../common/decorators/active-tenant.decorator';
 
-// Protected by global JwtAuthGuard
+// Protected by global JwtAuthGuard + TenantGuard
 @Controller('pdf')
 export class PdfController {
     constructor(private readonly pdfService: PdfService) { }
@@ -20,12 +20,12 @@ export class PdfController {
     @Get('vehicle/:vehicleId/internal')
     async getInternalReport(
         @Param('vehicleId') vehicleId: string,
-        @Request() req: any,
+        @ActiveTenant() tenantId: string,
         @Res() res: any,
     ) {
         return this.pdfService.generateInternalVehicleReport(
             vehicleId,
-            req.user.tenantId,
+            tenantId,
             res,
         );
     }
@@ -37,12 +37,12 @@ export class PdfController {
     @Get('vehicle/:vehicleId/customer')
     async getCustomerReport(
         @Param('vehicleId') vehicleId: string,
-        @Request() req: any,
+        @ActiveTenant() tenantId: string,
         @Res() res: any,
     ) {
         return this.pdfService.generateCustomerVehicleReport(
             vehicleId,
-            req.user.tenantId,
+            tenantId,
             res,
         );
     }
@@ -54,12 +54,12 @@ export class PdfController {
     @Get('transaction/:transactionId/invoice')
     async getTransactionInvoice(
         @Param('transactionId') transactionId: string,
-        @Request() req: any,
+        @ActiveTenant() tenantId: string,
         @Res() res: any,
     ) {
         return this.pdfService.generateTransactionInvoice(
             transactionId,
-            req.user.tenantId,
+            tenantId,
             res,
         );
     }
@@ -70,12 +70,12 @@ export class PdfController {
     @Get('transaction/:transactionId/spk')
     async getTransactionSPK(
         @Param('transactionId') transactionId: string,
-        @Request() req: any,
+        @ActiveTenant() tenantId: string,
         @Res() res: any,
     ) {
         return this.pdfService.generateTransactionSPK(
             transactionId,
-            req.user.tenantId,
+            tenantId,
             res,
         );
     }
@@ -86,12 +86,12 @@ export class PdfController {
     @Get('transaction/:transactionId/receipt')
     async getTransactionReceipt(
         @Param('transactionId') transactionId: string,
-        @Request() req: any,
+        @ActiveTenant() tenantId: string,
         @Res() res: any,
     ) {
         return this.pdfService.generateTransactionReceipt(
             transactionId,
-            req.user.tenantId,
+            tenantId,
             res,
         );
     }
@@ -102,12 +102,12 @@ export class PdfController {
      */
     @Get('reports/sales')
     async getSalesReport(
-        @Request() req: any,
+        @ActiveTenant() tenantId: string,
         @Res() res: any,
         @Query('months') months?: string,
     ) {
         return this.pdfService.generateSalesReport(
-            req.user.tenantId,
+            tenantId,
             months ? parseInt(months) : 6,
             res,
         );
@@ -119,12 +119,12 @@ export class PdfController {
      */
     @Get('export/sales-csv')
     async exportSalesCSV(
-        @Request() req: any,
+        @ActiveTenant() tenantId: string,
         @Res() res: any,
         @Query('months') months?: string,
     ) {
         return this.pdfService.generateSalesCSV(
-            req.user.tenantId,
+            tenantId,
             months ? parseInt(months) : 6,
             res,
         );

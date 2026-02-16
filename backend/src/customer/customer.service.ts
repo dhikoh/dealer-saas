@@ -1,6 +1,7 @@
 import { Injectable, BadRequestException, NotFoundException, ForbiddenException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { getPlanById } from '../config/plan-tiers.config';
+import { sanitizeInput } from '../common/helpers/tenant-security.helper';
 
 @Injectable()
 export class CustomerService {
@@ -72,14 +73,10 @@ export class CustomerService {
         }
 
         // SECURITY: Strip dangerous fields before create
-        const safeData = { ...data };
-        delete safeData.id;
-        delete safeData.tenantId;
-        delete safeData.createdAt;
-        delete safeData.updatedAt;
+        const safeData = sanitizeInput(data);
 
         return this.prisma.customer.create({
-            data: { ...safeData, tenantId },
+            data: { ...safeData, tenantId } as any,
         });
     }
 
@@ -92,11 +89,7 @@ export class CustomerService {
             throw new NotFoundException('Customer tidak ditemukan');
         }
         // SECURITY: Strip dangerous fields before update
-        const safeData = { ...data };
-        delete safeData.id;
-        delete safeData.tenantId;
-        delete safeData.createdAt;
-        delete safeData.updatedAt;
+        const safeData = sanitizeInput(data);
 
         return this.prisma.customer.update({
             where: { id },
