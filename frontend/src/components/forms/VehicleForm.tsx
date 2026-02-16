@@ -53,12 +53,16 @@ export default function VehicleForm({ initialData, masterData, onSubmit, isLoadi
         branchId: '',
         isOwnerDifferent: false,
         bpkbOwnerName: '',
-        ...initialData, // Override defaults with initialData if present
-        // Ensure numbers are strings for inputs
+        // Spread initialData BUT exclude fields we explicitly handle below to avoid "duplicate property" error
+        ...(initialData ? (() => {
+            const { price, purchasePrice, year, purchaseDate, stnkExpiry, taxExpiry, ...rest } = initialData;
+            return rest;
+        })() : {}),
+
+        // Explicitly handle these fields with type conversion
         price: initialData?.price ? String(initialData.price) : '',
         purchasePrice: initialData?.purchasePrice ? String(initialData.purchasePrice) : '',
         year: initialData?.year || new Date().getFullYear(),
-        // Ensure dates are YYYY-MM-DD
         purchaseDate: initialData?.purchaseDate ? new Date(initialData.purchaseDate).toISOString().split('T')[0] : '',
         stnkExpiry: initialData?.stnkExpiry ? new Date(initialData.stnkExpiry).toISOString().split('T')[0] : '',
         taxExpiry: initialData?.taxExpiry ? new Date(initialData.taxExpiry).toISOString().split('T')[0] : '',
