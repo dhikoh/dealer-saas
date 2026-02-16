@@ -201,8 +201,10 @@ export default function AuthPage() {
 
                 const data = await res.json();
 
-                // Access Token & Refresh Token are now set via HTTP-only Cookies
+                // Access Token is set via HTTP-only Cookie by backend
+                // Refresh Token must be stored client-side for the refresh flow
                 localStorage.setItem('user_info', JSON.stringify(data.user));
+                if (data.refresh_token) localStorage.setItem('refresh_token', data.refresh_token);
 
                 if (rememberMe) {
                     localStorage.setItem('remember_me', 'true');
@@ -257,8 +259,9 @@ export default function AuthPage() {
 
                 const data = await res.json();
 
-                // Access Token & Refresh Token are now set via HTTP-only Cookies
+                // Access Token is set via HTTP-only Cookie by backend
                 localStorage.setItem('user_info', JSON.stringify(data.user));
+                if (data.refresh_token) localStorage.setItem('refresh_token', data.refresh_token);
 
                 toast.success(t.authAlertSignup);
 
@@ -328,8 +331,9 @@ export default function AuthPage() {
 
                     const data = await res.json();
 
-                    // Access Token & Refresh Token are now set via HTTP-only Cookies
+                    // Access Token is set via HTTP-only Cookie by backend
                     localStorage.setItem('user_info', JSON.stringify(data.user));
+                    if (data.refresh_token) localStorage.setItem('refresh_token', data.refresh_token);
 
                     toast.success(`Welcome ${data.user.name}!`);
 

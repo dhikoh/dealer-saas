@@ -27,19 +27,16 @@ export function getAuthHeaders(): Record<string, string> {
  */
 async function tryRefreshToken(): Promise<boolean> {
     try {
-        // We only need body if using legacy refresh token from localStorage
-        // If using cookies, the refresh token should also be a cookie (usually).
-        // For now, let's assume the backend handles the cookie-based refresh if no body is sent,
-        // OR we send the localStorage refresh token if available.
-
         const refreshToken = typeof window !== 'undefined' ? localStorage.getItem('refresh_token') : null;
-        const body = refreshToken ? JSON.stringify({ refresh_token: refreshToken }) : undefined;
+
+        // No refresh token stored — nothing to refresh (user never logged in or was logged out)
+        if (!refreshToken) return false;
 
         const res = await fetch(`${API_URL}/auth/refresh`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body,
-            credentials: 'include', // IMPORTANT: Send cookies
+            body: JSON.stringify({ refresh_token: refreshToken }),
+            credentials: 'include', // Send cookies for new auth_token to be set
         });
 
         if (!res.ok) return false;

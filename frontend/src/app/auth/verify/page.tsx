@@ -81,6 +81,7 @@ function VerifyPageContent() {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ email, code: otpCode }),
+                credentials: 'include', // Receive auth_token cookie from backend
             });
 
             if (!res.ok) {
@@ -90,9 +91,12 @@ function VerifyPageContent() {
 
             const data = await res.json();
 
-            // Store user info for UI display
+            // Store user info and refresh token for auth flow
             if (data.user) {
                 localStorage.setItem('user_info', JSON.stringify(data.user));
+            }
+            if (data.refresh_token) {
+                localStorage.setItem('refresh_token', data.refresh_token);
             }
 
             toast.success('Email Berhasil Diverifikasi!');
