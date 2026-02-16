@@ -6,6 +6,7 @@ import * as path from 'path';
 import { Worker } from 'worker_threads';
 
 import { UploadService } from '../upload/upload.service';
+import { TransactionDal, DetailedTransaction } from '../transaction/transaction.dal';
 
 @Injectable()
 export class PdfService {
@@ -13,7 +14,8 @@ export class PdfService {
 
     constructor(
         private prisma: PrismaService,
-        private uploadService: UploadService
+        private uploadService: UploadService,
+        private transactionDal: TransactionDal,
     ) { }
 
     /**
@@ -410,15 +412,11 @@ export class PdfService {
         tenantId: string,
         res: any,
     ) {
-        const transaction = await this.prisma.transaction.findFirst({
-            where: { id: transactionId, tenantId },
-            include: {
-                vehicle: true,
-                customer: true,
-                salesPerson: true,
-                credit: true,
-            },
-        }) as any;
+        const transaction = await this.transactionDal.getDetailedTransaction(transactionId, tenantId);
+
+        if (!transaction) {
+            throw new Error('Transaction not found');
+        }
 
         if (!transaction) {
             throw new Error('Transaction not found');
@@ -563,15 +561,7 @@ export class PdfService {
         tenantId: string,
         res: any,
     ) {
-        const transaction = await this.prisma.transaction.findFirst({
-            where: { id: transactionId, tenantId },
-            include: {
-                vehicle: true,
-                customer: true,
-                salesPerson: true,
-                credit: true,
-            },
-        }) as any;
+        const transaction = await this.transactionDal.getDetailedSalesDraft(transactionId, tenantId);
 
         if (!transaction) {
             throw new Error('Transaction not found');
@@ -1116,16 +1106,7 @@ export class PdfService {
         tenantId: string,
         res: any,
     ) {
-        const transaction = await this.prisma.transaction.findFirst({
-            where: { id: transactionId, tenantId },
-            include: {
-                vehicle: true,
-                customer: true,
-                salesPerson: true,
-                credit: true,
-                payments: { orderBy: { date: 'desc' } } // Get payments
-            },
-        }) as any;
+        const transaction = await this.transactionDal.getDetailedTransaction(transactionId, tenantId);
 
         if (!transaction) {
             throw new Error('Transaction not found');
