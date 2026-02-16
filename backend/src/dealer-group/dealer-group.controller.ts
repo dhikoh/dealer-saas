@@ -31,8 +31,8 @@ export class DealerGroupController {
     }
 
     @Post('leave')
-    async leave(@ActiveTenant() tenantId: string) {
-        return this.dealerGroupService.leaveGroup(tenantId);
+    async leave(@ActiveTenant() tenantId: string, @Request() req) {
+        return this.dealerGroupService.leaveGroup(tenantId, req.user.userId);
     }
 
     @Post('kick')

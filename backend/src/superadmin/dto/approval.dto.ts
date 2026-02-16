@@ -1,10 +1,12 @@
-import { IsString, IsBoolean, IsOptional } from 'class-validator';
+import { IsString, IsBoolean, IsOptional, MaxLength } from 'class-validator';
 
 export class CreateApprovalRequestDto {
     @IsString()
+    @MaxLength(50, { message: 'Tipe request maksimal 50 karakter' })
     type: string;
 
     @IsString()
+    @MaxLength(5000, { message: 'Payload maksimal 5000 karakter' })
     payload: string;
 }
 
@@ -14,5 +16,6 @@ export class ProcessApprovalRequestDto {
 
     @IsOptional()
     @IsString()
+    @MaxLength(1000, { message: 'Catatan maksimal 1000 karakter' })
     note?: string;
 }

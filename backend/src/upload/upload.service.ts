@@ -1,8 +1,9 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { existsSync, unlinkSync, mkdirSync } from 'fs';
 import * as path from 'path';
 import { join } from 'path';
+import { PrismaService } from '../prisma/prisma.service';
 
 export interface UploadedFile {
     fieldname: string;
@@ -30,7 +31,10 @@ export class UploadService {
     private readonly uploadDir: string;
     private readonly baseUrl: string;
 
-    constructor(private configService: ConfigService) {
+    constructor(
+        private configService: ConfigService,
+        private prisma: PrismaService,
+    ) {
         this.uploadDir = this.configService.get('UPLOAD_DIR', './uploads');
         this.baseUrl = this.configService.get('BASE_URL', 'http://localhost:4000');
 
@@ -120,5 +124,40 @@ export class UploadService {
             mkdirSync(dir, { recursive: true });
         }
         return dir;
+    }
+
+    // ── Ownership Verification (moved from controller to avoid direct Prisma in controller) ──
+
+    /** Verify a vehicle belongs to the given tenant. Throws NotFoundException if not. */
+    async verifyVehicleOwnership(vehicleId: string, tenantId: string): Promise<void> {
+        const vehicle = await this.prisma.vehicle.findFirst({
+            where: { id: vehicleId, tenantId },
+        });
+        if (!vehicle) throw new NotFoundException('Kendaraan tidak ditemukan');
+    }
+
+    /** Verify a customer belongs to the given tenant. Throws NotFoundException if not. */
+    async verifyCustomerOwnership(customerId: string, tenantId: string): Promise<void> {
+        const customer = await this.prisma.customer.findFirst({
+            where: { id: customerId, tenantId },
+        });
+        if (!customer) throw new NotFoundException('Customer tidak ditemukan');
+    }
+
+    /** Verify vehicle exists (with soft-delete check) and update document URLs. */
+    async updateVehicleDocuments(
+        vehicleId: string,
+        tenantId: string,
+        documentUrls: Record<string, string>,
+    ): Promise<void> {
+        const vehicle = await this.prisma.vehicle.findFirst({
+            where: { id: vehicleId, tenantId, deletedAt: null },
+        });
+        if (!vehicle) throw new NotFoundException('Kendaraan tidak ditemukan');
+
+        await this.prisma.vehicle.update({
+            where: { id: vehicleId },
+            data: documentUrls,
+        });
     }
 }

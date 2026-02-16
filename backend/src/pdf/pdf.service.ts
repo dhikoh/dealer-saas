@@ -1061,7 +1061,7 @@ export class PdfService {
                 });
             } catch (err) {
                 doc.fontSize(12).fillColor('red').text('Gagal memuat gambar bukti pembayaran.', { align: 'center' });
-                console.error(`Error loading payment proof for PDF: ${err.message}`);
+                this.logger.error(`Error loading payment proof for PDF: ${(err as Error).message}`);
             }
         }
 

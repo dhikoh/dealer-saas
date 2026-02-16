@@ -9,12 +9,10 @@ import {
     Param,
     Request,
     BadRequestException,
-    NotFoundException,
     UseGuards,
 } from '@nestjs/common';
 import { FileInterceptor, FilesInterceptor, FileFieldsInterceptor } from '@nestjs/platform-express';
 import { UploadService } from './upload.service';
-import { PrismaService } from '../prisma/prisma.service';
 import { Roles } from '../auth/roles.decorator';
 import { RolesGuard } from '../auth/roles.guard';
 import { ActiveTenant } from '../common/decorators/active-tenant.decorator';
@@ -27,12 +25,14 @@ import { ActiveTenant } from '../common/decorators/active-tenant.decorator';
  * - Customer documents (KTP, KK, etc.)
  * - Receipt images
  * - Payment proofs
+ * 
+ * NOTE: All Prisma queries are delegated to UploadService.
+ * This controller contains ZERO direct Prisma usage (Phase F compliance).
  */
 @Controller('upload')
 export class UploadController {
     constructor(
         private readonly uploadService: UploadService,
-        private readonly prisma: PrismaService,
     ) { }
 
     /**
@@ -48,18 +48,12 @@ export class UploadController {
         if (!file) {
             throw new BadRequestException('No file uploaded');
         }
-        // Strict check: Only images allowed for vehicle photos
         if (!file.mimetype.startsWith('image/')) {
             throw new BadRequestException('Hanya file gambar yang diperbolehkan');
         }
 
-        // SECURITY: Verify vehicle belongs to tenant
-        const vehicle = await this.prisma.vehicle.findFirst({
-            where: { id: vehicleId, tenantId },
-        });
-        if (!vehicle) {
-            throw new NotFoundException('Kendaraan tidak ditemukan');
-        }
+        // SECURITY: Verify vehicle belongs to tenant (via service)
+        await this.uploadService.verifyVehicleOwnership(vehicleId, tenantId);
         return this.uploadService.processUpload(file as any, 'vehicles');
     }
 
@@ -77,20 +71,14 @@ export class UploadController {
             throw new BadRequestException('No files uploaded');
         }
 
-        // Strict check: Only images allowed
         for (const file of files) {
             if (!file.mimetype.startsWith('image/')) {
                 throw new BadRequestException('Hanya file gambar yang diperbolehkan');
             }
         }
 
-        // SECURITY: Verify vehicle belongs to tenant
-        const vehicle = await this.prisma.vehicle.findFirst({
-            where: { id: vehicleId, tenantId },
-        });
-        if (!vehicle) {
-            throw new NotFoundException('Kendaraan tidak ditemukan');
-        }
+        // SECURITY: Verify vehicle belongs to tenant (via service)
+        await this.uploadService.verifyVehicleOwnership(vehicleId, tenantId);
         return {
             success: true,
             files: this.uploadService.processMultipleUploads(files as any[], 'vehicles'),
@@ -116,15 +104,9 @@ export class UploadController {
         if (!file) {
             throw new BadRequestException('No file uploaded');
         }
-        // Customer docs allow PDF, so module-level filter is sufficient
 
-        // SECURITY: Verify customer belongs to tenant
-        const customer = await this.prisma.customer.findFirst({
-            where: { id: customerId, tenantId },
-        });
-        if (!customer) {
-            throw new NotFoundException('Customer tidak ditemukan');
-        }
+        // SECURITY: Verify customer belongs to tenant (via service)
+        await this.uploadService.verifyCustomerOwnership(customerId, tenantId);
         return this.uploadService.processUpload(file as any, `customers/${customerId}`);
     }
 
@@ -136,17 +118,13 @@ export class UploadController {
     uploadPaymentProof(
         @UploadedFile() file: Express.Multer.File,
         @Param('invoiceId') invoiceId: string,
-        @Request() req: any,
     ) {
         if (!file) {
             throw new BadRequestException('No file uploaded');
         }
-        // Strict check: Only images allowed
         if (!file.mimetype.startsWith('image/')) {
             throw new BadRequestException('Hanya file gambar yang diperbolehkan');
         }
-
-        req.uploadType = 'payments';
 
         return this.uploadService.processUpload(file as any, 'payments');
     }
@@ -162,7 +140,6 @@ export class UploadController {
         if (!file) {
             throw new BadRequestException('No file uploaded');
         }
-        // Strict check: Only images allowed
         if (!file.mimetype.startsWith('image/')) {
             throw new BadRequestException('Hanya file gambar yang diperbolehkan');
         }
@@ -177,18 +154,13 @@ export class UploadController {
     @UseInterceptors(FileInterceptor('receipt'))
     uploadReceipt(
         @UploadedFile() file: Express.Multer.File,
-        @Param('vehicleId') vehicleId: string,
-        @Request() req: any,
     ) {
         if (!file) {
             throw new BadRequestException('No file uploaded');
         }
-        // Strict check: Only images allowed
         if (!file.mimetype.startsWith('image/')) {
             throw new BadRequestException('Hanya file gambar yang diperbolehkan');
         }
-
-        req.uploadType = 'receipts';
 
         return this.uploadService.processUpload(file as any, 'receipts');
     }
@@ -214,7 +186,7 @@ export class UploadController {
 
     /**
      * Batch upload vehicle documents (STNK, BPKB, KTP, Tax images)
-     * Accepts multiple file fields and updates the vehicle record in one call.
+     * All Prisma operations delegated to UploadService.updateVehicleDocuments
      */
     @Post('vehicle/:vehicleId/documents')
     @UseInterceptors(FileFieldsInterceptor([
@@ -235,14 +207,6 @@ export class UploadController {
     ) {
         if (!files || Object.keys(files).length === 0) {
             throw new BadRequestException('Tidak ada dokumen yang diupload');
-        }
-
-        // SECURITY: Verify vehicle belongs to tenant
-        const vehicle = await this.prisma.vehicle.findFirst({
-            where: { id: vehicleId, tenantId, deletedAt: null },
-        });
-        if (!vehicle) {
-            throw new NotFoundException('Kendaraan tidak ditemukan');
         }
 
         // Process each file and build update data
@@ -270,11 +234,8 @@ export class UploadController {
             results.taxImage = result.url;
         }
 
-        // Update vehicle record with all document URLs
-        await this.prisma.vehicle.update({
-            where: { id: vehicleId },
-            data: updateData,
-        });
+        // Delegate vehicle update to service (no direct Prisma in controller)
+        await this.uploadService.updateVehicleDocuments(vehicleId, tenantId, updateData);
 
         return {
             success: true,

@@ -1,6 +1,8 @@
-import { IsNotEmpty } from 'class-validator';
+import { IsNotEmpty, IsString, MaxLength } from 'class-validator';
 
 export class UpdatePlatformSettingDto {
     @IsNotEmpty()
-    value: any;
+    @IsString()
+    @MaxLength(10000, { message: 'Nilai setting maksimal 10000 karakter' })
+    value: string;
 }

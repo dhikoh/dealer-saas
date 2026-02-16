@@ -1,4 +1,4 @@
-import { BadRequestException, ForbiddenException, HttpException, HttpStatus, Injectable, UnauthorizedException, Inject, forwardRef } from '@nestjs/common';
+import { BadRequestException, ForbiddenException, HttpException, HttpStatus, Injectable, UnauthorizedException, Inject, forwardRef, Logger } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateAuthDto } from './dto/create-auth.dto';
@@ -11,6 +11,8 @@ import { VehicleService } from '../vehicle/vehicle.service';
 
 @Injectable()
 export class AuthService {
+  private readonly logger = new Logger(AuthService.name);
+
   // Login attempt tracking (in-memory, resets on restart)
   private loginAttempts = new Map<string, { count: number; lastAttempt: Date; blockedUntil?: Date }>();
   private readonly MAX_LOGIN_ATTEMPTS = 5;
@@ -321,7 +323,7 @@ export class AuthService {
       }
     } catch (error) {
       // Don't fail onboarding if seeding fails, just log it
-      console.error('Failed to seed default brands:', error);
+      this.logger.error('Failed to seed default brands', error instanceof Error ? error.stack : error);
     }
 
     return await this.createToken(user);

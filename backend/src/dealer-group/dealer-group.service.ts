@@ -1,13 +1,15 @@
 
-import { Injectable, BadRequestException, NotFoundException } from '@nestjs/common';
+import { Injectable, BadRequestException, NotFoundException, Logger } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 
 @Injectable()
 export class DealerGroupService {
+    private readonly logger = new Logger(DealerGroupService.name);
+
     constructor(private prisma: PrismaService) { }
 
     async createGroup(userId: string, name: string) {
-        // 1. Check if user is Enterprise Plan
+        // userId comes from JWT — safe to use findUnique (no IDOR: user can only access their own JWT userId)
         const user = await this.prisma.user.findUnique({
             where: { id: userId },
             include: { tenant: { include: { plan: true } } },
@@ -17,10 +19,8 @@ export class DealerGroupService {
             throw new BadRequestException('Upgrade to Enterprise plan to create a Dealer Group');
         }
 
-        // 2. Generate Invite Code
         const code = this.generateInviteCode(name);
 
-        // 3. Create Group
         return this.prisma.dealerGroup.create({
             data: {
                 name,
@@ -31,10 +31,11 @@ export class DealerGroupService {
     }
 
     async joinGroup(tenantId: string, code: string) {
+        // code is a public invite code — findUnique on unique field is safe (no IDOR: code is not an ID)
         const group = await this.prisma.dealerGroup.findUnique({ where: { code } });
         if (!group) throw new NotFoundException('Invalid invite code');
 
-        // Check if already in a group
+        // tenantId from JWT — safe
         const tenant = await this.prisma.tenant.findUnique({ where: { id: tenantId } });
         if (!tenant) throw new NotFoundException('Tenant not found');
         if (tenant.dealerGroupId) throw new BadRequestException('You are already in a dealer group');
@@ -47,7 +48,7 @@ export class DealerGroupService {
 
     async getMyGroup(userId: string) {
         try {
-            // Check if user is owner
+            // userId from JWT — safe to use findUnique (ownerId is @unique in schema)
             const groupOwned = await this.prisma.dealerGroup.findUnique({
                 where: { ownerId: userId },
                 include: {
@@ -103,7 +104,7 @@ export class DealerGroupService {
                 };
             }
 
-            // Check if user is member
+            // userId from JWT — safe
             const user = await this.prisma.user.findUnique({
                 where: { id: userId },
                 include: {
@@ -132,15 +133,13 @@ export class DealerGroupService {
 
             return null;
         } catch (error) {
-            console.error('Error in getMyGroup:', error);
-            // Return null instead of crashing, allowing frontend to proceed
-            // or rethrow if strictly needed, but 500 is bad UX.
-            // Letting it return null means "No Group" which is safe fallback.
+            this.logger.error('Error in getMyGroup', error instanceof Error ? error.stack : error);
             return null;
         }
     }
 
-    async leaveGroup(tenantId: string) {
+    async leaveGroup(tenantId: string, userId: string) {
+        // tenantId from JWT — safe
         const tenant = await this.prisma.tenant.findUnique({
             where: { id: tenantId },
             include: { dealerGroup: true },
@@ -150,9 +149,10 @@ export class DealerGroupService {
             throw new BadRequestException('Anda tidak tergabung dalam grup dealer manapun');
         }
 
-        // Check if tenant is the group owner — owners cannot leave, they must transfer or delete
+        // FIX: DealerGroup.ownerId stores userId (not tenantId).
+        // Must compare with userId from JWT to correctly identify group owners.
         const ownedGroup = await this.prisma.dealerGroup.findFirst({
-            where: { ownerId: tenantId },
+            where: { ownerId: userId },
         });
         if (ownedGroup && ownedGroup.id === tenant.dealerGroupId) {
             throw new BadRequestException('Pemilik grup tidak bisa meninggalkan grup. Hapus grup atau transfer kepemilikan terlebih dahulu.');
@@ -165,6 +165,7 @@ export class DealerGroupService {
     }
 
     async removeMember(ownerId: string, memberTenantId: string) {
+        // ownerId is userId from JWT — safe (ownerId is @unique in schema)
         const group = await this.prisma.dealerGroup.findUnique({
             where: { ownerId },
             include: { members: true }
@@ -172,7 +173,6 @@ export class DealerGroupService {
 
         if (!group) throw new BadRequestException('Group not found or access denied');
 
-        // Verify member belongs to group
         const isMember = group.members.some(m => m.id === memberTenantId);
         if (!isMember) throw new NotFoundException('Tenant is not a member of this group');
 

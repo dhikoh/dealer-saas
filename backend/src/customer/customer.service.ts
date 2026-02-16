@@ -1,10 +1,12 @@
-import { Injectable, BadRequestException, NotFoundException, ForbiddenException } from '@nestjs/common';
+import { Injectable, BadRequestException, NotFoundException, ForbiddenException, Logger } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { getPlanById } from '../config/plan-tiers.config';
 import { sanitizeInput } from '../common/helpers/tenant-security.helper';
 
 @Injectable()
 export class CustomerService {
+    private readonly logger = new Logger(CustomerService.name);
+
     constructor(private prisma: PrismaService) { }
 
     async findAll(tenantId: string, search?: string) {
@@ -199,7 +201,7 @@ export class CustomerService {
                     }
                 } catch (e) {
                     doc.text('(Gagal memuat foto KTP)', startX, currentY);
-                    console.error('PDF Image Error:', e);
+                    this.logger.error('PDF Image Error', e instanceof Error ? e.stack : e);
                 }
             } else {
                 doc.text('(Belum ada foto KTP)', startX, currentY);

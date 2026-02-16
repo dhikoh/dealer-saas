@@ -1,4 +1,4 @@
-import { IsString, IsNotEmpty, IsNumber, IsOptional, IsIn, Min } from 'class-validator';
+import { IsString, IsNotEmpty, IsNumber, IsOptional, IsIn, Min, MaxLength } from 'class-validator';
 
 export class CreateCreditDto {
     @IsString({ message: 'ID transaksi harus berupa teks' })
@@ -32,5 +32,6 @@ export class CreateCreditDto {
 
     @IsOptional()
     @IsString({ message: 'Nama perusahaan leasing harus berupa teks' })
+    @MaxLength(255, { message: 'Nama leasing maksimal 255 karakter' })
     leasingCompany?: string;
 }
