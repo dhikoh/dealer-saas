@@ -66,7 +66,15 @@ export function middleware(request: NextRequest) {
 
     // 3. IF TOKEN INVALID/EXPIRED
     if (!payload && token) {
-        // If token exists but invalid, clear it
+        // If we are ALREADY on an auth page, don't redirect (causes loop). 
+        // Just clear cookie and continue as normal public request.
+        if (pathname.startsWith('/auth')) {
+            const response = NextResponse.next();
+            response.cookies.delete('auth_token');
+            return response;
+        }
+
+        // Otherwise, redirect to login
         const response = NextResponse.redirect(new URL('/auth', request.url));
         response.cookies.delete('auth_token');
         return response;
