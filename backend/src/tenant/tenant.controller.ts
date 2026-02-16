@@ -1,6 +1,10 @@
 import { Controller, Get, Patch, Post, Put, Delete, Body, Param, Request } from '@nestjs/common';
 import { TenantService } from './tenant.service';
 import { ActiveTenant } from '../common/decorators/active-tenant.decorator';
+import {
+  UpdateTenantProfileDto, CreateStaffDto, UpdateStaffDto,
+  CreateTenantBranchDto, UpdateTenantBranchDto,
+} from './dto/tenant-operations.dto';
 
 // Protected by global JwtAuthGuard
 @Controller('tenant')
@@ -17,7 +21,7 @@ export class TenantController {
   @Patch('profile')
   async updateProfile(
     @ActiveTenant() tenantId: string,
-    @Body() data: { name?: string; address?: string; phone?: string; email?: string }
+    @Body() data: UpdateTenantProfileDto
   ) {
     return this.tenantService.updateProfile(tenantId, data);
   }
@@ -66,14 +70,7 @@ export class TenantController {
   async createStaff(
     @ActiveTenant() tenantId: string,
     @Request() req: any,
-    @Body() data: {
-      name: string;
-      email: string;
-      password: string;
-      phone?: string;
-      role: string;
-      branchId?: string;
-    }
+    @Body() data: CreateStaffDto
   ) {
     return this.tenantService.createStaff(tenantId, req.user, data);
   }
@@ -84,12 +81,7 @@ export class TenantController {
     @ActiveTenant() tenantId: string,
     @Request() req: any,
     @Param('id') staffId: string,
-    @Body() data: {
-      name?: string;
-      phone?: string;
-      role?: string;
-      branchId?: string | null;
-    }
+    @Body() data: UpdateStaffDto
   ) {
     return this.tenantService.updateStaff(tenantId, staffId, req.user, data);
   }
@@ -125,7 +117,7 @@ export class TenantController {
   @Post('branches')
   async createBranch(
     @ActiveTenant() tenantId: string,
-    @Body() data: { name: string; address: string; phone?: string }
+    @Body() data: CreateTenantBranchDto
   ) {
     return this.tenantService.createBranch(tenantId, data);
   }
@@ -135,7 +127,7 @@ export class TenantController {
   async updateBranch(
     @ActiveTenant() tenantId: string,
     @Param('id') branchId: string,
-    @Body() data: { name?: string; address?: string; phone?: string }
+    @Body() data: UpdateTenantBranchDto
   ) {
     return this.tenantService.updateBranch(tenantId, branchId, data);
   }

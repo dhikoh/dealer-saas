@@ -1,10 +1,11 @@
 
-import { Controller, Get, Param, UseGuards, Patch, Body } from '@nestjs/common';
+import { Controller, Get, Param, UseGuards, Patch, Body, UsePipes, ValidationPipe } from '@nestjs/common';
 import { PlanService } from './plan.service';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { RolesGuard } from '../auth/roles.guard';
 import { Roles } from '../auth/roles.decorator';
 import { Public } from '../auth/public.decorator';
+import { UpdatePlanDto } from './dto/update-plan.dto';
 
 @Controller('plans')
 export class PlanController {
@@ -34,7 +35,8 @@ export class PlanController {
     @Patch(':id')
     @UseGuards(JwtAuthGuard, RolesGuard)
     @Roles('SUPERADMIN')
-    async update(@Param('id') id: string, @Body() updatePlanDto: any) {
+    @UsePipes(new ValidationPipe({ whitelist: true }))
+    async update(@Param('id') id: string, @Body() updatePlanDto: UpdatePlanDto) {
         return this.planService.update(id, updatePlanDto);
     }
 }

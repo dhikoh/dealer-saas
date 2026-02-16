@@ -8,6 +8,7 @@ import {
 } from '@nestjs/common';
 import { BlacklistService } from './blacklist.service';
 import { ActiveTenant } from '../common/decorators/active-tenant.decorator';
+import { CreateBlacklistDto } from './dto/blacklist.dto';
 
 // Protected by global JwtAuthGuard + TenantGuard
 @Controller('blacklist')
@@ -24,12 +25,7 @@ export class BlacklistController {
     @Post()
     create(
         @ActiveTenant() tenantId: string,
-        @Body() data: {
-            ktpNumber: string;
-            customerName: string;
-            customerAddress?: string;
-            reason: string;
-        },
+        @Body() data: CreateBlacklistDto,
     ) {
         return this.blacklistService.create(tenantId, data);
     }

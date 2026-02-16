@@ -1,6 +1,7 @@
 import { Controller, Get, Post, Put, Delete, Body, Param, Query } from '@nestjs/common';
 import { FinanceService } from './finance.service';
 import { ActiveTenant } from '../common/decorators/active-tenant.decorator';
+import { CreateCostDto, UpdateCostDto } from './dto/finance.dto';
 
 // Protected by global JwtAuthGuard + TenantGuard
 @Controller('finance')
@@ -26,14 +27,7 @@ export class FinanceController {
     @Post('costs')
     createCost(
         @ActiveTenant() tenantId: string,
-        @Body() data: {
-            name: string;
-            amount: number;
-            category: string;
-            date: string;
-            note?: string;
-            proofImage?: string;
-        },
+        @Body() data: CreateCostDto,
     ) {
         return this.financeService.createCost(tenantId, data);
     }
@@ -43,7 +37,7 @@ export class FinanceController {
     updateCost(
         @ActiveTenant() tenantId: string,
         @Param('id') id: string,
-        @Body() data: any,
+        @Body() data: UpdateCostDto,
     ) {
         return this.financeService.updateCost(id, tenantId, data);
     }

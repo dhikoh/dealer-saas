@@ -4,6 +4,7 @@ import { RolesGuard } from '../auth/roles.guard';
 import { Roles } from '../auth/roles.decorator';
 import { Public } from '../auth/public.decorator';
 import { ActiveTenant } from '../common/decorators/active-tenant.decorator';
+import { VerifyPaymentDto, UploadPaymentProofDto } from './dto/billing.dto';
 
 // Protected by global JwtAuthGuard (except @Public routes)
 @Controller('billing')
@@ -57,7 +58,7 @@ export class BillingController {
     @Roles('SUPERADMIN')
     async verifyPayment(
         @Param('invoiceId') invoiceId: string,
-        @Body() body: { approved: boolean; verifiedBy: string }
+        @Body() body: VerifyPaymentDto
     ) {
         return this.billingService.verifyPayment(invoiceId, body.approved, body.verifiedBy);
     }
@@ -104,7 +105,7 @@ export class BillingController {
     @Post('my-invoices/:id/upload-proof')
     async uploadPaymentProof(
         @Param('id') invoiceId: string,
-        @Body() body: { proofUrl: string },
+        @Body() body: UploadPaymentProofDto,
         @ActiveTenant() tenantId: string,
     ) {
         return this.billingService.uploadPaymentProof(invoiceId, tenantId, body.proofUrl);

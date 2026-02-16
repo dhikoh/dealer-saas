@@ -15,6 +15,7 @@ import { CreateInvoiceDto, VerifyInvoiceDto } from './dto/invoice.dto';
 import { CreateApprovalRequestDto, ProcessApprovalRequestDto } from './dto/approval.dto';
 import { GenerateApiKeyDto } from './dto/api-key.dto';
 import { UpdatePlatformSettingDto } from './dto/platform-setting.dto';
+import { UpdatePlanDto } from '../plan/dto/update-plan.dto';
 
 
 
@@ -177,11 +178,12 @@ export class SuperadminController {
     }
 
     @Patch('plans/:planId')
+    @UsePipes(new ValidationPipe({ whitelist: true }))
     async updatePlan(
         @Param('planId') planId: string,
-        @Body() data: any
+        @Body() data: UpdatePlanDto
     ) {
-        return this.superadminService.updatePlan(planId, data);
+        return this.superadminService.updatePlan(planId, data as any);
     }
 
     // ==================== INVOICES ====================
