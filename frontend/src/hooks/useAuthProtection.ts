@@ -3,22 +3,7 @@ import { useRouter } from 'next/navigation';
 import { useAuth } from '../context/AuthContext';
 
 
-interface User {
-    id: string;
-    email: string;
-    name: string;
-    role: string;
-    tenantId: string;
-    isVerified: boolean;
-    onboardingCompleted: boolean;
-    [key: string]: any;
-}
-
-interface AuthState {
-    user: User | null;
-    loading: boolean;
-    isAuthenticated: boolean;
-}
+import { User } from '@/types/auth';
 
 export function useAuthProtection(requiredRole?: string, options: { redirect?: boolean } = { redirect: true }) {
     const { user, loading, isAuthenticated, refreshUser } = useAuth();

@@ -2,6 +2,7 @@ import { Injectable, BadRequestException, NotFoundException, ForbiddenException 
 import { PrismaService } from '../prisma/prisma.service';
 import { NotificationService } from '../notification/notification.service';
 import { getPlanById } from '../config/plan-tiers.config';
+import { Prisma } from '@prisma/client';
 
 @Injectable()
 export class VehicleService {
@@ -52,9 +53,9 @@ export class VehicleService {
         });
     }
 
-    async create(tenantId: string, data: any) {
+    async create(tenantId: string, data: Omit<Prisma.VehicleUncheckedCreateInput, 'tenantId'> & { stnkExpiry?: string | Date; taxExpiry?: string | Date; purchaseDate?: string | Date }) {
         // Check plan limit
-        // Check plan limit (Hybrid: Prefer Dynamic Plan > Legacy Config)
+        // ... (plan limit logic same as before) ...
         const tenant = await this.prisma.tenant.findUnique({
             where: { id: tenantId },
             include: {
@@ -84,7 +85,9 @@ export class VehicleService {
         }
 
         // PRE-PROCESSING: Ensure Dates are Dates
-        const createData = { ...data };
+        const { id: _id, createdAt: _c, updatedAt: _u, ...rest } = data;
+        const createData: any = { ...rest };
+
         if (createData.stnkExpiry) createData.stnkExpiry = new Date(createData.stnkExpiry);
         if (createData.taxExpiry) createData.taxExpiry = new Date(createData.taxExpiry);
         if (createData.purchaseDate) createData.purchaseDate = new Date(createData.purchaseDate);
@@ -97,7 +100,7 @@ export class VehicleService {
         });
     }
 
-    async update(id: string, tenantId: string, data: any) {
+    async update(id: string, tenantId: string, data: Omit<Prisma.VehicleUncheckedUpdateInput, 'tenantId'> & { isShowroom?: boolean; isOwnerDifferent?: boolean; bpkbOwnerName?: string; images?: string; stnkExpiry?: string | Date; taxExpiry?: string | Date; purchaseDate?: string | Date }) {
         // SECURITY: Verify ownership before update
         const vehicle = await this.prisma.vehicle.findFirst({
             where: { id, tenantId },
@@ -109,8 +112,8 @@ export class VehicleService {
         // VALIDATION 1: isShowroom=true requires at least 1 photo
         if (data.isShowroom === true) {
             // Check incoming images OR existing images
-            const imagesRaw = data.images !== undefined ? data.images : vehicle.images;
-            let parsedImages: any[] = [];
+            const imagesRaw = (data.images !== undefined ? data.images : vehicle.images) as string;
+            let parsedImages: string[] = [];
             try {
                 parsedImages = imagesRaw ? JSON.parse(imagesRaw) : [];
             } catch {
@@ -119,8 +122,6 @@ export class VehicleService {
 
             if (!Array.isArray(parsedImages) || parsedImages.length === 0) {
                 // Gracefully degrade: auto-set isShowroom to false instead of blocking.
-                // This allows the creation → upload → update flow to work.
-                // The user can turn showroom back on after uploading photos.
                 data.isShowroom = false;
             }
         }
@@ -136,13 +137,11 @@ export class VehicleService {
         }
 
         // PRE-PROCESSING: Ensure Dates are Dates
-        const updateData = { ...data };
+        // Sanitize - remove immutable/protected fields using destructuring
+        const { id: _id, createdAt: _c, updatedAt: _u, ...rest } = data;
 
-        // SECURITY: Sanitize — prevent overwriting protected fields via data spread
-        delete updateData.id;
-        delete updateData.tenantId;
-        delete updateData.createdAt;
-        delete updateData.updatedAt;
+        // Create a new object for update to avoid type issues with proper casting
+        const updateData: any = { ...rest };
 
         if (updateData.stnkExpiry) updateData.stnkExpiry = new Date(updateData.stnkExpiry);
         if (updateData.taxExpiry) updateData.taxExpiry = new Date(updateData.taxExpiry);
@@ -283,32 +282,26 @@ export class VehicleService {
     async getVehicleWithCosts(vehicleId: string, tenantId: string) {
         const vehicle = await this.prisma.vehicle.findFirst({
             where: { id: vehicleId, tenantId },
-        }) as any;
+        });
 
         if (!vehicle) return null;
 
-        // Manually fetch costs to be safe against stale client
-        let costs = [];
-        try {
-            costs = await (this.prisma as any).vehicleCost.findMany({
-                where: { vehicleId, tenantId },
-                orderBy: { date: 'desc' },
-            });
-        } catch (e) {
-            costs = [];
-        }
-
-        vehicle.costs = costs;
+        // Correctly fetch costs without casting or silent failure
+        const costs = await this.prisma.vehicleCost.findMany({
+            where: { vehicleId, tenantId },
+            orderBy: { date: 'desc' },
+        });
 
         // Calculate totals
         const purchasePrice = Number(vehicle.purchasePrice || 0);
         const sellingPrice = Number(vehicle.price || 0);
-        const additionalCosts = vehicle.costs.reduce((sum, cost) => sum + Number(cost.amount), 0);
+        const additionalCosts = costs.reduce((sum, cost) => sum + Number(cost.amount), 0);
         const totalCost = purchasePrice + additionalCosts;
         const profitMargin = sellingPrice - totalCost;
 
         return {
             ...vehicle,
+            costs,
             costSummary: {
                 purchasePrice,
                 additionalCosts,
@@ -319,6 +312,7 @@ export class VehicleService {
             },
         };
     }
+
     // ==================== DEALER GROUP FEATURES ====================
 
     async findGroupStock(tenantId: string, filters?: any) {
@@ -540,7 +534,8 @@ export class VehicleService {
             },
         ];
 
-        for (const brandData of defaultBrands) {
+        // Optimize: Use Promise.all to run brand creations in parallel
+        await Promise.all(defaultBrands.map(async (brandData) => {
             const brand = await this.prisma.vehicleBrand.upsert({
                 where: {
                     tenantId_name_category: {
@@ -557,22 +552,24 @@ export class VehicleService {
                 },
             });
 
-            for (const modelData of brandData.models) {
-                await this.prisma.vehicleModel.upsert({
-                    where: {
-                        brandId_name: {
+            if (brandData.models && brandData.models.length > 0) {
+                await Promise.all(brandData.models.map(modelData =>
+                    this.prisma.vehicleModel.upsert({
+                        where: {
+                            brandId_name: {
+                                brandId: brand.id,
+                                name: modelData.name,
+                            },
+                        },
+                        update: { variants: modelData.variants ?? null },
+                        create: {
                             brandId: brand.id,
                             name: modelData.name,
+                            variants: modelData.variants ?? null,
                         },
-                    },
-                    update: { variants: modelData.variants ?? null },
-                    create: {
-                        brandId: brand.id,
-                        name: modelData.name,
-                        variants: modelData.variants ?? null,
-                    },
-                });
+                    })
+                ));
             }
-        }
+        }));
     }
 }

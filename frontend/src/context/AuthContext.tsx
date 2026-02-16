@@ -4,16 +4,7 @@ import React, { createContext, useContext, useEffect, useState, useCallback } fr
 import { fetchApi } from '@/lib/api';
 import { useRouter, usePathname } from 'next/navigation';
 
-interface User {
-    id: string;
-    email: string;
-    name: string;
-    role: string;
-    tenantId: string;
-    isVerified: boolean;
-    onboardingCompleted: boolean;
-    [key: string]: any;
-}
+import { User } from '@/types/auth';
 
 interface AuthContextType {
     user: User | null;

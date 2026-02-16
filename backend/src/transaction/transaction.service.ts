@@ -39,7 +39,7 @@ export class TransactionService {
     }
 
     async findAll(tenantId: string, filters?: { type?: string; status?: string; startDate?: Date; endDate?: Date }) {
-        const where: any = { tenantId, deletedAt: null };
+        const where: Prisma.TransactionWhereInput = { tenantId, deletedAt: null };
 
         if (filters?.type) where.type = filters.type;
         if (filters?.status) where.status = filters.status;
@@ -141,58 +141,15 @@ export class TransactionService {
             tenorMonths: number;
         };
     }) {
-        // Validate vehicle belongs to tenant
-        const vehicle = await this.prisma.vehicle.findFirst({
-            where: { id: data.vehicleId, tenantId },
-        });
-        if (!vehicle) {
-            throw new BadRequestException('Kendaraan tidak ditemukan');
-        }
+        // 1. Validate Request & Dependencies
+        const { tenant } = await this.validateTransactionRequest(tenantId, data);
 
-        // VALIDATION: Vehicle must be AVAILABLE
-        if (vehicle.status !== 'AVAILABLE') {
-            throw new BadRequestException(`Kendaraan tidak tersedia untuk dijual(Status: ${vehicle.status})`);
-        }
-
-        // Validate customer belongs to tenant
-        const customer = await this.prisma.customer.findFirst({
-            where: { id: data.customerId, tenantId },
-        });
-        if (!customer) {
-            throw new BadRequestException('Customer tidak ditemukan');
-        }
-
-        // Get Tenant Settings (Tax)
-        const tenant = await this.prisma.tenant.findUnique({
-            where: { id: tenantId },
-            select: { taxPercentage: true }
-        });
-        const taxRate = Number(tenant?.taxPercentage || 0) / 100;
-
-
-        // VALIDATION: Documents required for SALE
-        if (data.type === 'SALE') {
-            if (!vehicle.stnkImage) {
-                throw new BadRequestException(
-                    'Foto STNK wajib diunggah sebelum kendaraan dapat dijual'
-                );
-            }
-            if (!vehicle.ktpOwnerImage) {
-                throw new BadRequestException(
-                    'Foto KTP pemilik/atas nama BPKB wajib diunggah sebelum kendaraan dapat dijual'
-                );
-            }
-        }
-
-        // Generate Invoice Number
-        const invoiceNumber = await this.generateInvoiceNumber(tenantId, data.type);
-
-        // Calculate Tax & Base Price (Assuming Inclusive)
-        // Final = Base + (Base * Tax) = Base * (1 + Tax)
-        // Base = Final / (1 + Tax)
+        // 2. Financial Calculations
         const finalPrice = Number(data.finalPrice);
-        const basePrice = finalPrice / (1 + taxRate);
-        const taxAmount = finalPrice - basePrice;
+        const { basePrice, taxAmount } = this.calculateFinancials(finalPrice, Number(tenant?.taxPercentage || 0));
+
+        // 3. Generate Invoice
+        const invoiceNumber = await this.generateInvoiceNumber(tenantId, data.type);
 
 
         // Use Interactive Transaction to ensure atomicity
@@ -387,36 +344,140 @@ export class TransactionService {
     async getMonthlySales(tenantId: string, months: number = 6) {
         const results: { month: string; count: number; revenue: number }[] = [];
         const now = new Date();
+        const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'Mei', 'Jun', 'Jul', 'Agu', 'Sep', 'Okt', 'Nov', 'Des'];
 
+        // 1. Calculate Date Range
+        const startDate = new Date(now.getFullYear(), now.getMonth() - (months - 1), 1);
+        const endDate = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59);
+
+        // 2. Fetch Raw Data (Single Query)
+        const transactions = await this.prisma.transaction.findMany({
+            where: {
+                tenantId,
+                type: 'SALE',
+                status: { in: ['PAID', 'COMPLETED'] },
+                date: { gte: startDate, lte: endDate },
+            },
+            select: {
+                date: true,
+                finalPrice: true,
+            },
+        });
+
+        // 3. Aggregate in Memory
+        // Initialize result buckets
         for (let i = months - 1; i >= 0; i--) {
-            const startDate = new Date(now.getFullYear(), now.getMonth() - i, 1);
-            const endDate = new Date(now.getFullYear(), now.getMonth() - i + 1, 0, 23, 59, 59);
-
-            const monthData = await this.prisma.transaction.aggregate({
-                where: {
-                    tenantId,
-                    type: 'SALE',
-                    status: { in: ['PAID', 'COMPLETED'] },
-                    date: { gte: startDate, lte: endDate },
-                },
-                _sum: { finalPrice: true },
-                _count: true,
-            });
-
-            const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'Mei', 'Jun', 'Jul', 'Agu', 'Sep', 'Okt', 'Nov', 'Des'];
+            const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
             results.push({
-                month: monthNames[startDate.getMonth()],
-                count: monthData._count,
-                revenue: Number(monthData._sum.finalPrice || 0),
+                month: monthNames[d.getMonth()],
+                count: 0,
+                revenue: 0,
             });
         }
+
+        // Fill buckets
+        transactions.forEach(t => {
+            const txDate = new Date(t.date);
+            // Simple logic: Find which bucket this date belongs to
+            // Since results are ordered from oldest (months-1 ago) to current,
+            // we can map the date to an index.
+
+            // Or simpler: Match by month string/index from the date.
+            // Let's use the month index of the transaction vs the buckets.
+
+            const monthIndex = txDate.getMonth();
+            // Find the bucket that matches this month name. 
+            // Warning: This simple name check fails if spanning across years with same month name (unlikely for <12 months).
+            // Better: Compare year/month.
+
+            const match = results.find(r => r.month === monthNames[monthIndex]);
+            // NOTE: If we have multiple "Jan" (e.g. Jan 2024 and Jan 2025), this fails.
+            // Given "months" usually <= 12, and "last 6 months", minimal collision unless exactly 12.
+            // Let's stick to the existing logic's output format but make mapping robust.
+
+            // Robust Mapping:
+            // Calculate diff in months from "now".
+            const diffMonths = (now.getFullYear() - txDate.getFullYear()) * 12 + (now.getMonth() - txDate.getMonth());
+
+            // "i" in the loop above went from months-1 down to 0.
+            // Results array index 0 corresponds to i = months-1 (oldest).
+            // Results array index "last" corresponds to i=0 (current).
+            // So: index = (months - 1) - diffMonths.
+
+            const index = (months - 1) - diffMonths;
+            if (index >= 0 && index < results.length) {
+                results[index].count++;
+                results[index].revenue += Number(t.finalPrice);
+            }
+        });
 
         return results;
     }
 
     // ==================== PDF GENERATION ====================
-    // NOTE (L2): PDF generation has been consolidated into PdfService.
-    // Use PdfService.generateTransactionInvoice() and PdfService.generateTransactionReceipt()
-    // instead of duplicating PDF logic here.
-    // See: src/pdf/pdf.service.ts
+    // Delegates to PdfService for invoice/receipt generation.
+
+    private async validateTransactionRequest(tenantId: string, data: {
+        type: string;
+        vehicleId: string;
+        customerId: string;
+        [key: string]: any;
+    }) {
+        // Validate vehicle belongs to tenant
+        const vehicle = await this.prisma.vehicle.findFirst({
+            where: { id: data.vehicleId, tenantId },
+        });
+        if (!vehicle) {
+            throw new BadRequestException('Kendaraan tidak ditemukan');
+        }
+
+        // VALIDATION: Vehicle must be AVAILABLE
+        if (vehicle.status !== 'AVAILABLE') {
+            throw new BadRequestException(`Kendaraan tidak tersedia untuk dijual (Status: ${vehicle.status})`);
+        }
+
+        // Validate customer belongs to tenant
+        const customer = await this.prisma.customer.findFirst({
+            where: { id: data.customerId, tenantId },
+        });
+        if (!customer) {
+            throw new BadRequestException('Customer tidak ditemukan');
+        }
+
+        // Get Tenant Settings (Tax)
+        const tenant = await this.prisma.tenant.findUnique({
+            where: { id: tenantId },
+            select: { taxPercentage: true }
+        });
+
+        // VALIDATION: Documents required for SALE
+        if (data.type === 'SALE') {
+            if (!vehicle.stnkImage) {
+                throw new BadRequestException(
+                    'Foto STNK wajib diunggah sebelum kendaraan dapat dijual'
+                );
+            }
+            if (!vehicle.ktpOwnerImage) {
+
+                // Allow bypass for "showroom" units if explicitly allowed? No, strict check.
+                // But check if maybe the rule is too strict? 
+                // The prompt asked for "Safety Check". 
+                // Using "Safe Navigation" / Optional Chaining if fields are optional?
+                // The fields stnkImage are String? in schema.
+
+                throw new BadRequestException(
+                    'Foto KTP pemilik/atas nama BPKB wajib diunggah sebelum kendaraan dapat dijual'
+                );
+            }
+        }
+
+        return { vehicle, customer, tenant };
+    }
+
+    private calculateFinancials(finalPrice: number, taxPercentage: number) {
+        const taxRate = Number(taxPercentage) / 100;
+        const basePrice = finalPrice / (1 + taxRate);
+        const taxAmount = finalPrice - basePrice;
+        return { basePrice, taxAmount };
+    }
 }
