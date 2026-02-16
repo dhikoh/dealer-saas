@@ -53,20 +53,8 @@ export default function VehicleForm({ initialData, masterData, onSubmit, isLoadi
         branchId: '',
         isOwnerDifferent: false,
         bpkbOwnerName: '',
-        // Spread initialData BUT exclude fields we explicitly handle below to avoid "duplicate property" error
-        ...(initialData ? (() => {
-            const { price, purchasePrice, year, purchaseDate, stnkExpiry, taxExpiry, ...rest } = initialData;
-            return rest;
-        })() : {}),
-
-        // Explicitly handle these fields with type conversion
-        price: initialData?.price ? String(initialData.price) : '',
-        purchasePrice: initialData?.purchasePrice ? String(initialData.purchasePrice) : '',
-        year: initialData?.year || new Date().getFullYear(),
-        purchaseDate: initialData?.purchaseDate ? new Date(initialData.purchaseDate).toISOString().split('T')[0] : '',
-        stnkExpiry: initialData?.stnkExpiry ? new Date(initialData.stnkExpiry).toISOString().split('T')[0] : '',
-        taxExpiry: initialData?.taxExpiry ? new Date(initialData.taxExpiry).toISOString().split('T')[0] : '',
     });
+
 
     // Validated Brands & Models (filtered)
     const [filteredModels, setFilteredModels] = useState<any[]>([]);
@@ -79,9 +67,23 @@ export default function VehicleForm({ initialData, masterData, onSubmit, isLoadi
         ktpOwnerImage: null, stnkImage: null, bpkbImage: null, taxImage: null,
     });
 
-    // Initialize state from initialData
+    // Initialize state on mount or when initialData changes
     useEffect(() => {
         if (initialData) {
+            setFormData(prev => {
+                const { price, purchasePrice, year, purchaseDate, stnkExpiry, taxExpiry, ...rest } = initialData;
+                return {
+                    ...prev,
+                    ...rest,
+                    price: initialData.price ? String(initialData.price) : '',
+                    purchasePrice: initialData.purchasePrice ? String(initialData.purchasePrice) : '',
+                    year: initialData.year || new Date().getFullYear(),
+                    purchaseDate: initialData.purchaseDate ? new Date(initialData.purchaseDate).toISOString().split('T')[0] : '',
+                    stnkExpiry: initialData.stnkExpiry ? new Date(initialData.stnkExpiry).toISOString().split('T')[0] : '',
+                    taxExpiry: initialData.taxExpiry ? new Date(initialData.taxExpiry).toISOString().split('T')[0] : '',
+                };
+            });
+
             try {
                 const imgs = initialData.images ? JSON.parse(initialData.images) : [];
                 setVehicleImages(imgs);
