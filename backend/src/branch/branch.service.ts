@@ -1,12 +1,37 @@
-
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { Injectable, BadRequestException, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
+import { getPlanById } from '../config/plan-tiers.config';
 
 @Injectable()
 export class BranchService {
     constructor(private prisma: PrismaService) { }
 
     async create(data: any, tenantId: string) {
+        // Check plan limit
+        const tenant = await this.prisma.tenant.findUnique({
+            where: { id: tenantId },
+            include: {
+                _count: { select: { branches: true } },
+                plan: true,
+            },
+        });
+
+        if (tenant) {
+            let limit = 0;
+            if (tenant.plan) {
+                limit = tenant.plan.maxBranches;
+            } else {
+                const legacyPlan = getPlanById(tenant.planTier);
+                limit = legacyPlan?.features.maxBranches ?? 0;
+            }
+
+            if (limit !== -1 && tenant._count.branches >= limit) {
+                throw new BadRequestException(
+                    `Batas cabang tercapai (${limit} cabang). Upgrade plan untuk menambah lebih banyak cabang.`
+                );
+            }
+        }
+
         return this.prisma.branch.create({
             data: {
                 ...data,

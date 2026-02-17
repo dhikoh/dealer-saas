@@ -18,7 +18,7 @@ import { useAuth } from '@/context/AuthContext';
 
 // Helper to clear auth cookie
 function clearAuthCookie() {
-    document.cookie = 'auth_token=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;';
+    document.cookie = 'auth_token=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/; domain=.modula.click; secure; samesite=none';
 }
 
 type FormType = 'login' | 'signup' | 'forgot';

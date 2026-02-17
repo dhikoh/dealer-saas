@@ -236,7 +236,7 @@ export default function Sidebar({ isOpen, onToggle }: SidebarProps) {
                             localStorage.removeItem('access_token');
                             localStorage.removeItem('refresh_token');
                             localStorage.removeItem('user_info');
-                            document.cookie = 'auth_token=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;';
+                            document.cookie = 'auth_token=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/; domain=.modula.click; secure; samesite=none';
 
                             // Redirect to auth
                             window.location.href = '/auth';

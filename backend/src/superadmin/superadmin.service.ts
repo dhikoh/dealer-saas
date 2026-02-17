@@ -1,14 +1,78 @@
-import { Injectable, NotFoundException, BadRequestException, Logger } from '@nestjs/common';
+import { Injectable, NotFoundException, BadRequestException, Logger, OnModuleInit } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { getPlanById, PLAN_TIERS, PlanTier } from '../config/plan-tiers.config';
 import { CreateTenantDto, UpdateTenantDto } from './dto/tenant.dto';
 import { CreateInvoiceDto } from './dto/invoice.dto';
 
 @Injectable()
-export class SuperadminService {
+export class SuperadminService implements OnModuleInit {
     private readonly logger = new Logger(SuperadminService.name);
 
     constructor(private prisma: PrismaService) { }
+
+    // ==================== PLAN SEEDING ON STARTUP ====================
+
+    async onModuleInit() {
+        await this.seedPlansIfNeeded();
+    }
+
+    private async seedPlansIfNeeded() {
+        const existingCount = await this.prisma.plan.count();
+        if (existingCount >= Object.keys(PLAN_TIERS).length) {
+            this.logger.log(`✅ Plans already seeded (${existingCount} plans in DB)`);
+            return;
+        }
+
+        this.logger.log('🌱 Seeding plan tiers into database...');
+
+        for (const [key, plan] of Object.entries(PLAN_TIERS)) {
+            const slug = key.toLowerCase();
+            const existing = await this.prisma.plan.findUnique({ where: { slug } });
+            if (existing) continue;
+
+            await this.prisma.plan.create({
+                data: {
+                    name: plan.name,
+                    slug,
+                    description: plan.description,
+                    price: plan.price,
+                    currency: 'IDR',
+                    maxVehicles: plan.features.maxVehicles,
+                    maxUsers: plan.features.maxUsers,
+                    maxBranches: plan.features.maxBranches,
+                    canCreateGroup: false,
+                    maxGroupMembers: 0,
+                    features: {
+                        // Numeric limits not in dedicated columns
+                        maxCustomers: plan.features.maxCustomers,
+                        // Boolean features
+                        pdfExport: plan.features.pdfExport,
+                        internalReports: plan.features.internalReports,
+                        blacklistAccess: plan.features.blacklistAccess,
+                        reminderNotifications: plan.features.reminderNotifications,
+                        multiLanguage: plan.features.multiLanguage,
+                        prioritySupport: plan.features.prioritySupport,
+                        apiAccess: plan.features.apiAccess,
+                        customBranding: plan.features.customBranding,
+                        advancedAnalytics: plan.features.advancedAnalytics,
+                        dataExport: plan.features.dataExport,
+                        whatsappIntegration: plan.features.whatsappIntegration,
+                        // UI metadata
+                        badge: plan.badge,
+                        badgeColor: plan.badgeColor,
+                        recommended: plan.recommended,
+                        priceLabel: plan.priceLabel,
+                        descriptionId: plan.descriptionId,
+                        trialDays: plan.trialDays,
+                        yearlyDiscount: plan.yearlyDiscount,
+                    },
+                },
+            });
+            this.logger.log(`  ✅ Seeded plan: ${plan.name} (${slug})`);
+        }
+
+        this.logger.log('🌱 Plan seeding complete!');
+    }
 
     // ==================== DASHBOARD STATS ====================
 
@@ -449,23 +513,42 @@ export class SuperadminService {
         // Fetch plans from DB, fall back to in-memory config
         const dbPlans = await this.prisma.plan.findMany({ orderBy: { createdAt: 'asc' } });
         if (dbPlans.length > 0) {
-            return dbPlans.map(p => ({
-                id: p.slug.toUpperCase(),
-                name: p.name,
-                slug: p.slug,
-                dbId: p.id,
-                price: Number(p.price),
-                currency: p.currency,
-                description: p.description,
-                features: {
-                    maxVehicles: p.maxVehicles,
-                    maxUsers: p.maxUsers,
-                    maxBranches: p.maxBranches,
-                    canCreateGroup: p.canCreateGroup,
-                    maxGroupMembers: p.maxGroupMembers,
-                    ...(typeof p.features === 'object' && p.features !== null ? p.features as Record<string, any> : {}),
-                },
-            }));
+            return dbPlans.map(p => {
+                const feat = typeof p.features === 'object' && p.features !== null ? p.features as Record<string, any> : {};
+                return {
+                    id: p.slug.toUpperCase(),
+                    name: p.name,
+                    slug: p.slug,
+                    dbId: p.id,
+                    price: Number(p.price),
+                    currency: p.currency,
+                    description: p.description,
+                    descriptionId: feat.descriptionId || p.description,
+                    priceLabel: feat.priceLabel || `Rp ${Number(p.price).toLocaleString('id-ID')}`,
+                    badge: feat.badge || p.slug,
+                    badgeColor: feat.badgeColor || 'gray',
+                    recommended: feat.recommended || false,
+                    trialDays: feat.trialDays || 0,
+                    yearlyDiscount: feat.yearlyDiscount || 0,
+                    features: {
+                        maxVehicles: p.maxVehicles,
+                        maxUsers: p.maxUsers,
+                        maxBranches: p.maxBranches,
+                        maxCustomers: feat.maxCustomers ?? 0,
+                        pdfExport: feat.pdfExport ?? false,
+                        internalReports: feat.internalReports ?? false,
+                        blacklistAccess: feat.blacklistAccess ?? false,
+                        reminderNotifications: feat.reminderNotifications ?? false,
+                        multiLanguage: feat.multiLanguage ?? false,
+                        prioritySupport: feat.prioritySupport ?? false,
+                        apiAccess: feat.apiAccess ?? false,
+                        customBranding: feat.customBranding ?? false,
+                        advancedAnalytics: feat.advancedAnalytics ?? false,
+                        dataExport: feat.dataExport ?? false,
+                        whatsappIntegration: feat.whatsappIntegration ?? false,
+                    },
+                };
+            });
         }
         return Object.values(PLAN_TIERS);
     }
@@ -483,16 +566,23 @@ export class SuperadminService {
             if (data.price !== undefined) updateData.price = data.price;
             if (data.description !== undefined) updateData.description = data.description;
             if (data.features) {
-                // Merge top-level feature limits
+                // Merge top-level feature limits into dedicated columns
                 if (data.features.maxVehicles !== undefined) updateData.maxVehicles = data.features.maxVehicles;
                 if (data.features.maxUsers !== undefined) updateData.maxUsers = data.features.maxUsers;
                 if (data.features.maxBranches !== undefined) updateData.maxBranches = data.features.maxBranches;
-                if ((data.features as any).canCreateGroup !== undefined) updateData.canCreateGroup = (data.features as any).canCreateGroup;
-                if ((data.features as any).maxGroupMembers !== undefined) updateData.maxGroupMembers = (data.features as any).maxGroupMembers;
-                // Store extra feature flags in JSON
-                const existingFeatures = typeof dbPlan.features === 'object' && dbPlan.features !== null ? dbPlan.features : {};
+                // Store ALL features + metadata in JSON column
+                const existingFeatures = typeof dbPlan.features === 'object' && dbPlan.features !== null ? dbPlan.features as Record<string, any> : {};
                 updateData.features = { ...existingFeatures, ...data.features };
             }
+            // Persist UI metadata fields into features JSON
+            const existingFeat = typeof dbPlan.features === 'object' && dbPlan.features !== null ? dbPlan.features as Record<string, any> : {};
+            let metaUpdate: Record<string, any> = { ...existingFeat };
+            if (data.priceLabel !== undefined) metaUpdate.priceLabel = data.priceLabel;
+            if (data.descriptionId !== undefined) metaUpdate.descriptionId = data.descriptionId;
+            if (data.trialDays !== undefined) metaUpdate.trialDays = data.trialDays;
+            if (data.yearlyDiscount !== undefined) metaUpdate.yearlyDiscount = data.yearlyDiscount;
+            if (data.features) metaUpdate = { ...metaUpdate, ...data.features };
+            updateData.features = metaUpdate;
 
             const updated = await this.prisma.plan.update({
                 where: { id: dbPlan.id },
