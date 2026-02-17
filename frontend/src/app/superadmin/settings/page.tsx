@@ -462,42 +462,103 @@ function StaffManagementTab() {
 // ================== TAB 4: API CONFIGURATION ==================
 
 function ApiConfigTab() {
-    const [apiKeys, setApiKeys] = useState<ApiKey[]>([
-        { id: '1', name: 'Production Key', key: 'otohub_pk_live_*****', created: '2026-01-15', status: 'active' },
-        { id: '2', name: 'Test Key', key: 'otohub_pk_test_*****', created: '2026-02-01', status: 'active' },
-    ]);
+    const [apiKeys, setApiKeys] = useState<ApiKey[]>([]);
     const [webhookUrl, setWebhookUrl] = useState('https://example.com/webhook');
     const [rateLimit, setRateLimit] = useState('100');
-    const [toast, setToast] = useState<string | null>(null);
+    const [toast, setToast] = useState<{ msg: string; type: 'success' | 'error' } | null>(null);
+    const [loading, setLoading] = useState(true);
+    const [newKey, setNewKey] = useState<{ key: string; name: string } | null>(null);
 
     useEffect(() => {
         if (toast) { const t = setTimeout(() => setToast(null), 3000); return () => clearTimeout(t); }
     }, [toast]);
 
-    const generateKey = () => {
-        const newKey = `otohub_pk_${Date.now().toString(36)}_${Math.random().toString(36).substring(2, 8)}`;
-        setApiKeys(prev => [...prev, {
-            id: Date.now().toString(),
-            name: 'New API Key',
-            key: newKey,
-            created: new Date().toISOString().split('T')[0],
-            status: 'active',
-        }]);
-        setToast('API Key baru berhasil dibuat');
+    useEffect(() => {
+        fetchKeys();
+    }, []);
+
+    const fetchKeys = async () => {
+        setLoading(true);
+        try {
+            const res = await fetchApi('/superadmin/api-keys');
+            if (res.ok) {
+                const data = await res.json();
+                setApiKeys(data);
+            }
+        } catch { /* ignore */ }
+        setLoading(false);
     };
 
-    const revokeKey = (id: string) => {
-        setApiKeys(prev => prev.map(k => k.id === id ? { ...k, status: 'revoked' } : k));
-        setToast('API Key berhasil di-revoke');
+    const generateKey = async () => {
+        try {
+            const res = await fetchApi('/superadmin/api-keys', {
+                method: 'POST',
+                body: JSON.stringify({ name: `API Key ${new Date().toLocaleDateString()}`, scopes: [] }),
+            });
+            if (res.ok) {
+                const data = await res.json();
+                setNewKey({ key: data.key, name: data.name }); // Show the full key once
+                setToast({ msg: 'API Key baru berhasil dibuat', type: 'success' });
+                fetchKeys();
+            } else {
+                throw new Error('Failed');
+            }
+        } catch {
+            setToast({ msg: 'Gagal membuat API Key', type: 'error' });
+        }
+    };
+
+    const revokeKey = async (id: string) => {
+        if (!confirm('Apakah Anda yakin? Key yang dihapus tidak dapat dikembalikan.')) return;
+        try {
+            const res = await fetchApi(`/superadmin/api-keys/${id}`, {
+                method: 'DELETE',
+            });
+            if (res.ok) {
+                setToast({ msg: 'API Key berhasil dihapus', type: 'success' });
+                fetchKeys();
+            } else {
+                throw new Error('Failed');
+            }
+        } catch {
+            setToast({ msg: 'Gagal menghapus API Key', type: 'error' });
+        }
     };
 
     return (
         <div className="space-y-6">
             {toast && (
-                <div className="bg-emerald-50 border border-emerald-200 text-emerald-700 px-4 py-2 rounded-lg text-sm">
-                    ✅ {toast}
+                <div className={`px-4 py-2 rounded-lg text-sm ${toast.type === 'success' ? 'bg-emerald-50 border border-emerald-200 text-emerald-700' : 'bg-rose-50 border border-rose-200 text-rose-700'}`}>
+                    {toast.msg}
                 </div>
             )}
+
+            {/* NEW KEY DISPLAY */}
+            {newKey && (
+                <div className="bg-amber-50 border border-amber-200 rounded-xl p-6 shadow-sm">
+                    <div className="flex justify-between items-start mb-4">
+                        <div>
+                            <h4 className="text-lg font-bold text-amber-800 flex items-center gap-2">
+                                <Key className="w-5 h-5" /> API Key Berhasil Dibuat
+                            </h4>
+                            <p className="text-sm text-amber-700 mt-1">
+                                Salin key ini sekarang. Key tidak akan ditampilkan lagi setelah Anda menutup halaman ini.
+                            </p>
+                        </div>
+                        <button onClick={() => setNewKey(null)} className="text-amber-600 hover:text-amber-800"><X className="w-5 h-5" /></button>
+                    </div>
+                    <div className="bg-white border border-amber-200 p-4 rounded-lg flex items-center justify-between gap-4">
+                        <code className="font-mono text-lg text-slate-800 break-all">{newKey.key}</code>
+                        <button
+                            onClick={() => { navigator.clipboard.writeText(newKey.key); setToast({ msg: 'Copied to clipboard', type: 'success' }); }}
+                            className="bg-amber-100 text-amber-800 px-3 py-1.5 rounded-lg text-xs font-bold hover:bg-amber-200 uppercase tracking-wider"
+                        >
+                            Copy
+                        </button>
+                    </div>
+                </div>
+            )}
+
             <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-6">
                 <div className="flex justify-between items-center mb-6">
                     <div>
@@ -513,23 +574,32 @@ function ApiConfigTab() {
                 </div>
 
                 <div className="space-y-3">
-                    {apiKeys.map(k => (
-                        <div key={k.id} className="flex items-center justify-between p-4 border border-slate-100 rounded-lg">
-                            <div>
-                                <p className="text-sm font-medium text-slate-900">{k.name}</p>
-                                <p className="text-xs font-mono text-slate-500 mt-0.5">{k.key}</p>
-                                <p className="text-xs text-slate-400 mt-0.5">Dibuat: {k.created}</p>
+                    {loading ? (
+                        <div className="text-center py-8 text-slate-500">Loading keys...</div>
+                    ) : apiKeys.length === 0 ? (
+                        <div className="text-center py-8 text-slate-500 italic">Belum ada API Key aktif.</div>
+                    ) : (
+                        apiKeys.map(k => (
+                            <div key={k.id} className="flex items-center justify-between p-4 border border-slate-100 rounded-lg hover:bg-slate-50 transition-colors">
+                                <div>
+                                    <p className="text-sm font-medium text-slate-900">{k.name}</p>
+                                    <p className="text-xs font-mono text-slate-500 mt-0.5">{k.prefix}...</p>
+                                    <p className="text-xs text-slate-400 mt-0.5">Dibuat: {new Date(k.createdAt).toLocaleDateString()}</p>
+                                </div>
+                                <div className="flex items-center gap-2">
+                                    <span className="text-xs px-2 py-0.5 rounded-full bg-green-100 text-green-700">
+                                        Active
+                                    </span>
+                                    <button onClick={() => revokeKey(k.id)}
+                                        className="text-xs text-rose-600 hover:bg-rose-50 px-2 py-1 rounded transition-colors"
+                                        title="Revoke Key"
+                                    >
+                                        Revoke
+                                    </button>
+                                </div>
                             </div>
-                            <div className="flex items-center gap-2">
-                                <span className={`text-xs px-2 py-0.5 rounded-full ${k.status === 'active' ? 'bg-green-100 text-green-700' : 'bg-slate-100 text-slate-500 line-through'}`}>
-                                    {k.status}
-                                </span>
-                                {k.status === 'active' && (
-                                    <button onClick={() => revokeKey(k.id)} className="text-xs text-rose-600 hover:underline">Revoke</button>
-                                )}
-                            </div>
-                        </div>
-                    ))}
+                        ))
+                    )}
                 </div>
             </div>
 

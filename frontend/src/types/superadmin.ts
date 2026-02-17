@@ -130,9 +130,11 @@ export interface SuperadminStaff {
 export interface ApiKey {
     id: string;
     name: string;
-    key: string;
-    created: string;
-    status: 'active' | 'revoked';
+    prefix: string;
+    scopes: string[] | null;
+    lastUsed: string | null;
+    createdAt: string;
+    expiresAt: string | null;
 }
 
 export interface BillingConfig {
