@@ -9,10 +9,12 @@ import DatePicker, { registerLocale } from 'react-datepicker';
 import { id } from 'date-fns/locale/id';
 import NeumorphicSelect from '@/components/NeumorphicSelect';
 import { API_URL, fetchApi } from '@/lib/api';
+import { useAuth } from '@/context/AuthContext';
 registerLocale('id', id);
 
 export default function OnboardingPage() {
     const router = useRouter();
+    const { refreshUser } = useAuth();
     const [mounted, setMounted] = useState(false);
     const [isLoading, setIsLoading] = useState(false);
     const [formData, setFormData] = useState({
@@ -160,6 +162,9 @@ export default function OnboardingPage() {
                 localStorage.setItem('user_info', JSON.stringify(data.user));
             }
             // Token is handled by httpOnly cookie now
+
+            // Force update auth context to reflect onboarding status
+            await refreshUser();
 
             toast.success(text.success);
 

@@ -10,6 +10,7 @@ import { toast } from 'sonner';
 import Script from 'next/script';
 import { API_URL } from '@/lib/api';
 import translations, { Language } from '@/lib/translations';
+import { useAuth } from '@/context/AuthContext';
 
 // Helper to set auth cookie for middleware
 // Helper to set auth cookie for middleware - REMOVED (Handled by Backend)
@@ -23,6 +24,7 @@ function clearAuthCookie() {
 type FormType = 'login' | 'signup' | 'forgot';
 
 export default function AuthPage() {
+    const { refreshUser } = useAuth();
     const [mounted, setMounted] = useState(false);
     const [currentLang, setCurrentLang] = useState<Language>('id');
     const [isLangOpen, setIsLangOpen] = useState(false); // NEW STATE
@@ -229,6 +231,9 @@ export default function AuthPage() {
                 }
 
                 toast.success(`Welcome ${data.user.name}!`);
+
+                // Sync Auth Context immediately
+                await refreshUser();
 
                 // Wait for cookie propagation & Toast
                 setTimeout(async () => {

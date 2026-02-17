@@ -16,9 +16,11 @@ import { useLanguage } from '@/hooks/useLanguage';
 import { toast } from 'sonner';
 
 import { API_URL, fetchApi } from '@/lib/api';
+import { useAuth } from '@/context/AuthContext';
 
 export default function ProfilePage() {
     const { t } = useLanguage();
+    const { refreshUser } = useAuth();
     const [user, setUser] = useState<any>(null);
     const [loading, setLoading] = useState(true);
     const [saving, setSaving] = useState(false);
@@ -95,6 +97,7 @@ export default function ProfilePage() {
                 // Update localStorage if needed, or rely on future fetches
                 // Removed explicit localStorage manipulation for user_info as it might be handled differently now, 
                 // but keeping it simple for now as cookie auth is primary.
+                await refreshUser();
                 toast.success('Profil berhasil diperbarui');
             } else {
                 const err = await res.json();
