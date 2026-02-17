@@ -39,10 +39,18 @@ export class HttpExceptionFilter implements ExceptionFilter {
                 message = exceptionResponse;
             } else if (typeof exceptionResponse === 'object') {
                 const resp = exceptionResponse as any;
-                message = resp.message || exception.message;
-                error = resp.error || 'Error';
-                code = resp.code;
-                details = resp.details;
+                // Handle Class-Validator Array Messages
+                if (Array.isArray(resp.message)) {
+                    message = 'Validasi gagal';
+                    error = 'Validation Error';
+                    code = 'VALIDATION_ERROR';
+                    details = resp.message; // Array of validation strings
+                } else {
+                    message = resp.message || exception.message;
+                    error = resp.error || 'Error';
+                    code = resp.code;
+                    details = resp.details;
+                }
             }
 
             // Custom Message for Rate Limiting

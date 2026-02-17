@@ -112,7 +112,6 @@ export class VehicleService {
 
         // VALIDATION 1: isShowroom=true requires at least 1 photo
         if (data.isShowroom === true) {
-            // Check incoming images OR existing images
             const imagesRaw = (data.images !== undefined ? data.images : vehicle.images) as string;
             let parsedImages: string[] = [];
             try {
@@ -122,7 +121,7 @@ export class VehicleService {
             }
 
             if (!Array.isArray(parsedImages) || parsedImages.length === 0) {
-                // Gracefully degrade: auto-set isShowroom to false instead of blocking.
+                // Gracefully degrade
                 data.isShowroom = false;
             }
         }
@@ -139,11 +138,15 @@ export class VehicleService {
 
         // SECURITY: Strip protected fields at RUNTIME
         const sanitized = sanitizeInput(data);
-        const updateData: any = { ...sanitized };
 
-        if (updateData.stnkExpiry) updateData.stnkExpiry = new Date(updateData.stnkExpiry);
-        if (updateData.taxExpiry) updateData.taxExpiry = new Date(updateData.taxExpiry);
-        if (updateData.purchaseDate) updateData.purchaseDate = new Date(updateData.purchaseDate);
+        // FIX: Safe payload construction using spread operator (addressing reported syntax and potential variantId issues)
+        const updateData: Prisma.VehicleUpdateInput = {
+            ...sanitized,
+            // Explicitly handle date conversions safely
+            ...(data.stnkExpiry && { stnkExpiry: new Date(data.stnkExpiry) }),
+            ...(data.taxExpiry && { taxExpiry: new Date(data.taxExpiry) }),
+            ...(data.purchaseDate && { purchaseDate: new Date(data.purchaseDate) }),
+        };
 
         return this.prisma.vehicle.update({
             where: { id },
@@ -152,14 +155,27 @@ export class VehicleService {
     }
 
     async delete(id: string, tenantId: string) {
-        // SECURITY: Verify ownership before delete
+        // SECURITY: Verify ownership & Check dependencies
         const vehicle = await this.prisma.vehicle.findFirst({
             where: { id, tenantId, deletedAt: null },
-            include: { _count: { select: { transactions: true } } },
+            include: {
+                _count: {
+                    select: { transactions: true }
+                }
+            },
         });
+
         if (!vehicle) {
             throw new NotFoundException('Kendaraan tidak ditemukan');
         }
+
+        // CRITICAL: Prevent deletion if transactions exist (Data Integrity)
+        if (vehicle._count.transactions > 0) {
+            throw new BadRequestException(
+                `Tidak dapat menghapus kendaraan karena memiliki ${vehicle._count.transactions} riwayat transaksi. Gunakan arsip (soft delete) atau hapus transaksi terlebih dahulu.`
+            );
+        }
+
         // Soft delete: set deletedAt timestamp
         return this.prisma.vehicle.update({
             where: { id },

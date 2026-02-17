@@ -74,6 +74,30 @@ export class CustomerService {
             }
         }
 
+        // DUPLICATE CHECK: KTP & Phone
+        if (data.ktpNumber || data.phone) {
+            const existing = await this.prisma.customer.findFirst({
+                where: {
+                    tenantId,
+                    deletedAt: null,
+                    OR: [
+                        ...(data.ktpNumber ? [{ ktpNumber: data.ktpNumber }] : []),
+                        ...(data.phone ? [{ phone: data.phone }] : [])
+                    ]
+                },
+                select: { name: true, ktpNumber: true, phone: true }
+            });
+
+            if (existing) {
+                if (data.ktpNumber && existing.ktpNumber === data.ktpNumber) {
+                    throw new BadRequestException(`NIK ${data.ktpNumber} sudah terdaftar atas nama ${existing.name}`);
+                }
+                if (data.phone && existing.phone === data.phone) {
+                    throw new BadRequestException(`No. HP ${data.phone} sudah terdaftar atas nama ${existing.name}`);
+                }
+            }
+        }
+
         // SECURITY: Strip dangerous fields before create
         const safeData = sanitizeInput(data);
 

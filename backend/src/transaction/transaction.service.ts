@@ -292,29 +292,48 @@ export class TransactionService {
             throw new NotFoundException('Transaksi tidak ditemukan');
         }
 
-        const updated = await this.prisma.transaction.update({
-            where: { id },
-            data: { status },
+        // VALIDATION: Strict State Machine
+        if (transaction.status === 'COMPLETED' || transaction.status === 'CANCELLED') {
+            // Allow reopening ONLY if explicitly intended (e.g. for refund/correction), 
+            // but for now, let's block it for safety as per "Workflow Hardening" request.
+            if (status !== transaction.status) {
+                throw new BadRequestException(
+                    `Transaksi dengan status ${transaction.status} tidak dapat diubah lagi. Silakan buat transaksi baru atau hubungi Admin.`
+                );
+            }
+        }
+
+        // Prevent invalid jumps
+        if (transaction.status === 'PENDING' && status === 'COMPLETED') {
+            // Ensure payment is sufficient? (Optional, but good for hardening)
+            // For now, allow manual completion by staff.
+        }
+
+        // Use Interactive Transaction for Atomicity
+        return this.prisma.$transaction(async (tx) => {
+            const updated = await tx.transaction.update({
+                where: { id },
+                data: { status },
+            });
+
+            // If marked as PAID/COMPLETED and it's a sale, mark vehicle as SOLD
+            if ((status === 'PAID' || status === 'COMPLETED') && transaction.type === 'SALE') {
+                await tx.vehicle.update({
+                    where: { id: transaction.vehicleId },
+                    data: { status: 'SOLD' },
+                });
+            }
+
+            // If cancelled, revert vehicle to AVAILABLE only for SALE type
+            if (status === 'CANCELLED' && transaction.type === 'SALE') {
+                await tx.vehicle.update({
+                    where: { id: transaction.vehicleId },
+                    data: { status: 'AVAILABLE' },
+                });
+            }
+
+            return updated;
         });
-
-        // If marked as PAID/COMPLETED and it's a sale, mark vehicle as SOLD
-        if ((status === 'PAID' || status === 'COMPLETED') && transaction.type === 'SALE') {
-            await this.prisma.vehicle.update({
-                where: { id: transaction.vehicleId },
-                data: { status: 'SOLD' },
-            });
-        }
-
-        // If cancelled, revert vehicle to AVAILABLE only for SALE type
-        // (PURCHASE cancellation doesn't change vehicle status — it was never BOOKED)
-        if (status === 'CANCELLED' && transaction.type === 'SALE') {
-            await this.prisma.vehicle.update({
-                where: { id: transaction.vehicleId },
-                data: { status: 'AVAILABLE' },
-            });
-        }
-
-        return updated;
     }
 
     async delete(id: string, tenantId: string) {

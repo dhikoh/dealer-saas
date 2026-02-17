@@ -333,6 +333,8 @@ export class AuthService {
     const { email, password } = loginDto;
     const normalizedIdentifier = email.toLowerCase();
 
+    this.logger.log(`Login attempt for: ${normalizedIdentifier}`);
+
     // SECURITY: Check login rate limit
     this.checkLoginRateLimit(normalizedIdentifier);
 
@@ -352,27 +354,34 @@ export class AuthService {
     }
 
     if (!user) {
+      this.logger.warn(`Login failed: User not found [${normalizedIdentifier}]`);
       this.recordLoginFailure(normalizedIdentifier);
       throw new UnauthorizedException('Email/username atau password salah');
     }
 
     // SECURITY: Check if user is temporarily blocked (OTP abuse)
     if (user.otpBlockedUntil && new Date() < user.otpBlockedUntil) {
+      this.logger.warn(`Login blocked: OTP Abuse [${user.email}]`);
       throw new ForbiddenException('Akun Anda dibekukan sementara. Hubungi Admin via WhatsApp: 087712333434');
     }
 
-    // SECURITY: Check tenant subscription status
-    if (user.tenant && user.tenant.subscriptionStatus === 'SUSPENDED') {
-      throw new ForbiddenException('Akun dealer Anda telah dinonaktifkan. Hubungi Admin untuk informasi lebih lanjut.');
-    }
+    // SECURITY: Check tenant subscription status (Skip for SUPERADMIN)
+    if (user.role !== 'SUPERADMIN' && user.tenant) {
+      if (user.tenant.subscriptionStatus === 'SUSPENDED') {
+        this.logger.warn(`Login blocked: Tenant Suspended [${user.tenant.name}]`);
+        throw new ForbiddenException('Akun dealer Anda telah dinonaktifkan. Hubungi Admin untuk informasi lebih lanjut.');
+      }
 
-    if (user.tenant && user.tenant.subscriptionStatus === 'CANCELLED') {
-      throw new ForbiddenException('Langganan dealer Anda telah dibatalkan. Silakan hubungi Admin.');
+      if (user.tenant.subscriptionStatus === 'CANCELLED') {
+        this.logger.warn(`Login blocked: Tenant Cancelled [${user.tenant.name}]`);
+        throw new ForbiddenException('Langganan dealer Anda telah dibatalkan. Silakan hubungi Admin.');
+      }
     }
 
     const isPasswordValid = await bcrypt.compare(password, user.password);
 
     if (!isPasswordValid) {
+      this.logger.warn(`Login failed: Invalid Password [${user.email}]`);
       this.recordLoginFailure(normalizedIdentifier);
       throw new UnauthorizedException('Email/username atau password salah');
     }

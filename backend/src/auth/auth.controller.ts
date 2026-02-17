@@ -13,14 +13,15 @@ import { AllowUnonboarded } from './user-state.decorator';
 
 
 @Controller('auth')
+@Controller('auth')
 export class AuthController {
   constructor(private readonly authService: AuthService) { }
 
-  private setCookie(response: Response, token: string) {
+  private getCookieOptions() {
     const isProd = process.env.NODE_ENV === 'production';
     const domain = process.env.COOKIE_DOMAIN || (isProd ? '.modula.click' : undefined);
 
-    const cookieOptions = {
+    const options: any = {
       httpOnly: true,
       secure: isProd, // HTTPS required in production
       sameSite: 'lax',
@@ -29,9 +30,16 @@ export class AuthController {
       maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
     };
 
-    console.log(`[Auth] Setting cookie: domain=${domain}, secure=${isProd}, sameSite=${cookieOptions.sameSite}`);
+    // Remove domain if undefined to avoid browser issues
+    if (!domain) delete options.domain;
 
-    response.cookie('auth_token', token, cookieOptions);
+    return options;
+  }
+
+  private setCookie(response: Response, token: string) {
+    const options = this.getCookieOptions();
+    console.log(`[Auth] Setting cookie: domain=${options.domain}, secure=${options.secure}, sameSite=${options.sameSite}`);
+    response.cookie('auth_token', token, options);
   }
 
   // DEBUG ENDPOINT - Remove after fixing
@@ -167,14 +175,8 @@ export class AuthController {
   @HttpCode(HttpStatus.OK)
   @Post('logout')
   async logout(@Body() body: LogoutDto, @Res({ passthrough: true }) response: Response) {
-    const isProd = process.env.NODE_ENV === 'production';
-    response.clearCookie('auth_token', {
-      httpOnly: true,
-      secure: isProd,
-      sameSite: 'lax',
-      path: '/',
-      domain: process.env.COOKIE_DOMAIN || (isProd ? '.modula.click' : undefined),
-    });
+    const options = this.getCookieOptions();
+    response.clearCookie('auth_token', options);
     return this.authService.logout(body.refresh_token);
   }
 }
