@@ -666,7 +666,7 @@ function ApiConfigTab() {
                         className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 max-w-xs" />
                 </div>
                 <div className="flex justify-end">
-                    <button onClick={() => setToast('Konfigurasi disimpan')}
+                    <button onClick={() => setToast({ msg: 'Konfigurasi disimpan', type: 'success' })}
                         className="px-5 py-2 bg-indigo-600 text-white rounded-lg text-sm font-medium hover:bg-indigo-700 flex items-center gap-2">
                         <Save className="w-4 h-4" /> Simpan
                     </button>
