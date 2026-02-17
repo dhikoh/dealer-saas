@@ -152,15 +152,31 @@ export default function AuthPage() {
             }
 
             // 4. Check Password Length (Signup only)
-            if (input.name === 'signup_pass' && input.value.length < 6) {
-                isValid = false;
-                setErrors(prev => ({ ...prev, [input.name]: true }));
+            if (input.name === 'signup_pass') {
+                if (input.value.length < 8) {
+                    isValid = false;
+                    setErrors(prev => ({ ...prev, [input.name]: true }));
 
-                if (!firstErrorFound) {
-                    toast.error('Password terlalu pendek', { description: 'Minimal 6 karakter.' });
-                    firstErrorFound = true;
+                    if (!firstErrorFound) {
+                        toast.error('Password terlalu pendek', { description: 'Minimal 8 karakter.' });
+                        firstErrorFound = true;
+                    }
+                    continue;
                 }
-                continue;
+
+                // Check Complexity (Must match Backend DTO regex)
+                // Regex: At least one uppercase, one lowercase, and one number
+                const complexityRegex = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)/;
+                if (!complexityRegex.test(input.value)) {
+                    isValid = false;
+                    setErrors(prev => ({ ...prev, [input.name]: true }));
+
+                    if (!firstErrorFound) {
+                        toast.error('Password Terlalu Lemah', { description: 'Harus ada Huruf Besar, Kecil, dan Angka.' });
+                        firstErrorFound = true;
+                    }
+                    continue;
+                }
             }
 
             // 5. Check Password Confirmation (Signup)
