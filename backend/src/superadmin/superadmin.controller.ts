@@ -380,4 +380,12 @@ export class SuperadminController {
     async getMarketplaceStats() {
         return this.publicService.getMarketplaceStats();
     }
+
+    // ==================== CMS / LANDING PAGE ====================
+
+    @Patch('cms')
+    @Roles('SUPERADMIN')
+    async updateCms(@Body() data: any) {
+        return this.superadminService.updateLandingContent(data);
+    }
 }

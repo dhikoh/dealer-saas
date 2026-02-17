@@ -1,4 +1,4 @@
-import { IsString, IsEmail, IsOptional, IsNumber, Min, MaxLength } from 'class-validator';
+import { IsString, IsEmail, IsOptional, IsNumber, Min, MaxLength, MinLength, Matches } from 'class-validator';
 
 export class CreateTenantDto {
     @IsString()
@@ -36,8 +36,17 @@ export class CreateTenantDto {
     ownerEmail: string;
 
     @IsString()
+    @MinLength(8, { message: 'Password minimal 8 karakter' })
+    @Matches(/[A-Z]/, { message: 'Password harus mengandung minimal 1 huruf besar' })
+    @Matches(/[a-z]/, { message: 'Password harus mengandung minimal 1 huruf kecil' })
+    @Matches(/\d/, { message: 'Password harus mengandung minimal 1 angka' })
     @MaxLength(128, { message: 'Password maksimal 128 karakter' })
     ownerPassword: string;
+
+    @IsOptional()
+    @IsString()
+    @MaxLength(20, { message: 'Nomor telepon owner maksimal 20 karakter' })
+    ownerPhone?: string;
 }
 
 export class UpdateTenantDto {

@@ -52,7 +52,12 @@ export default function TenantsPage() {
 
     // Create Modal
     const [showCreateModal, setShowCreateModal] = useState(false);
-    const [createForm, setCreateForm] = useState({ name: '', slug: '', ownerName: '', ownerEmail: '', ownerPassword: '', planTier: 'DEMO', billingMonths: 1 });
+    const [createForm, setCreateForm] = useState({
+        name: '', email: '', phone: '', address: '',
+        ownerName: '', ownerEmail: '', ownerPassword: '', ownerPhone: '',
+        planTier: 'DEMO', billingMonths: 1
+    });
+    const [createError, setCreateError] = useState('');
     const [createLoading, setCreateLoading] = useState(false);
 
     // Edit Modal
@@ -113,16 +118,34 @@ export default function TenantsPage() {
 
     // --- ACTIONS ---
 
+    // Password strength check
+    const passwordChecks = {
+        minLength: createForm.ownerPassword.length >= 8,
+        hasUpper: /[A-Z]/.test(createForm.ownerPassword),
+        hasLower: /[a-z]/.test(createForm.ownerPassword),
+        hasDigit: /\d/.test(createForm.ownerPassword),
+    };
+    const passwordValid = passwordChecks.minLength && passwordChecks.hasUpper && passwordChecks.hasLower && passwordChecks.hasDigit;
+
     const handleCreate = async () => {
+        setCreateError('');
+        if (!passwordValid) {
+            setCreateError('Password tidak memenuhi persyaratan keamanan');
+            return;
+        }
         setCreateLoading(true);
         try {
-            // FIX: Backend DTO strict validation:
-            // 1. Remove 'slug' (forbidden)
-            // 2. Add 'email' (required by CreateTenantDto, using ownerEmail as default)
-            const { slug, ...cleanForm } = createForm;
             const payload = {
-                ...cleanForm,
-                email: createForm.ownerEmail, // Backend requires 'email' for the tenant contact
+                name: createForm.name,
+                email: createForm.email || createForm.ownerEmail,
+                phone: createForm.phone || undefined,
+                address: createForm.address || undefined,
+                ownerName: createForm.ownerName,
+                ownerEmail: createForm.ownerEmail,
+                ownerPassword: createForm.ownerPassword,
+                ownerPhone: createForm.ownerPhone || undefined,
+                planTier: createForm.planTier,
+                billingMonths: createForm.billingMonths,
             };
 
             const res = await fetchApi('/superadmin/tenants', {
@@ -132,13 +155,20 @@ export default function TenantsPage() {
             });
             if (!res.ok) {
                 const err = await res.json();
-                throw new Error(err.message || 'Create failed');
+                const msg = Array.isArray(err.message) ? err.message.join(', ') : err.message;
+                throw new Error(msg || 'Create failed');
             }
             showToast('Tenant berhasil dibuat', 'success');
             setShowCreateModal(false);
-            setCreateForm({ name: '', slug: '', ownerName: '', ownerEmail: '', ownerPassword: '', planTier: 'DEMO', billingMonths: 1 });
+            setCreateForm({
+                name: '', email: '', phone: '', address: '',
+                ownerName: '', ownerEmail: '', ownerPassword: '', ownerPhone: '',
+                planTier: 'DEMO', billingMonths: 1
+            });
+            setCreateError('');
             fetchTenants();
         } catch (e: any) {
+            setCreateError(e.message);
             showToast(e.message, 'error');
         } finally {
             setCreateLoading(false);
@@ -402,54 +432,118 @@ export default function TenantsPage() {
             {/* CREATE MODAL */}
             {showCreateModal && (
                 <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-                    <div className="bg-white rounded-xl shadow-xl max-w-lg w-full max-h-[90vh] overflow-y-auto animate-in fade-in zoom-in-95 duration-200">
+                    <div className="bg-white rounded-xl shadow-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto animate-in fade-in zoom-in-95 duration-200">
                         <div className="p-6 border-b border-slate-200 flex justify-between items-center">
                             <h3 className="text-lg font-semibold text-slate-900">Buat Tenant Baru</h3>
                             <button onClick={() => setShowCreateModal(false)} className="p-1 hover:bg-slate-100 rounded"><X className="w-5 h-5" /></button>
                         </div>
-                        <div className="p-6 space-y-4">
+                        <div className="p-6 space-y-5">
+                            {/* Error Display */}
+                            {createError && (
+                                <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg text-sm">{createError}</div>
+                            )}
+
+                            {/* Section: Informasi Dealer */}
                             <div>
-                                <label className="block text-sm font-medium text-slate-700 mb-1">Nama Dealer</label>
-                                <input type="text" value={createForm.name} onChange={e => setCreateForm({ ...createForm, name: e.target.value })}
-                                    className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm" placeholder="Contoh: Jaya Motor" />
-                            </div>
-                            <div>
-                                <label className="block text-sm font-medium text-slate-700 mb-1">Slug (URL)</label>
-                                <input type="text" value={createForm.slug} onChange={e => setCreateForm({ ...createForm, slug: e.target.value })}
-                                    className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm" placeholder="jaya-motor" />
-                            </div>
-                            <div className="grid grid-cols-2 gap-4">
-                                <div>
-                                    <label className="block text-sm font-medium text-slate-700 mb-1">Nama Owner</label>
-                                    <input type="text" value={createForm.ownerName} onChange={e => setCreateForm({ ...createForm, ownerName: e.target.value })}
-                                        className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm" />
+                                <h4 className="text-sm font-semibold text-slate-500 uppercase tracking-wider mb-3">Informasi Dealer</h4>
+                                <div className="space-y-3">
+                                    <div>
+                                        <label className="block text-sm font-medium text-slate-700 mb-1">Nama Dealer *</label>
+                                        <input type="text" value={createForm.name} onChange={e => setCreateForm({ ...createForm, name: e.target.value })}
+                                            className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500" placeholder="Contoh: Jaya Motor" />
+                                    </div>
+                                    <div className="grid grid-cols-2 gap-3">
+                                        <div>
+                                            <label className="block text-sm font-medium text-slate-700 mb-1">Email Dealer *</label>
+                                            <input type="email" value={createForm.email} onChange={e => setCreateForm({ ...createForm, email: e.target.value })}
+                                                className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500" placeholder="info@jayamotor.com" />
+                                        </div>
+                                        <div>
+                                            <label className="block text-sm font-medium text-slate-700 mb-1">Telepon Dealer</label>
+                                            <input type="text" value={createForm.phone} onChange={e => setCreateForm({ ...createForm, phone: e.target.value })}
+                                                className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500" placeholder="021-12345678" />
+                                        </div>
+                                    </div>
+                                    <div>
+                                        <label className="block text-sm font-medium text-slate-700 mb-1">Alamat Dealer</label>
+                                        <textarea value={createForm.address} onChange={e => setCreateForm({ ...createForm, address: e.target.value })}
+                                            className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500" rows={2} placeholder="Jl. Raya No. 123, Jakarta" />
+                                    </div>
                                 </div>
-                                <div>
-                                    <label className="block text-sm font-medium text-slate-700 mb-1">Plan Tier</label>
-                                    <select value={createForm.planTier} onChange={e => setCreateForm({ ...createForm, planTier: e.target.value })}
-                                        className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm">
-                                        <option value="DEMO">DEMO</option>
-                                        <option value="BASIC">BASIC</option>
-                                        <option value="PRO">PRO</option>
-                                        <option value="UNLIMITED">UNLIMITED</option>
-                                    </select>
+                            </div>
+
+                            <div className="border-t border-slate-100" />
+
+                            {/* Section: Informasi Owner */}
+                            <div>
+                                <h4 className="text-sm font-semibold text-slate-500 uppercase tracking-wider mb-3">Informasi Owner</h4>
+                                <div className="space-y-3">
+                                    <div className="grid grid-cols-2 gap-3">
+                                        <div>
+                                            <label className="block text-sm font-medium text-slate-700 mb-1">Nama Owner *</label>
+                                            <input type="text" value={createForm.ownerName} onChange={e => setCreateForm({ ...createForm, ownerName: e.target.value })}
+                                                className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500" />
+                                        </div>
+                                        <div>
+                                            <label className="block text-sm font-medium text-slate-700 mb-1">Telepon Owner</label>
+                                            <input type="text" value={createForm.ownerPhone} onChange={e => setCreateForm({ ...createForm, ownerPhone: e.target.value })}
+                                                className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500" placeholder="0812-3456-7890" />
+                                        </div>
+                                    </div>
+                                    <div>
+                                        <label className="block text-sm font-medium text-slate-700 mb-1">Email Owner *</label>
+                                        <input type="email" value={createForm.ownerEmail} onChange={e => setCreateForm({ ...createForm, ownerEmail: e.target.value })}
+                                            className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500" />
+                                    </div>
+                                    <div>
+                                        <label className="block text-sm font-medium text-slate-700 mb-1">Password *</label>
+                                        <input type="password" value={createForm.ownerPassword} onChange={e => setCreateForm({ ...createForm, ownerPassword: e.target.value })}
+                                            className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500" />
+                                        {createForm.ownerPassword && (
+                                            <div className="mt-2 grid grid-cols-2 gap-1">
+                                                <span className={`text-xs ${passwordChecks.minLength ? 'text-emerald-600' : 'text-slate-400'}`}>✓ Min 8 karakter</span>
+                                                <span className={`text-xs ${passwordChecks.hasUpper ? 'text-emerald-600' : 'text-slate-400'}`}>✓ Huruf besar</span>
+                                                <span className={`text-xs ${passwordChecks.hasLower ? 'text-emerald-600' : 'text-slate-400'}`}>✓ Huruf kecil</span>
+                                                <span className={`text-xs ${passwordChecks.hasDigit ? 'text-emerald-600' : 'text-slate-400'}`}>✓ Angka</span>
+                                            </div>
+                                        )}
+                                    </div>
                                 </div>
                             </div>
+
+                            <div className="border-t border-slate-100" />
+
+                            {/* Section: Plan & Billing */}
                             <div>
-                                <label className="block text-sm font-medium text-slate-700 mb-1">Email Owner</label>
-                                <input type="email" value={createForm.ownerEmail} onChange={e => setCreateForm({ ...createForm, ownerEmail: e.target.value })}
-                                    className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm" />
-                            </div>
-                            <div>
-                                <label className="block text-sm font-medium text-slate-700 mb-1">Password</label>
-                                <input type="password" value={createForm.ownerPassword} onChange={e => setCreateForm({ ...createForm, ownerPassword: e.target.value })}
-                                    className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm" />
+                                <h4 className="text-sm font-semibold text-slate-500 uppercase tracking-wider mb-3">Plan & Billing</h4>
+                                <div className="grid grid-cols-2 gap-3">
+                                    <div>
+                                        <label className="block text-sm font-medium text-slate-700 mb-1">Plan Tier *</label>
+                                        <select value={createForm.planTier} onChange={e => setCreateForm({ ...createForm, planTier: e.target.value })}
+                                            className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500">
+                                            <option value="DEMO">DEMO (14 hari trial)</option>
+                                            <option value="BASIC">BASIC</option>
+                                            <option value="PRO">PRO</option>
+                                            <option value="UNLIMITED">UNLIMITED</option>
+                                        </select>
+                                    </div>
+                                    <div>
+                                        <label className="block text-sm font-medium text-slate-700 mb-1">Durasi Billing</label>
+                                        <select value={createForm.billingMonths} onChange={e => setCreateForm({ ...createForm, billingMonths: parseInt(e.target.value) })}
+                                            className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500">
+                                            <option value={1}>1 Bulan</option>
+                                            <option value={3}>3 Bulan</option>
+                                            <option value={6}>6 Bulan</option>
+                                            <option value={12}>12 Bulan</option>
+                                        </select>
+                                    </div>
+                                </div>
                             </div>
                         </div>
                         <div className="p-6 border-t border-slate-200 flex justify-end gap-2">
-                            <button onClick={() => setShowCreateModal(false)} className="px-4 py-2 text-sm text-slate-600 hover:bg-slate-100 rounded-lg">Batal</button>
-                            <button onClick={handleCreate} disabled={createLoading}
-                                className="px-4 py-2 text-sm bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 disabled:opacity-50">
+                            <button onClick={() => { setShowCreateModal(false); setCreateError(''); }} className="px-4 py-2 text-sm text-slate-600 hover:bg-slate-100 rounded-lg">Batal</button>
+                            <button onClick={handleCreate} disabled={createLoading || !passwordValid || !createForm.name || !createForm.ownerEmail}
+                                className="px-4 py-2 text-sm bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed">
                                 {createLoading ? 'Memproses...' : 'Buat Tenant'}
                             </button>
                         </div>
@@ -461,16 +555,38 @@ export default function TenantsPage() {
             {editTenant && (
                 <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
                     <div className="bg-white rounded-xl shadow-xl max-w-lg w-full" onClick={e => e.stopPropagation()}>
-                        <div className="p-6 border-b border-slate-200 text-lg font-bold">Edit Profile Tenant</div>
-                        <div className="p-6 space-y-4">
-                            <input type="text" value={editForm.name} onChange={e => setEditForm({ ...editForm, name: e.target.value })} className="w-full p-2 border rounded" placeholder="Nama" />
-                            <input type="email" value={editForm.email} onChange={e => setEditForm({ ...editForm, email: e.target.value })} className="w-full p-2 border rounded" placeholder="Email" />
-                            <input type="text" value={editForm.phone} onChange={e => setEditForm({ ...editForm, phone: e.target.value })} className="w-full p-2 border rounded" placeholder="Telepon" />
-                            <textarea value={editForm.address} onChange={e => setEditForm({ ...editForm, address: e.target.value })} className="w-full p-2 border rounded" placeholder="Alamat" />
+                        <div className="p-6 border-b border-slate-200 flex justify-between items-center">
+                            <h3 className="text-lg font-semibold text-slate-900">Edit Profile Tenant</h3>
+                            <button onClick={() => setEditTenant(null)} className="p-1 hover:bg-slate-100 rounded"><X className="w-5 h-5" /></button>
                         </div>
-                        <div className="p-6 border-t flex justify-end gap-2">
-                            <button onClick={() => setEditTenant(null)} className="px-4 py-2 bg-slate-100 rounded">Batal</button>
-                            <button onClick={handleEditSave} disabled={editLoading} className="px-4 py-2 bg-indigo-600 text-white rounded">{editLoading ? 'Saving...' : 'Save'}</button>
+                        <div className="p-6 space-y-4">
+                            <div>
+                                <label className="block text-sm font-medium text-slate-700 mb-1">Nama Dealer</label>
+                                <input type="text" value={editForm.name} onChange={e => setEditForm({ ...editForm, name: e.target.value })}
+                                    className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500" />
+                            </div>
+                            <div>
+                                <label className="block text-sm font-medium text-slate-700 mb-1">Email</label>
+                                <input type="email" value={editForm.email} onChange={e => setEditForm({ ...editForm, email: e.target.value })}
+                                    className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500" />
+                            </div>
+                            <div>
+                                <label className="block text-sm font-medium text-slate-700 mb-1">Telepon</label>
+                                <input type="text" value={editForm.phone} onChange={e => setEditForm({ ...editForm, phone: e.target.value })}
+                                    className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500" />
+                            </div>
+                            <div>
+                                <label className="block text-sm font-medium text-slate-700 mb-1">Alamat</label>
+                                <textarea value={editForm.address} onChange={e => setEditForm({ ...editForm, address: e.target.value })}
+                                    className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500" rows={2} />
+                            </div>
+                        </div>
+                        <div className="p-6 border-t border-slate-200 flex justify-end gap-2">
+                            <button onClick={() => setEditTenant(null)} className="px-4 py-2 text-sm text-slate-600 hover:bg-slate-100 rounded-lg">Batal</button>
+                            <button onClick={handleEditSave} disabled={editLoading}
+                                className="px-4 py-2 text-sm bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 disabled:opacity-50">
+                                {editLoading ? 'Menyimpan...' : 'Simpan'}
+                            </button>
                         </div>
                     </div>
                 </div>

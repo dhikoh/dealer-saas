@@ -896,6 +896,7 @@ export class SuperadminService implements OnModuleInit {
         ownerName: string;
         ownerEmail: string;
         ownerPassword: string;
+        ownerPhone?: string;
     }, adminId: string) {
         const plan = getPlanById(data.planTier);
         if (!plan) throw new BadRequestException('Invalid plan tier');
@@ -941,7 +942,7 @@ export class SuperadminService implements OnModuleInit {
                 name: data.ownerName,
                 role: 'OWNER',
                 tenantId: tenant.id,
-                phone: data.phone,
+                phone: data.ownerPhone || null,
                 isVerified: true,
                 onboardingCompleted: true,
                 language: 'id',
@@ -1263,6 +1264,35 @@ export class SuperadminService implements OnModuleInit {
         }
 
         return data;
+    }
+
+    // ==================== CMS / LANDING PAGE ====================
+
+    async updateLandingContent(data: {
+        hero?: any;
+        features?: any;
+        pricing?: any;
+        faq?: any;
+        footer?: any;
+    }) {
+        return this.prisma.landingPageContent.upsert({
+            where: { id: 'default' },
+            update: {
+                hero: data.hero ?? undefined,
+                features: data.features ?? undefined,
+                pricing: data.pricing ?? undefined,
+                faq: data.faq ?? undefined,
+                footer: data.footer ?? undefined,
+            },
+            create: {
+                id: 'default',
+                hero: data.hero ?? {},
+                features: data.features ?? [],
+                pricing: data.pricing ?? [],
+                faq: data.faq ?? [],
+                footer: data.footer ?? {},
+            },
+        });
     }
 
     // ==================== MARKETPLACE API ====================

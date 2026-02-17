@@ -307,4 +307,31 @@ export class PublicService {
             },
         };
     }
+
+    // ==================== LANDING PAGE CONTENT ====================
+
+    async getLandingContent() {
+        const content = await this.prisma.landingPageContent.findUnique({
+            where: { id: 'default' },
+        });
+
+        if (!content) {
+            // Return sensible defaults if no content has been saved yet
+            return {
+                hero: { title: '', subtitle: '', ctaText: '', ctaLink: '', bgImage: '' },
+                features: [],
+                pricing: [],
+                faq: [],
+                footer: { socialLinks: [], contactInfo: { email: '', phone: '', address: '' } },
+            };
+        }
+
+        return {
+            hero: content.hero,
+            features: content.features,
+            pricing: content.pricing,
+            faq: content.faq,
+            footer: content.footer,
+        };
+    }
 }

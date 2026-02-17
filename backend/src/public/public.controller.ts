@@ -61,4 +61,9 @@ export class PublicController {
             search,
         });
     }
+
+    @Get('content')
+    async getContent() {
+        return this.publicService.getLandingContent();
+    }
 }
