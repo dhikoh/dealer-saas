@@ -3,6 +3,7 @@
 import React, { useEffect, useState } from 'react';
 import { Check, X, Crown, Zap, Rocket, Star, Pencil, Save } from 'lucide-react';
 import { fetchApi } from '@/lib/api';
+import { sanitizePayload } from '@/lib/utils';
 
 import ConfirmDialog from '@/components/ui/ConfirmDialog';
 
@@ -106,7 +107,7 @@ export default function PlansPage() {
 
             const res = await fetchApi(`/superadmin/plans/${editPlan.id}`, {
                 method: 'PATCH',
-                body: JSON.stringify(payload),
+                body: JSON.stringify(sanitizePayload(payload)),
             });
             if (!res.ok) throw new Error('Update failed');
             setToast({ message: `Plan ${editPlan.name} berhasil diupdate`, type: 'success' });

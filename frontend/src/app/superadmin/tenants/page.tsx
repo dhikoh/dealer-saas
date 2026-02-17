@@ -3,6 +3,7 @@
 import React, { useEffect, useState, useCallback } from 'react';
 import { Search, MoreHorizontal, Eye, Power, PowerOff, ArrowUpCircle, Pencil, Trash2, X, Building2, Users, Car, ShoppingCart, Plus, CheckCircle, Calendar } from 'lucide-react';
 import { fetchApi } from '@/lib/api';
+import { sanitizePayload } from '@/lib/utils';
 import ConfirmDialog from '@/components/ui/ConfirmDialog';
 
 import { Tenant } from '@/types/superadmin';
@@ -151,7 +152,7 @@ export default function TenantsPage() {
             const res = await fetchApi(`/superadmin/tenants/${editTenant.id}`, {
                 method: 'PATCH',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(editForm),
+                body: JSON.stringify(sanitizePayload(editForm)),
             });
             if (!res.ok) throw new Error('Update failed');
             showToast('Tenant berhasil diupdate', 'success');
@@ -176,7 +177,7 @@ export default function TenantsPage() {
             const res = await fetchApi(`/superadmin/tenants/${planTenant.id}/plan-direct`, {
                 method: 'PATCH',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(payload),
+                body: JSON.stringify(sanitizePayload(payload)),
             });
             if (!res.ok) throw new Error('Plan change failed');
             showToast('Plan berhasil diubah', 'success');

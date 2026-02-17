@@ -3,6 +3,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { User, Shield, Users, Key, CreditCard, Save, Plus, X, Eye, EyeOff, Settings, Trash2, CheckCircle } from 'lucide-react';
 import { API_URL, fetchApi } from '@/lib/api';
+import { sanitizePayload } from '@/lib/utils';
 import ConfirmDialog from '@/components/ui/ConfirmDialog';
 import { useAuthProtection } from '@/hooks/useAuthProtection';
 
@@ -81,7 +82,7 @@ function GeneralProfileTab({ user, refreshUser }: { user: any; refreshUser: () =
         try {
             const res = await fetchApi('/auth/profile', {
                 method: 'PUT',
-                body: JSON.stringify({ name: form.name, phone: form.phone }),
+                body: JSON.stringify(sanitizePayload({ name: form.name, phone: form.phone })),
             });
 
             if (!res.ok) throw new Error('Failed');
@@ -645,7 +646,7 @@ function BillingIntegrationTab() {
             // 'value' must be a JSON string, not an object.
             const res = await fetchApi('/superadmin/platform-settings/billing_config', {
                 method: 'PATCH',
-                body: JSON.stringify({ value: JSON.stringify({ gateway, bankInfo, autoInvoice }) }),
+                body: JSON.stringify({ value: JSON.stringify(sanitizePayload({ gateway, bankInfo, autoInvoice })) }),
             });
             if (!res.ok) throw new Error('Failed to save');
             setToast('Konfigurasi billing berhasil disimpan!');
