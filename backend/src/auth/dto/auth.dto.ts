@@ -46,7 +46,7 @@ export class OnboardingDto {
 
     @IsNotEmpty()
     @IsString()
-    @MaxLength(20)
+    @MaxLength(30)
     birthDate: string;
 
     @IsNotEmpty()
