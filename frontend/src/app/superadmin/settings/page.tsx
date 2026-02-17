@@ -279,12 +279,20 @@ function StaffManagementTab() {
     const [staff, setStaff] = useState<SuperadminStaff[]>([]);
     const [loading, setLoading] = useState(true);
     const [showAdd, setShowAdd] = useState(false);
-    const [addForm, setAddForm] = useState({ name: '', email: '', password: '', role: 'Admin', phone: '' });
+    const [addForm, setAddForm] = useState({ name: '', email: '', password: '', phone: '' });
     const [toast, setToast] = useState<string | null>(null);
     const [deleteId, setDeleteId] = useState<string | null>(null);
     const [deleteLoading, setDeleteLoading] = useState(false);
+    const [addError, setAddError] = useState<string | null>(null);
 
-
+    // Password validation helpers
+    const passwordChecks = {
+        minLength: addForm.password.length >= 8,
+        hasUpper: /[A-Z]/.test(addForm.password),
+        hasLower: /[a-z]/.test(addForm.password),
+        hasDigit: /\d/.test(addForm.password),
+    };
+    const isPasswordValid = passwordChecks.minLength && passwordChecks.hasUpper && passwordChecks.hasLower && passwordChecks.hasDigit;
 
     const fetchStaff = useCallback(async () => {
         setLoading(true);
@@ -308,23 +316,23 @@ function StaffManagementTab() {
     }, [toast]);
 
     const handleAddStaff = async () => {
+        setAddError(null);
         try {
-            // FIX: Backend DTO strict validation:
-            // Remove 'role' as CreateAdminStaffDto does not allow it (role is handled by backend logic)
-            // eslint-disable-next-line @typescript-eslint/no-unused-vars
-            const { role, ...payload } = addForm;
-
             const res = await fetchApi('/superadmin/staff', {
                 method: 'POST',
-                body: JSON.stringify(payload),
+                body: JSON.stringify(addForm),
             });
-            if (!res.ok) throw new Error('Failed to create staff');
+            if (!res.ok) {
+                const err = await res.json().catch(() => null);
+                const msg = err?.message;
+                throw new Error(Array.isArray(msg) ? msg.join(', ') : msg || 'Gagal menambahkan staff');
+            }
             setToast('Staff berhasil ditambahkan');
             setShowAdd(false);
-            setAddForm({ name: '', email: '', password: '', role: 'Admin', phone: '' });
+            setAddForm({ name: '', email: '', password: '', phone: '' });
             fetchStaff();
-        } catch {
-            setToast('Gagal menambahkan staff');
+        } catch (e: any) {
+            setAddError(e.message || 'Gagal menambahkan staff');
         }
     };
 
@@ -417,9 +425,14 @@ function StaffManagementTab() {
                     <div className="bg-white rounded-xl shadow-xl max-w-md w-full animate-in fade-in zoom-in-95 duration-200" onClick={e => e.stopPropagation()}>
                         <div className="p-6 border-b border-slate-200 flex justify-between items-center">
                             <h3 className="text-lg font-semibold text-slate-900">Tambah Staff Baru</h3>
-                            <button onClick={() => setShowAdd(false)} className="p-1 hover:bg-slate-100 rounded"><X className="w-5 h-5" /></button>
+                            <button onClick={() => { setShowAdd(false); setAddError(null); }} className="p-1 hover:bg-slate-100 rounded"><X className="w-5 h-5" /></button>
                         </div>
                         <div className="p-6 space-y-4">
+                            {addError && (
+                                <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-2 rounded-lg text-sm">
+                                    ❌ {addError}
+                                </div>
+                            )}
                             <div>
                                 <label className="block text-sm font-medium text-slate-700 mb-1">Nama</label>
                                 <input type="text" value={addForm.name} onChange={e => setAddForm({ ...addForm, name: e.target.value })}
@@ -434,20 +447,32 @@ function StaffManagementTab() {
                                 <label className="block text-sm font-medium text-slate-700 mb-1">Password</label>
                                 <input type="password" value={addForm.password} onChange={e => setAddForm({ ...addForm, password: e.target.value })}
                                     className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500" />
+                                {addForm.password && (
+                                    <div className="mt-2 space-y-1">
+                                        {[
+                                            { ok: passwordChecks.minLength, label: 'Minimal 8 karakter' },
+                                            { ok: passwordChecks.hasUpper, label: 'Mengandung huruf besar (A-Z)' },
+                                            { ok: passwordChecks.hasLower, label: 'Mengandung huruf kecil (a-z)' },
+                                            { ok: passwordChecks.hasDigit, label: 'Mengandung angka (0-9)' },
+                                        ].map(c => (
+                                            <div key={c.label} className={`text-xs flex items-center gap-1.5 ${c.ok ? 'text-emerald-600' : 'text-slate-400'}`}>
+                                                {c.ok ? <CheckCircle className="w-3.5 h-3.5" /> : <span className="w-3.5 h-3.5 rounded-full border border-slate-300 inline-block" />}
+                                                {c.label}
+                                            </div>
+                                        ))}
+                                    </div>
+                                )}
                             </div>
                             <div>
-                                <label className="block text-sm font-medium text-slate-700 mb-1">Role</label>
-                                <select value={addForm.role} onChange={e => setAddForm({ ...addForm, role: e.target.value })}
-                                    className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500">
-                                    <option value="Admin">Admin</option>
-                                    <option value="Finance">Finance</option>
-                                    <option value="Support">Support</option>
-                                </select>
+                                <label className="block text-sm font-medium text-slate-700 mb-1">No. Telepon <span className="text-slate-400 font-normal">(opsional)</span></label>
+                                <input type="tel" value={addForm.phone} onChange={e => setAddForm({ ...addForm, phone: e.target.value })}
+                                    className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                                    placeholder="+62..." />
                             </div>
                         </div>
                         <div className="p-6 border-t border-slate-200 flex justify-end gap-2">
-                            <button onClick={() => setShowAdd(false)} className="px-4 py-2 text-sm text-slate-600 hover:bg-slate-100 rounded-lg">Batal</button>
-                            <button onClick={handleAddStaff} disabled={!addForm.name || !addForm.email || !addForm.password}
+                            <button onClick={() => { setShowAdd(false); setAddError(null); }} className="px-4 py-2 text-sm text-slate-600 hover:bg-slate-100 rounded-lg">Batal</button>
+                            <button onClick={handleAddStaff} disabled={!addForm.name || !addForm.email || !isPasswordValid}
                                 className="px-4 py-2 text-sm bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 disabled:opacity-50">
                                 Tambah Staff
                             </button>
