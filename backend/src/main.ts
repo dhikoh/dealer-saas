@@ -52,7 +52,7 @@ async function bootstrap() {
 
   // ==================== CORS CONFIGURATION ====================
   const corsOrigins = configService.get('CORS_ORIGINS', 'http://localhost:3000');
-  const origins = corsOrigins.split(',');
+  const origins = corsOrigins.split(',').map(origin => origin.trim());
 
   logger.log(`🔐 CORS Origins Configured: ${origins.join(', ')}`);
 
