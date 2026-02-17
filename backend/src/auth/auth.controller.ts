@@ -17,13 +17,31 @@ import { AllowUnonboarded } from './user-state.decorator';
 export class AuthController {
   constructor(private readonly authService: AuthService) { }
 
-  private getCookieOptions() {
+  private getCookieOptions(req?: any) {
     const isProd = process.env.NODE_ENV === 'production';
-    const domain = process.env.COOKIE_DOMAIN || (isProd ? '.modula.click' : undefined);
+
+    let domain = process.env.COOKIE_DOMAIN;
+
+    // Auto-detect domain for .modula.click if not explicitly set
+    if (!domain && req) {
+      const host = req.hostname || req.headers?.host || '';
+      if (host.includes('modula.click')) {
+        domain = '.modula.click';
+      }
+    }
+
+    // Default fallback if still undefined and in prod (risky if not modula)
+    if (!domain && isProd) {
+      // Only default if we really think we are in the main env ?
+      // Let's rely on the Request detection primarily. 
+      // If isProd is true but hostname is localhost (e.g. strict internal network?), keeping it undefined is better?
+      // Let's keep the original fallback as a last resort:
+      domain = '.modula.click';
+    }
 
     const options: any = {
       httpOnly: true,
-      secure: isProd, // HTTPS required in production
+      secure: isProd || (domain && domain.includes('.click')), // Force secure if on production domain
       sameSite: 'lax',
       path: '/',
       domain,
@@ -36,9 +54,9 @@ export class AuthController {
     return options;
   }
 
-  private setCookie(response: Response, token: string) {
-    const options = this.getCookieOptions();
-    console.log(`[Auth] Setting cookie: domain=${options.domain}, secure=${options.secure}, sameSite=${options.sameSite}`);
+  private setCookie(response: Response, token: string, req?: any) {
+    const options = this.getCookieOptions(req);
+    console.log(`[Auth] Setting cookie: domain=${options.domain}, secure=${options.secure}, sameSite=${options.sameSite} (Host: ${req?.hostname})`);
     response.cookie('auth_token', token, options);
   }
 
@@ -58,9 +76,9 @@ export class AuthController {
   @Public()
   @Throttle({ default: { limit: 3, ttl: 60000 } }) // Stricter: 3 registrations per minute
   @Post('register')
-  async register(@Body() createAuthDto: CreateAuthDto, @Res({ passthrough: true }) response: Response) {
+  async register(@Body() createAuthDto: CreateAuthDto, @Res({ passthrough: true }) response: Response, @Request() req) {
     const data = await this.authService.register(createAuthDto);
-    this.setCookie(response, data.access_token);
+    this.setCookie(response, data.access_token, req);
     return data;
   }
 
@@ -69,9 +87,9 @@ export class AuthController {
   @HttpCode(HttpStatus.OK)
   @Throttle({ default: { limit: 5, ttl: 60000 } }) // Limit: 5 requests per minute
   @Post('login')
-  async login(@Body() loginDto: LoginDto, @Res({ passthrough: true }) response: Response) {
+  async login(@Body() loginDto: LoginDto, @Res({ passthrough: true }) response: Response, @Request() req) {
     const data = await this.authService.login(loginDto);
-    this.setCookie(response, data.access_token);
+    this.setCookie(response, data.access_token, req);
     return data;
   }
 
@@ -79,9 +97,9 @@ export class AuthController {
   @HttpCode(HttpStatus.OK)
   @Throttle({ default: { limit: 5, ttl: 60000 } })
   @Post('verify')
-  async verify(@Body() body: VerifyEmailDto, @Res({ passthrough: true }) response: Response) {
+  async verify(@Body() body: VerifyEmailDto, @Res({ passthrough: true }) response: Response, @Request() req) {
     const data = await this.authService.verifyEmail(body.email, body.code);
-    this.setCookie(response, data.access_token);
+    this.setCookie(response, data.access_token, req);
     return data;
   }
 
@@ -106,7 +124,7 @@ export class AuthController {
       officeAddress: body.officeAddress,
       language: body.language
     });
-    this.setCookie(response, data.access_token);
+    this.setCookie(response, data.access_token, req);
     return data;
   }
 
@@ -140,9 +158,9 @@ export class AuthController {
   @Public()
   @HttpCode(HttpStatus.OK)
   @Post('google')
-  async googleLogin(@Body() body: GoogleLoginDto, @Res({ passthrough: true }) response: Response) {
+  async googleLogin(@Body() body: GoogleLoginDto, @Res({ passthrough: true }) response: Response, @Request() req) {
     const data = await this.authService.googleLogin(body.credential);
-    this.setCookie(response, data.access_token);
+    this.setCookie(response, data.access_token, req);
     return data;
   }
 
@@ -166,9 +184,9 @@ export class AuthController {
   @Public()
   @HttpCode(HttpStatus.OK)
   @Post('refresh')
-  async refresh(@Body() body: RefreshTokenDto, @Res({ passthrough: true }) response: Response) {
+  async refresh(@Body() body: RefreshTokenDto, @Res({ passthrough: true }) response: Response, @Request() req) {
     const data = await this.authService.refreshToken(body.refresh_token);
-    this.setCookie(response, data.access_token);
+    this.setCookie(response, data.access_token, req);
     return data;
   }
 
