@@ -23,7 +23,7 @@ export class AuthController {
     const cookieOptions = {
       httpOnly: true,
       secure: isProd, // HTTPS required in production
-      sameSite: (isProd ? 'none' : 'lax') as 'none' | 'lax',
+      sameSite: 'lax',
       path: '/',
       domain,
       maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
@@ -171,7 +171,7 @@ export class AuthController {
     response.clearCookie('auth_token', {
       httpOnly: true,
       secure: isProd,
-      sameSite: isProd ? 'none' : 'lax',
+      sameSite: 'lax',
       path: '/',
       domain: process.env.COOKIE_DOMAIN || (isProd ? '.modula.click' : undefined),
     });
