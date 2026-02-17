@@ -113,6 +113,7 @@ export class AuthController {
   }
 
   // GET /auth/me - Get current user profile
+  @AllowUnonboarded()
   @Get('me')
   async getProfile(@Request() req) {
     return this.authService.getProfile(req.user.sub || req.user.userId);
