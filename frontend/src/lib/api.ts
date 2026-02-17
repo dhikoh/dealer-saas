@@ -105,6 +105,7 @@ export async function fetchApi(
     const res = await fetch(url, fetchOptions);
 
     if (res.status === 401 && typeof window !== 'undefined') {
+        console.warn(`[API] 401 Unauthorized for ${url}. Attempting refresh...`);
         // Deduplicate concurrent refresh attempts
         if (!isRefreshing) {
             isRefreshing = true;

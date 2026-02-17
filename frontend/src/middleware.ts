@@ -66,17 +66,21 @@ export function middleware(request: NextRequest) {
 
     // 3. IF TOKEN INVALID/EXPIRED
     if (!payload && token) {
-        // If we are ALREADY on an auth page, don't redirect (causes loop). 
-        // Just clear cookie and continue as normal public request.
+        console.log('[Middleware] Token present but invalid/expired/unparseable');
+
+        // If we are ALREADY on an auth page, just let it pass (prevent redirect loop)
+        // The page itself (e.g. login) will handle the state or show "you are logged out"
         if (pathname.startsWith('/auth')) {
-            const response = NextResponse.next();
-            response.cookies.delete('auth_token');
-            return response;
+            // Do NOT delete cookie here - let backend/frontend handle it
+            return NextResponse.next();
         }
 
         // Otherwise, redirect to login
+        // validate via backend later if needed, but for now redirect
         const response = NextResponse.redirect(new URL('/auth', request.url));
-        response.cookies.delete('auth_token');
+        // SAFETY: Do NOT delete cookie. If it's a valid token that just failed parsing 
+        // (e.g. edge runtime issue), deleting it causes infinite logout loop.
+        // response.cookies.delete('auth_token'); 
         return response;
     }
 

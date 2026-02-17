@@ -20,17 +20,31 @@ export class AuthController {
     const isProd = process.env.NODE_ENV === 'production';
     const domain = process.env.COOKIE_DOMAIN || (isProd ? '.modula.click' : undefined);
 
-    response.cookie('auth_token', token, {
+    const cookieOptions = {
       httpOnly: true,
       secure: isProd, // HTTPS required in production
-      // CRITICAL: 'lax' blocks cookies on cross-origin POST (fetch from oto.modula.click → api.modula.click).
-      // 'none' + secure:true allows cookies on all cross-origin requests including POST /auth/refresh.
-      // In dev, use 'lax' since frontend and backend share localhost.
-      sameSite: isProd ? 'none' : 'lax',
+      sameSite: (isProd ? 'none' : 'lax') as 'none' | 'lax',
       path: '/',
-      domain, // Allow sharing across subdomains (api.modula.click ↔ oto.modula.click)
+      domain,
       maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
-    });
+    };
+
+    console.log(`[Auth] Setting cookie: domain=${domain}, secure=${isProd}, sameSite=${cookieOptions.sameSite}`);
+
+    response.cookie('auth_token', token, cookieOptions);
+  }
+
+  // DEBUG ENDPOINT - Remove after fixing
+  @Public()
+  @Get('debug-cookie')
+  debugCookie(@Request() req) {
+    return {
+      cookies: req.cookies,
+      signedCookies: req.signedCookies,
+      headers: req.headers,
+      env_cookie_domain: process.env.COOKIE_DOMAIN,
+      node_env: process.env.NODE_ENV,
+    };
   }
 
   @Public()
