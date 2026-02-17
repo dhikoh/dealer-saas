@@ -51,15 +51,10 @@ async function bootstrap() {
   }));
 
   // ==================== CORS CONFIGURATION ====================
-  const corsOrigins = configService.get('CORS_ORIGINS', 'http://localhost:3000');
-  const origins = corsOrigins.split(',').map(origin => origin.trim());
-
-  logger.log(`🔐 CORS Origins Configured: ${origins.join(', ')}`);
-
   app.enableCors({
-    origin: origins,
-    methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
+    origin: 'https://oto.modula.click',
     credentials: true,
+    methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
     allowedHeaders: ['Content-Type', 'Authorization', 'X-Tenant-ID', 'X-Skip-Redirect'],
   });
 

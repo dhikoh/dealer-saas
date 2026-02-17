@@ -13,45 +13,18 @@ import { AllowUnonboarded } from './user-state.decorator';
 
 
 @Controller('auth')
-@Controller('auth')
 export class AuthController {
   constructor(private readonly authService: AuthService) { }
 
   private getCookieOptions(req?: any) {
-    const isProd = process.env.NODE_ENV === 'production';
-
-    let domain = process.env.COOKIE_DOMAIN;
-
-    // Auto-detect domain for .modula.click if not explicitly set
-    if (!domain && req) {
-      const host = req.hostname || req.headers?.host || '';
-      if (host.includes('modula.click')) {
-        domain = '.modula.click';
-      }
-    }
-
-    // Default fallback if still undefined and in prod (risky if not modula)
-    if (!domain && isProd) {
-      // Only default if we really think we are in the main env ?
-      // Let's rely on the Request detection primarily. 
-      // If isProd is true but hostname is localhost (e.g. strict internal network?), keeping it undefined is better?
-      // Let's keep the original fallback as a last resort:
-      domain = '.modula.click';
-    }
-
-    const options: any = {
+    return {
       httpOnly: true,
-      secure: isProd || (domain && domain.includes('.click')), // Force secure if on production domain
-      sameSite: 'lax',
+      secure: true,
+      sameSite: 'none',
       path: '/',
-      domain,
+      domain: '.modula.click',
       maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
     };
-
-    // Remove domain if undefined to avoid browser issues
-    if (!domain) delete options.domain;
-
-    return options;
   }
 
   private setCookie(response: Response, token: string, req?: any) {
