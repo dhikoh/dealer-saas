@@ -46,9 +46,10 @@ export default function ApprovalsPage() {
     const processApproval = async (id: string, status: ApprovalRequest['status']) => {
         setProcessingId(id);
         try {
+            // FIX: Backend DTO expects 'approved' (boolean), not 'status' (string)
             const res = await fetchApi(`/superadmin/approvals/${id}`, {
                 method: 'PATCH',
-                body: JSON.stringify({ status }),
+                body: JSON.stringify({ approved: status === 'APPROVED' }),
             });
             if (res.ok) {
                 fetchApprovals();

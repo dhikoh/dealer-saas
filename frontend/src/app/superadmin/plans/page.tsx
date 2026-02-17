@@ -100,9 +100,13 @@ export default function PlansPage() {
         setConfirmSave(false); // Close confirm dialog immediately
         setSaving(true);
         try {
+            // Sanitize payload: Remove fields not allowed by backend DTO
+            // eslint-disable-next-line @typescript-eslint/no-unused-vars
+            const { priceLabel, descriptionId, ...payload } = editForm as any;
+
             const res = await fetchApi(`/superadmin/plans/${editPlan.id}`, {
                 method: 'PATCH',
-                body: JSON.stringify(editForm),
+                body: JSON.stringify(payload),
             });
             if (!res.ok) throw new Error('Update failed');
             setToast({ message: `Plan ${editPlan.name} berhasil diupdate`, type: 'success' });

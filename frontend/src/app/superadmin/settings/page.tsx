@@ -308,9 +308,14 @@ function StaffManagementTab() {
 
     const handleAddStaff = async () => {
         try {
+            // FIX: Backend DTO strict validation:
+            // Remove 'role' as CreateAdminStaffDto does not allow it (role is handled by backend logic)
+            // eslint-disable-next-line @typescript-eslint/no-unused-vars
+            const { role, ...payload } = addForm;
+
             const res = await fetchApi('/superadmin/staff', {
                 method: 'POST',
-                body: JSON.stringify(addForm),
+                body: JSON.stringify(payload),
             });
             if (!res.ok) throw new Error('Failed to create staff');
             setToast('Staff berhasil ditambahkan');
@@ -636,9 +641,11 @@ function BillingIntegrationTab() {
     const handleSave = async () => {
         setSaving(true);
         try {
+            // FIX: Backend DTO strict validation:
+            // 'value' must be a JSON string, not an object.
             const res = await fetchApi('/superadmin/platform-settings/billing_config', {
                 method: 'PATCH',
-                body: JSON.stringify({ value: { gateway, bankInfo, autoInvoice } }),
+                body: JSON.stringify({ value: JSON.stringify({ gateway, bankInfo, autoInvoice }) }),
             });
             if (!res.ok) throw new Error('Failed to save');
             setToast('Konfigurasi billing berhasil disimpan!');

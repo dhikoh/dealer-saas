@@ -115,10 +115,19 @@ export default function TenantsPage() {
     const handleCreate = async () => {
         setCreateLoading(true);
         try {
+            // FIX: Backend DTO strict validation:
+            // 1. Remove 'slug' (forbidden)
+            // 2. Add 'email' (required by CreateTenantDto, using ownerEmail as default)
+            const { slug, ...cleanForm } = createForm;
+            const payload = {
+                ...cleanForm,
+                email: createForm.ownerEmail, // Backend requires 'email' for the tenant contact
+            };
+
             const res = await fetchApi('/superadmin/tenants', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(createForm),
+                body: JSON.stringify(payload),
             });
             if (!res.ok) {
                 const err = await res.json();
@@ -159,10 +168,15 @@ export default function TenantsPage() {
         if (!planTenant) return;
         setPlanLoading(true);
         try {
+            // FIX: Backend DTO strict validation:
+            // Remove 'immediate' as it is forbidden in DirectPlanChangeDto
+            // eslint-disable-next-line @typescript-eslint/no-unused-vars
+            const { immediate, ...payload } = planForm;
+
             const res = await fetchApi(`/superadmin/tenants/${planTenant.id}/plan-direct`, {
                 method: 'PATCH',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(planForm),
+                body: JSON.stringify(payload),
             });
             if (!res.ok) throw new Error('Plan change failed');
             showToast('Plan berhasil diubah', 'success');
