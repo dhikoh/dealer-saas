@@ -81,8 +81,8 @@ export class SuperadminService {
 
         const tenantIds = tenants.map(t => t.id);
 
-        // 2. Fetch Active Counts using GroupBy (Performance Optimized)
-        const [userCounts, vehicleCounts, customerCounts, transactionCounts] = await Promise.all([
+        // 2. Fetch Active Counts + Owner Users (Performance Optimized)
+        const [userCounts, vehicleCounts, customerCounts, transactionCounts, owners] = await Promise.all([
             this.prisma.user.groupBy({
                 by: ['tenantId'],
                 where: { tenantId: { in: tenantIds }, deletedAt: null },
@@ -103,33 +103,49 @@ export class SuperadminService {
                 where: { tenantId: { in: tenantIds }, deletedAt: null },
                 _count: { id: true },
             }),
+            // NEW: Batch fetch OWNER users for all tenants
+            this.prisma.user.findMany({
+                where: {
+                    tenantId: { in: tenantIds },
+                    role: 'OWNER',
+                    deletedAt: null,
+                },
+                select: { tenantId: true, name: true, email: true, phone: true },
+            }),
         ]);
 
         // Helper to get count
         const getCount = (arr: any[], tenantId: string) =>
             arr.find(x => x.tenantId === tenantId)?._count.id || 0;
 
-        return tenants.map(t => ({
-            id: t.id,
-            name: t.name,
-            slug: t.slug,
-            email: t.email,
-            phone: t.phone,
-            planTier: t.planTier,
-            planDetails: getPlanById(t.planTier),
-            subscriptionStatus: t.subscriptionStatus,
-            trialEndsAt: t.trialEndsAt,
-            subscriptionEndsAt: t.subscriptionEndsAt,
-            monthlyBill: Number(t.monthlyBill || 0),
-            autoRenew: t.autoRenew,
-            usage: {
-                users: getCount(userCounts, t.id),
-                vehicles: getCount(vehicleCounts, t.id),
-                customers: getCount(customerCounts, t.id),
-                transactions: getCount(transactionCounts, t.id),
-            },
-            createdAt: t.createdAt,
-        }));
+        // Helper to get owner
+        const ownerMap = new Map(owners.map(o => [o.tenantId, o]));
+
+        return tenants.map(t => {
+            const owner = ownerMap.get(t.id);
+            return {
+                id: t.id,
+                name: t.name,
+                slug: t.slug,
+                email: t.email,
+                phone: t.phone,
+                planTier: t.planTier,
+                planDetails: getPlanById(t.planTier),
+                subscriptionStatus: t.subscriptionStatus,
+                trialEndsAt: t.trialEndsAt,
+                subscriptionEndsAt: t.subscriptionEndsAt,
+                monthlyBill: Number(t.monthlyBill || 0),
+                autoRenew: t.autoRenew,
+                owner: owner ? { name: owner.name, email: owner.email, phone: owner.phone } : null,
+                usage: {
+                    users: getCount(userCounts, t.id),
+                    vehicles: getCount(vehicleCounts, t.id),
+                    customers: getCount(customerCounts, t.id),
+                    transactions: getCount(transactionCounts, t.id),
+                },
+                createdAt: t.createdAt,
+            };
+        });
     }
 
     async getTenantById(id: string) {

@@ -304,7 +304,7 @@ export default function TenantsPage() {
                                 <tr key={tenant.id} className="hover:bg-slate-50 transition-colors group">
                                     <td className="px-6 py-4">
                                         <div className="font-medium text-slate-900">{tenant.name}</div>
-                                        <div className="text-xs text-slate-500">{tenant.email || tenant.slug}</div>
+                                        <div className="text-xs text-slate-500">{tenant.owner?.name || tenant.email || tenant.slug}</div>
                                     </td>
                                     <td className="px-6 py-4">
                                         <PlanBadge plan={tenant.planTier} />
@@ -542,9 +542,21 @@ export default function TenantsPage() {
                             <button onClick={() => setSelectedTenant(null)} className="p-1 hover:bg-slate-100 rounded"><X className="w-5 h-5" /></button>
                         </div>
                         <div className="p-6 space-y-6">
+                            {/* Owner Info */}
+                            {selectedTenant.owner && (
+                                <div className="bg-indigo-50 p-4 rounded-xl border border-indigo-100">
+                                    <h4 className="text-sm font-semibold text-indigo-700 mb-2">👤 Pemilik Dealer</h4>
+                                    <div className="grid grid-cols-3 gap-3 text-sm">
+                                        <div><p className="text-indigo-400 text-xs">Nama</p><p className="font-medium text-slate-900">{selectedTenant.owner.name}</p></div>
+                                        <div><p className="text-indigo-400 text-xs">Email</p><p className="font-medium text-slate-900">{selectedTenant.owner.email}</p></div>
+                                        <div><p className="text-indigo-400 text-xs">HP</p><p className="font-medium text-slate-900">{selectedTenant.owner.phone || '-'}</p></div>
+                                    </div>
+                                </div>
+                            )}
+                            {/* Tenant Info */}
                             <div className="grid grid-cols-2 gap-4">
-                                <div><p className="text-xs text-slate-500">Email</p><p className="font-medium">{selectedTenant.email || '-'}</p></div>
-                                <div><p className="text-xs text-slate-500">Phone</p><p className="font-medium">{selectedTenant.phone || '-'}</p></div>
+                                <div><p className="text-xs text-slate-500">Email Dealer</p><p className="font-medium">{selectedTenant.email || '-'}</p></div>
+                                <div><p className="text-xs text-slate-500">Phone Dealer</p><p className="font-medium">{selectedTenant.phone || '-'}</p></div>
                                 <div><p className="text-xs text-slate-500">Plan</p><PlanBadge plan={selectedTenant.planTier} /></div>
                                 <div><p className="text-xs text-slate-500">Status</p><StatusBadge status={selectedTenant.subscriptionStatus} /></div>
                                 <div><p className="text-xs text-slate-500">Alamat</p><p className="font-medium">{selectedTenant.address || '-'}</p></div>

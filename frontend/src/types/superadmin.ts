@@ -19,6 +19,11 @@ export interface Tenant {
     nextBillingDate?: string | null;
     monthlyBill: number;
     autoRenew: boolean;
+    owner?: {
+        name: string;
+        email: string;
+        phone: string | null;
+    } | null;
     usage: {
         users: number;
         vehicles: number;
