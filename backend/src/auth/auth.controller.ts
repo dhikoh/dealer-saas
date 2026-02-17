@@ -20,7 +20,7 @@ export class AuthController {
     return {
       httpOnly: true,
       secure: true,
-      sameSite: 'none',
+      sameSite: 'none' as const,
       path: '/',
       domain: '.modula.click',
       maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
