@@ -15,7 +15,10 @@ export function useAuthProtection(requiredRole?: string, options: { redirect?: b
 
         if (!isAuthenticated) {
             if (options.redirect) {
-                router.push('/auth?force_logout=true');
+                // Check if we are already on auth to preventing pushing duplicate history
+                if (!window.location.pathname.startsWith('/auth')) {
+                    router.push('/auth');
+                }
             }
         } else if (requiredRole && user?.role !== requiredRole) {
             router.push('/unauthorized');

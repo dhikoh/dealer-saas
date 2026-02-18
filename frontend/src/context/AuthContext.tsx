@@ -58,10 +58,18 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
                 // Valid response but not OK (e.g. 401, 403)
                 // If 401, it's expected when not logged in.
                 if (res.status === 401) {
-                    console.warn('[AuthContext] 401 Session Expired. Redirecting...');
-                    // Use window.location to ensure full refresh and clear state
+                    console.warn('[AuthContext] 401 Session Expired.');
+
+                    // Only redirect if NOT already on the auth page to prevent loops
                     if (typeof window !== 'undefined' && !window.location.pathname.startsWith('/auth')) {
+                        console.warn('Redirecting to /auth...');
                         window.location.href = '/auth?error=session_expired';
+                    } else {
+                        // If already on /auth, just clear state so UI shows login form
+                        setUser(null);
+                        setIsAuthenticated(false);
+                        setLoading(false);
+                        localStorage.removeItem('user_info');
                     }
                 } else {
                     console.warn(`Auth check failed with status: ${res.status}`);
@@ -84,6 +92,19 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
     useEffect(() => {
         refreshUser();
+
+        // Safety timeout: If loading takes > 5 seconds, force stop loading
+        const timer = setTimeout(() => {
+            setLoading((prev) => {
+                if (prev) {
+                    console.warn('[AuthContext] Safety timeout triggered. Force stop loading.');
+                    return false;
+                }
+                return prev;
+            });
+        }, 5000);
+
+        return () => clearTimeout(timer);
     }, []);
 
     // Re-check when pathname changes?

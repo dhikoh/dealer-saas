@@ -33,7 +33,12 @@ export class AuthController {
 
   private setCookie(response: Response, token: string, req?: any) {
     const options = this.getCookieOptions(req);
-    console.log(`[Auth] Setting cookie: domain=${options.domain}, secure=${options.secure}, sameSite=${options.sameSite} (Host: ${req?.hostname})`);
+    console.log(`[Auth] Setting cookie:`, {
+      token: token.substring(0, 10) + '...',
+      options,
+      hostname: req?.hostname,
+      origin: req?.headers?.origin
+    });
     response.cookie('auth_token', token, options);
   }
 
