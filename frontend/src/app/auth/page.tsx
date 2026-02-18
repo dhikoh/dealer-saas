@@ -105,122 +105,52 @@ export default function AuthPage() {
 
     const handleSubmit = async (e: React.FormEvent, type: FormType) => {
         e.preventDefault();
+        console.log(`[DEBUG] handleSubmit called for type: ${type}`);
         const form = e.target as HTMLFormElement;
-        const inputs = Array.from(form.elements) as HTMLInputElement[];
-        let isValid = true;
-        let firstErrorFound = false; // Flag to prevent multiple toasts
 
         setErrors({});
-
-        // SINGLE PASS VALIDATION LOOP
-        for (const input of inputs) {
-            if (input.tagName !== 'INPUT') continue;
-
-            // 1. Check Required
-            if (input.hasAttribute('required') && !input.value.trim()) {
-                isValid = false;
-                setErrors(prev => ({ ...prev, [input.name]: true }));
-
-                // Only show toast if it's the first error
-                if (!firstErrorFound) {
-                    toast.error(`${t.authErrRequired}: ${input.placeholder || input.name}`, { description: 'Mohon lengkapi data.' });
-                    firstErrorFound = true;
-                }
-                continue; // Continue to mark other fields as red, but don't show more toasts
-            }
-
-            // 2. Check Email Format
-            if (input.type === 'email' && input.value && !isValidEmail(input.value)) {
-                isValid = false;
-                setErrors(prev => ({ ...prev, [input.name]: true }));
-
-                if (!firstErrorFound) {
-                    toast.error('Format Email Salah', { description: 'Contoh: user@domain.com' });
-                    firstErrorFound = true;
-                }
-                continue;
-            }
-
-            // 3. Check Username (Signup only)
-            if (input.name === 'signup_username' && input.value.trim().length < 3) {
-                isValid = false;
-                setErrors(prev => ({ ...prev, [input.name]: true }));
-
-                if (!firstErrorFound) {
-                    toast.error('Username terlalu pendek', { description: 'Minimal 3 karakter.' });
-                    firstErrorFound = true;
-                }
-                continue;
-            }
-
-            // 4. Check Password Length (Signup only)
-            if (input.name === 'signup_pass') {
-                if (input.value.length < 8) {
-                    isValid = false;
-                    setErrors(prev => ({ ...prev, [input.name]: true }));
-
-                    if (!firstErrorFound) {
-                        toast.error('Password terlalu pendek', { description: 'Minimal 8 karakter.' });
-                        firstErrorFound = true;
-                    }
-                    continue;
-                }
-
-                // Check Complexity (Must match Backend DTO regex)
-                // Regex: At least one uppercase, one lowercase, and one number
-                const complexityRegex = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)/;
-                if (!complexityRegex.test(input.value)) {
-                    isValid = false;
-                    setErrors(prev => ({ ...prev, [input.name]: true }));
-
-                    if (!firstErrorFound) {
-                        toast.error('Password Terlalu Lemah', { description: 'Harus ada Huruf Besar, Kecil, dan Angka.' });
-                        firstErrorFound = true;
-                    }
-                    continue;
-                }
-            }
-
-            // 5. Check Password Confirmation (Signup)
-            if (input.name === 'signup_confirm_pass') {
-                const passInput = form.elements.namedItem('signup_pass') as HTMLInputElement;
-                if (input.value !== passInput.value) {
-                    isValid = false;
-                    setErrors(prev => ({ ...prev, [input.name]: true }));
-
-                    if (!firstErrorFound) {
-                        toast.error('Password Tidak Cocok', { description: 'Pastikan konfirmasi password sama.' });
-                        firstErrorFound = true;
-                    }
-                    continue;
-                }
-            }
-        }
-
-        if (!isValid) return; // Stop here if any validation failed
-
         setApiError(null);
-        setIsLoading(true);
 
-        try {
-            if (type === 'login') {
-                const identifierRaw = (form.elements.namedItem('login_email') as HTMLInputElement).value;
-                const email = identifierRaw.toLowerCase(); // Treat as generic identifier (email or username)
-                const password = (form.elements.namedItem('login_password') as HTMLInputElement).value;
+        // ==================== LOGIN HANDLER ====================
+        if (type === 'login') {
+            const emailInput = form.elements.namedItem('login_email') as HTMLInputElement;
+            const passInput = form.elements.namedItem('login_password') as HTMLInputElement;
+            const email = emailInput.value.trim().toLowerCase();
+            const password = passInput.value;
 
+            // 1. Validate Login
+            let hasError = false;
+            if (!email) {
+                setErrors(prev => ({ ...prev, login_email: true }));
+                toast.error(`${t.authErrRequired}: Email/Username`);
+                hasError = true;
+            }
+            if (!password) {
+                setErrors(prev => ({ ...prev, login_password: true }));
+                if (!hasError) toast.error(`${t.authErrRequired}: Password`); // Only show if no previous toast
+                hasError = true;
+            }
+
+            if (hasError) return;
+
+            // 2. Execute Login
+            setIsLoading(true);
+            console.log("LOGIN STARTED");
+            try {
                 const res = await fetch(`${API_URL}/auth/login`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ email, password }),
-                    credentials: 'include', // Enable cookie storage
+                    credentials: 'include',
                 });
+
+                console.log("LOGIN RESPONSE:", res.status);
 
                 if (!res.ok) throw new Error(t.authErrLoginFailed);
 
                 const data = await res.json();
 
-                // Access Token is set via HTTP-only Cookie by backend
-                // Also store in localStorage for Bearer header fallback
+                // Store tokens
                 localStorage.setItem('user_info', JSON.stringify(data.user));
                 if (data.access_token) localStorage.setItem('access_token', data.access_token);
                 if (data.refresh_token) localStorage.setItem('refresh_token', data.refresh_token);
@@ -232,25 +162,16 @@ export default function AuthPage() {
                 }
 
                 toast.success(`Welcome ${data.user.name}!`);
-
-                // Sync Auth Context immediately
                 await refreshUser();
 
-                // Wait for cookie propagation & Toast
-                setTimeout(async () => {
-                    // Force router refresh to update middleware state (cookie visibility)
+                setTimeout(() => {
                     router.refresh();
-
-                    // Check for redirect param
                     const params = new URLSearchParams(window.location.search);
                     const redirectUrl = params.get('redirect');
-
                     if (redirectUrl) {
                         router.push(redirectUrl);
                         return;
                     }
-
-                    // Role-based redirect fallback
                     if (data.user.role === 'SUPERADMIN') {
                         router.push('/superadmin');
                     } else if (!data.user.onboardingCompleted) {
@@ -260,18 +181,84 @@ export default function AuthPage() {
                     }
                 }, 1000);
 
+            } catch (err: any) {
+                toast.error(err.message || 'Login Failed');
+                setApiError(err.message || 'Login Failed');
+            } finally {
+                setIsLoading(false);
             }
-            else if (type === 'signup') {
-                const username = (form.elements.namedItem('signup_username') as HTMLInputElement).value;
-                const emailRaw = (form.elements.namedItem('signup_email') as HTMLInputElement).value;
-                const email = emailRaw.toLowerCase(); // Ensure lowercase
-                const password = (form.elements.namedItem('signup_pass') as HTMLInputElement).value;
+        }
+        // ==================== SIGNUP HANDLER ====================
+        else if (type === 'signup') {
+            const usernameInput = form.elements.namedItem('signup_username') as HTMLInputElement;
+            const emailInput = form.elements.namedItem('signup_email') as HTMLInputElement;
+            const passInput = form.elements.namedItem('signup_pass') as HTMLInputElement;
+            const confirmPassInput = form.elements.namedItem('signup_confirm_pass') as HTMLInputElement;
 
+            const username = usernameInput.value.trim();
+            const email = emailInput.value.trim().toLowerCase();
+            const password = passInput.value;
+            const confirmPass = confirmPassInput.value;
+
+            let hasError = false;
+
+            // Validate Username
+            if (!username) {
+                setErrors(prev => ({ ...prev, signup_username: true }));
+                if (!hasError) toast.error(`${t.authErrRequired}: Username`);
+                hasError = true;
+            } else if (username.length < 3) {
+                setErrors(prev => ({ ...prev, signup_username: true }));
+                if (!hasError) toast.error('Username terlalu pendek (min 3 chars)');
+                hasError = true;
+            }
+
+            // Validate Email
+            if (!email) {
+                setErrors(prev => ({ ...prev, signup_email: true }));
+                if (!hasError) toast.error(`${t.authErrRequired}: Email`);
+                hasError = true;
+            } else if (!isValidEmail(email)) {
+                setErrors(prev => ({ ...prev, signup_email: true }));
+                if (!hasError) toast.error('Format Email Salah');
+                hasError = true;
+            }
+
+            // Validate Password
+            if (!password) {
+                setErrors(prev => ({ ...prev, signup_pass: true }));
+                if (!hasError) toast.error(`${t.authErrRequired}: Password`);
+                hasError = true;
+            } else if (password.length < 8) {
+                setErrors(prev => ({ ...prev, signup_pass: true }));
+                if (!hasError) toast.error('Password terlalu pendek (min 8 chars)');
+                hasError = true;
+            } else {
+                const complexityRegex = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)/;
+                if (!complexityRegex.test(password)) {
+                    setErrors(prev => ({ ...prev, signup_pass: true }));
+                    if (!hasError) toast.error('Password lemah (Huruf Besar, Kecil, Angka)');
+                    hasError = true;
+                }
+            }
+
+            // Validate Confirmation
+            if (confirmPass !== password) {
+                setErrors(prev => ({ ...prev, signup_confirm_pass: true }));
+                if (!hasError) toast.error('Password Tidak Cocok');
+                hasError = true;
+            }
+
+            if (hasError) return;
+
+            // Execute Signup
+            setIsLoading(true);
+            try {
                 const res = await fetch(`${API_URL}/auth/register`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ username, email, password }),
-                    credentials: 'include', // Enable cookie storage
+                    credentials: 'include',
                 });
 
                 if (!res.ok) {
@@ -280,23 +267,41 @@ export default function AuthPage() {
                 }
 
                 const data = await res.json();
-
-                // Access Token is set via HTTP-only Cookie by backend
-                // Also store in localStorage for Bearer header fallback
                 localStorage.setItem('user_info', JSON.stringify(data.user));
                 if (data.access_token) localStorage.setItem('access_token', data.access_token);
                 if (data.refresh_token) localStorage.setItem('refresh_token', data.refresh_token);
 
                 toast.success(t.authAlertSignup);
-
                 setTimeout(() => {
                     router.push(`/auth/verify?email=${email}`);
                 }, 1000);
+            } catch (err: any) {
+                toast.error(err.message || 'Signup Failed');
+                setApiError(err.message);
+            } finally {
+                setIsLoading(false);
             }
-            else if (type === 'forgot') {
-                const emailRaw = (form.elements.namedItem('forgot_email') as HTMLInputElement).value;
-                const email = emailRaw.toLowerCase();
+        }
+        // ==================== FORGOT PASSWORD HANDLER ====================
+        else if (type === 'forgot') {
+            const emailInput = form.elements.namedItem('forgot_email') as HTMLInputElement;
+            const email = emailInput.value.trim().toLowerCase();
 
+            let hasError = false;
+            if (!email) {
+                setErrors(prev => ({ ...prev, forgot_email: true }));
+                toast.error(`${t.authErrRequired}: Email`);
+                hasError = true;
+            } else if (!isValidEmail(email)) {
+                setErrors(prev => ({ ...prev, forgot_email: true }));
+                toast.error('Format Email Salah');
+                hasError = true;
+            }
+
+            if (hasError) return;
+
+            setIsLoading(true);
+            try {
                 const res = await fetch(`${API_URL}/auth/forgot-password`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
@@ -308,16 +313,14 @@ export default function AuthPage() {
                     throw new Error(errorData.message || 'Gagal mengirim link reset.');
                 }
 
-                toast.success(t.authAlertForgot, { description: 'Cek email Anda untuk link reset password.' });
+                toast.success(t.authAlertForgot);
                 switchForm('login');
+            } catch (err: any) {
+                toast.error(err.message || 'Error occurred');
+                setApiError(err.message);
+            } finally {
+                setIsLoading(false);
             }
-
-            if (type !== 'login') form.reset();
-        } catch (err: any) {
-            toast.error(err.message || 'An error occurred');
-            setApiError(err.message || 'An error occurred');
-        } finally {
-            setIsLoading(false);
         }
     };
 
