@@ -51,8 +51,13 @@ async function bootstrap() {
   }));
 
   // ==================== CORS CONFIGURATION ====================
+  const corsOrigins = (process.env.CORS_ORIGINS || 'https://oto.modula.click')
+    .split(',')
+    .map(s => s.trim())
+    .filter(Boolean);
+
   app.enableCors({
-    origin: 'https://oto.modula.click',
+    origin: corsOrigins,
     credentials: true,
     methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
     allowedHeaders: ['Content-Type', 'Authorization', 'X-Tenant-ID', 'X-Skip-Redirect'],

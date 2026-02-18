@@ -220,8 +220,9 @@ export default function AuthPage() {
                 const data = await res.json();
 
                 // Access Token is set via HTTP-only Cookie by backend
-                // Refresh Token must be stored client-side for the refresh flow
+                // Also store in localStorage for Bearer header fallback
                 localStorage.setItem('user_info', JSON.stringify(data.user));
+                if (data.access_token) localStorage.setItem('access_token', data.access_token);
                 if (data.refresh_token) localStorage.setItem('refresh_token', data.refresh_token);
 
                 if (rememberMe) {
@@ -281,7 +282,9 @@ export default function AuthPage() {
                 const data = await res.json();
 
                 // Access Token is set via HTTP-only Cookie by backend
+                // Also store in localStorage for Bearer header fallback
                 localStorage.setItem('user_info', JSON.stringify(data.user));
+                if (data.access_token) localStorage.setItem('access_token', data.access_token);
                 if (data.refresh_token) localStorage.setItem('refresh_token', data.refresh_token);
 
                 toast.success(t.authAlertSignup);
