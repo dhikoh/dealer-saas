@@ -35,15 +35,21 @@ export class AuthController {
     };
   }
 
-  private setCookie(response: Response, token: string, req?: any) {
+  private setCookie(response: Response, token: string, refreshToken?: string, req?: any) {
     const options = this.getCookieOptions(req);
     console.log(`[Auth] Setting cookie:`, {
       token: token.substring(0, 10) + '...',
+      hasRefreshToken: !!refreshToken,
       options,
       hostname: req?.hostname,
       origin: req?.headers?.origin
     });
+
     response.cookie('auth_token', token, options);
+
+    if (refreshToken) {
+      response.cookie('refresh_token', refreshToken, options);
+    }
   }
 
   // DEBUG ENDPOINT - Remove after fixing
@@ -64,7 +70,7 @@ export class AuthController {
   @Post('register')
   async register(@Body() createAuthDto: CreateAuthDto, @Res({ passthrough: true }) response: Response, @Request() req) {
     const data = await this.authService.register(createAuthDto);
-    this.setCookie(response, data.access_token, req);
+    this.setCookie(response, data.access_token, data.refresh_token, req);
     return data;
   }
 
@@ -76,7 +82,7 @@ export class AuthController {
   async login(@Body() loginDto: LoginDto, @Res({ passthrough: true }) response: Response, @Request() req) {
     console.log("LOGIN JWT_SECRET length:", process.env.JWT_SECRET?.length);
     const data = await this.authService.login(loginDto);
-    this.setCookie(response, data.access_token, req);
+    this.setCookie(response, data.access_token, data.refresh_token, req);
     return data;
   }
 
@@ -86,7 +92,7 @@ export class AuthController {
   @Post('verify')
   async verify(@Body() body: VerifyEmailDto, @Res({ passthrough: true }) response: Response, @Request() req) {
     const data = await this.authService.verifyEmail(body.email, body.code);
-    this.setCookie(response, data.access_token, req);
+    this.setCookie(response, data.access_token, data.refresh_token, req);
     return data;
   }
 
@@ -111,7 +117,7 @@ export class AuthController {
       officeAddress: body.officeAddress,
       language: body.language
     });
-    this.setCookie(response, data.access_token, req);
+    this.setCookie(response, data.access_token, data.refresh_token, req);
     return data;
   }
 
@@ -148,7 +154,7 @@ export class AuthController {
   @Post('google')
   async googleLogin(@Body() body: GoogleLoginDto, @Res({ passthrough: true }) response: Response, @Request() req) {
     const data = await this.authService.googleLogin(body.credential);
-    this.setCookie(response, data.access_token, req);
+    this.setCookie(response, data.access_token, data.refresh_token, req);
     return data;
   }
 
@@ -174,7 +180,7 @@ export class AuthController {
   @Post('refresh')
   async refresh(@Body() body: RefreshTokenDto, @Res({ passthrough: true }) response: Response, @Request() req) {
     const data = await this.authService.refreshToken(body.refresh_token);
-    this.setCookie(response, data.access_token, req);
+    this.setCookie(response, data.access_token, data.refresh_token, req);
     return data;
   }
 
