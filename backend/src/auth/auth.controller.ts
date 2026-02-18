@@ -18,11 +18,16 @@ export class AuthController {
 
   private getCookieOptions(req?: any) {
     const isProduction = process.env.NODE_ENV === 'production';
-    // Enforce .modula.click in production or use env var. Fallback to undefined for localhost.
-    let domain = process.env.COOKIE_DOMAIN;
 
-    if (!domain && isProduction) {
-      domain = '.modula.click';
+    // HARDCODED for Production to ensure cross-subdomain works
+    // Backend: dealer.modula.click
+    // Frontend: oto.modula.click
+    // Shared Cookie Domain: .modula.click
+    let domain = isProduction ? '.modula.click' : undefined;
+
+    // Fallback/Override for development if needed
+    if (!isProduction && process.env.COOKIE_DOMAIN) {
+      domain = process.env.COOKIE_DOMAIN;
     }
 
     return {
