@@ -70,6 +70,7 @@ export class AuthController {
   @Throttle({ default: { limit: 5, ttl: 60000 } }) // Limit: 5 requests per minute
   @Post('login')
   async login(@Body() loginDto: LoginDto, @Res({ passthrough: true }) response: Response, @Request() req) {
+    console.log("LOGIN JWT_SECRET length:", process.env.JWT_SECRET?.length);
     const data = await this.authService.login(loginDto);
     this.setCookie(response, data.access_token, req);
     return data;

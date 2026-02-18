@@ -6,8 +6,7 @@ import { Request } from 'express';
 @Injectable()
 export class JwtStrategy extends PassportStrategy(Strategy) {
     constructor() {
-        const secret = process.env.JWT_SECRET;
-        console.log('[JwtStrategy] Initialized with Secret Length:', secret ? secret.length : 'UNDEFINED');
+        console.log("STRATEGY JWT_SECRET length:", process.env.JWT_SECRET?.length);
 
         super({
             jwtFromRequest: ExtractJwt.fromExtractors([
@@ -15,10 +14,8 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
                     const cookies = request?.cookies;
                     const token = cookies?.auth_token;
 
-                    console.log('[JwtStrategy] Extractor - Cookies:', cookies ? Object.keys(cookies) : 'None');
-                    console.log('[JwtStrategy] Extractor - auth_token found:', !!token);
-
-                    if (token) console.log('[JwtStrategy] Token Preview:', token.substring(0, 15) + '...');
+                    console.log("Incoming cookies:", cookies);
+                    console.log("Extracted token:", token?.substring(0, 20));
 
                     return token;
                 },
@@ -34,7 +31,7 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
     }
 
     async validate(payload: any) {
-        console.log('[JwtStrategy] Validating payload:', payload);
+        console.log("Decoded payload:", payload);
         return {
             userId: payload.sub,
             email: payload.email,

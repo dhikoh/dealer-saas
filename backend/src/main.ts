@@ -101,7 +101,6 @@ async function bootstrap() {
   logger.log(`🔒 Security: Helmet, CORS, Validation, Guards, ExceptionFilter enabled`);
   logger.log(`🌍 Environment: ${configService.get('NODE_ENV', 'development')}`);
 
-  const jwtSecret = process.env.JWT_SECRET;
-  logger.log(`🔑 JWT_SECRET: ${jwtSecret ? `Present (Length: ${jwtSecret.length})` : 'MISSING'}`);
+  console.log("BOOT JWT_SECRET length:", process.env.JWT_SECRET?.length);
 }
 bootstrap();
