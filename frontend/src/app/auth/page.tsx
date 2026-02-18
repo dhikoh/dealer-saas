@@ -113,42 +113,62 @@ export default function AuthPage() {
 
         // ==================== LOGIN HANDLER ====================
         if (type === 'login') {
-            const emailInput = form.elements.namedItem('login_email') as HTMLInputElement;
-            const passInput = form.elements.namedItem('login_password') as HTMLInputElement;
-            const email = emailInput.value.trim().toLowerCase();
-            const password = passInput.value;
+            console.log("[DEBUG] LOGIN HANDLER EXECUTING");
 
-            // 1. Validate Login
-            let hasError = false;
-            if (!email) {
-                setErrors(prev => ({ ...prev, login_email: true }));
-                toast.error(`${t.authErrRequired}: Email/Username`);
-                hasError = true;
-            }
-            if (!password) {
-                setErrors(prev => ({ ...prev, login_password: true }));
-                if (!hasError) toast.error(`${t.authErrRequired}: Password`); // Only show if no previous toast
-                hasError = true;
-            }
-
-            if (hasError) return;
-
-            // 2. Execute Login
-            setIsLoading(true);
-            console.log("LOGIN STARTED");
             try {
-                const res = await fetch(`${API_URL}/auth/login`, {
+                const emailInput = form.elements.namedItem('login_email') as HTMLInputElement;
+                const passInput = form.elements.namedItem('login_password') as HTMLInputElement;
+
+                if (!emailInput || !passInput) {
+                    console.error("[DEBUG] CRITICAL: Login inputs not found in form DOM");
+                    toast.error("Form Error: Inputs missing");
+                    return;
+                }
+
+                const email = emailInput.value.trim().toLowerCase();
+                const password = passInput.value;
+
+                console.log("[DEBUG] Inputs retrieved:", { email, hasPassword: !!password });
+
+                // 1. Validate Login
+                let hasError = false;
+                if (!email) {
+                    setErrors(prev => ({ ...prev, login_email: true }));
+                    toast.error(`${t.authErrRequired}: Email/Username`);
+                    hasError = true;
+                }
+                if (!password) {
+                    setErrors(prev => ({ ...prev, login_password: true }));
+                    if (!hasError) toast.error(`${t.authErrRequired}: Password`);
+                    hasError = true;
+                }
+
+                if (hasError) {
+                    console.warn("[DEBUG] Validation failed");
+                    return;
+                }
+
+                // 2. Execute Login
+                setIsLoading(true);
+                const endpoint = `${API_URL}/auth/login`;
+                console.log("LOGIN FETCH START", endpoint);
+
+                const res = await fetch(endpoint, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ email, password }),
                     credentials: 'include',
                 });
 
-                console.log("LOGIN RESPONSE:", res.status);
+                console.log("LOGIN RESPONSE STATUS:", res.status);
 
-                if (!res.ok) throw new Error(t.authErrLoginFailed);
+                if (!res.ok) {
+                    console.warn("LOGIN REQUEST FAILED");
+                    throw new Error(t.authErrLoginFailed);
+                }
 
                 const data = await res.json();
+                console.log("LOGIN SUCCESS payload received");
 
                 // Store tokens
                 localStorage.setItem('user_info', JSON.stringify(data.user));
@@ -165,6 +185,7 @@ export default function AuthPage() {
                 await refreshUser();
 
                 setTimeout(() => {
+                    console.log("[DEBUG] Redirecting after login...");
                     router.refresh();
                     const params = new URLSearchParams(window.location.search);
                     const redirectUrl = params.get('redirect');
@@ -182,6 +203,7 @@ export default function AuthPage() {
                 }, 1000);
 
             } catch (err: any) {
+                console.error("[DEBUG] LOGIN EXCEPTION:", err);
                 toast.error(err.message || 'Login Failed');
                 setApiError(err.message || 'Login Failed');
             } finally {
