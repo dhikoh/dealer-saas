@@ -51,10 +51,23 @@ async function bootstrap() {
   }));
 
   // ==================== CORS CONFIGURATION ====================
-  const corsOrigins = (process.env.CORS_ORIGINS || 'https://oto.modula.click')
+  const corsOrigins = (process.env.CORS_ORIGINS || '')
     .split(',')
     .map(s => s.trim())
     .filter(Boolean);
+
+  // Force add production domains if not present
+  const requiredOrigins = [
+    'https://oto.modula.click',
+    'https://www.modula.click',
+    'http://localhost:3000'
+  ];
+
+  requiredOrigins.forEach(origin => {
+    if (!corsOrigins.includes(origin)) {
+      corsOrigins.push(origin);
+    }
+  });
 
   app.enableCors({
     origin: corsOrigins,

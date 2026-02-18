@@ -102,6 +102,13 @@ export async function fetchApi(
         credentials: 'include',
     };
 
+    if (typeof window !== 'undefined' && (url.includes('/auth') || url.includes('/app'))) {
+        console.log(`[API] Fetching ${url}`);
+        // Mask cookie for security but show existence
+        const cookieExists = document.cookie.includes('auth_token');
+        console.log(`[API] Credentials: include, Cookie auth_token present: ${cookieExists}`);
+    }
+
     const res = await fetch(url, fetchOptions);
 
     if (res.status === 401 && typeof window !== 'undefined') {

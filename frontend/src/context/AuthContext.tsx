@@ -57,7 +57,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             } else {
                 // Valid response but not OK (e.g. 401, 403)
                 // If 401, it's expected when not logged in.
-                if (res.status !== 401) {
+                if (res.status === 401) {
+                    console.warn('[AuthContext] 401 Session Expired. Redirecting...');
+                    // Use window.location to ensure full refresh and clear state
+                    if (typeof window !== 'undefined' && !window.location.pathname.startsWith('/auth')) {
+                        window.location.href = '/auth?error=session_expired';
+                    }
+                } else {
                     console.warn(`Auth check failed with status: ${res.status}`);
                 }
 

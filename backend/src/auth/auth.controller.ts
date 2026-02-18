@@ -17,12 +17,16 @@ export class AuthController {
   constructor(private readonly authService: AuthService) { }
 
   private getCookieOptions(req?: any) {
+    const isProduction = process.env.NODE_ENV === 'production';
+    const domain = process.env.COOKIE_DOMAIN || undefined;
+
     return {
       httpOnly: true,
-      secure: true,
-      sameSite: 'none' as const,
+      // Secure is required for SameSite=None
+      secure: isProduction || process.env.COOKIE_SECURE === 'true' || true,
+      sameSite: 'none' as const, // Keep 'none' to allow cross-site (FE/BE on different ports/subdomains)
       path: '/',
-      domain: '.modula.click',
+      domain, // Dynamically set
       maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
     };
   }
