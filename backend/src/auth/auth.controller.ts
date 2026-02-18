@@ -18,15 +18,19 @@ export class AuthController {
 
   private getCookieOptions(req?: any) {
     const isProduction = process.env.NODE_ENV === 'production';
-    const domain = process.env.COOKIE_DOMAIN || undefined;
+    // Enforce .modula.click in production or use env var. Fallback to undefined for localhost.
+    let domain = process.env.COOKIE_DOMAIN;
+
+    if (!domain && isProduction) {
+      domain = '.modula.click';
+    }
 
     return {
       httpOnly: true,
-      // Secure is required for SameSite=None
-      secure: isProduction || process.env.COOKIE_SECURE === 'true' || true,
-      sameSite: 'none' as const, // Keep 'none' to allow cross-site (FE/BE on different ports/subdomains)
+      secure: true, // Always true for SameSite=None
+      sameSite: 'none' as const,
       path: '/',
-      domain, // Dynamically set
+      domain,
       maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
     };
   }
