@@ -14,9 +14,15 @@ import { VehicleModule } from '../vehicle/vehicle.module';
     PassportModule,
     HttpModule, // For Google OAuth token verification
     forwardRef(() => VehicleModule), // For seeding default brands during onboarding
-    JwtModule.register({
-      secret: process.env.JWT_SECRET || 'super-secret-key',
-      signOptions: { expiresIn: '15m' },
+    JwtModule.registerAsync({
+      useFactory: () => {
+        const secret = process.env.JWT_SECRET;
+        if (!secret) throw new Error('FATAL: JWT_SECRET is not defined in AuthModule');
+        return {
+          secret,
+          signOptions: { expiresIn: '7d' }, // Matches cookie maxAge
+        };
+      },
     }),
   ],
   controllers: [AuthController],

@@ -335,6 +335,10 @@ export class AuthService {
 
     this.logger.log(`Login attempt for: ${normalizedIdentifier}`);
 
+    // DEBUG: Log Secret Length
+    const secret = process.env.JWT_SECRET;
+    this.logger.log(`[AuthService] Signing with Secret Length: ${secret ? secret.length : 'UNDEFINED'}`);
+
     // SECURITY: Check login rate limit
     this.checkLoginRateLimit(normalizedIdentifier);
 

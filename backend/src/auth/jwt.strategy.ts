@@ -25,7 +25,11 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
                 ExtractJwt.fromAuthHeaderAsBearerToken(),
             ]),
             ignoreExpiration: false,
-            secretOrKey: secret || 'super-secret-key', // Fallback to match Module if env missing (for debug)
+            secretOrKey: (() => {
+                const secret = process.env.JWT_SECRET;
+                if (!secret) throw new Error('FATAL: JWT_SECRET environment variable is not set');
+                return secret;
+            })(),
         });
     }
 
