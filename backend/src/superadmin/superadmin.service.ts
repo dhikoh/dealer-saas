@@ -837,6 +837,7 @@ export class SuperadminService implements OnModuleInit {
 
         const now = new Date();
         const endsAt = new Date(now.getTime() + data.billingMonths * 30 * 24 * 60 * 60 * 1000);
+        const nextBillingDate = endsAt; // Assuming next billing is when current subscription ends
 
         const updated = await this.prisma.tenant.update({
             where: { id: tenantId },
@@ -844,9 +845,9 @@ export class SuperadminService implements OnModuleInit {
                 planTier: data.planTier,
                 monthlyBill: plan.price,
                 subscriptionStatus: 'ACTIVE',
-                subscriptionStartedAt: now,
-                subscriptionEndsAt: endsAt,
-                nextBillingDate: endsAt,
+                subscriptionStartedAt: new Date(), // Track when this subscription started
+                subscriptionEndsAt: nextBillingDate,
+                nextBillingDate: nextBillingDate,
                 trialEndsAt: null,
             },
         });
@@ -1298,5 +1299,129 @@ export class SuperadminService implements OnModuleInit {
     // ==================== MARKETPLACE API ====================
     // Logic moved to PublicService to avoid duplication
     // and allow consumption by both Superadmin and Public APIs
+
+    // ==================== SUBSCRIPTION MANAGEMENT ====================
+
+    /**
+     * Extend tenant subscription by adding months
+     */
+    async extendSubscription(tenantId: string, months: number, adminId: string) {
+        const tenant = await this.prisma.tenant.findUnique({
+            where: { id: tenantId },
+            select: { subscriptionEndsAt: true, name: true }
+        });
+
+        if (!tenant) {
+            throw new NotFoundException('Tenant not found');
+        }
+
+        // Calculate new end date
+        const currentEnd = tenant.subscriptionEndsAt || new Date();
+        const newEnd = new Date(currentEnd);
+        newEnd.setMonth(newEnd.getMonth() + months);
+
+        // Update subscription
+        const updated = await this.prisma.tenant.update({
+            where: { id: tenantId },
+            data: {
+                subscriptionEndsAt: newEnd,
+                nextBillingDate: newEnd,
+                subscriptionStatus: 'ACTIVE', // Ensure active when extending
+            },
+        });
+
+        // Log admin activity
+        await this.logActivity({
+            userId: adminId,
+            action: 'SUBSCRIPTION_EXTEND',
+            entityType: 'TENANT',
+            entityId: tenantId,
+            entityName: tenant.name,
+            details: JSON.stringify({ oldEnd: currentEnd, newEnd, months }),
+        });
+
+        return updated;
+    }
+
+    /**
+     * Reduce tenant subscription by removing months
+     */
+    async reduceSubscription(tenantId: string, months: number, adminId: string) {
+        const tenant = await this.prisma.tenant.findUnique({
+            where: { id: tenantId },
+            select: { subscriptionEndsAt: true, name: true }
+        });
+
+        if (!tenant) {
+            throw new NotFoundException('Tenant not found');
+        }
+
+        // Calculate new end date
+        const currentEnd = tenant.subscriptionEndsAt || new Date();
+        const newEnd = new Date(currentEnd);
+        newEnd.setMonth(newEnd.getMonth() - months);
+
+        // Prevent reducing below current date
+        if (newEnd < new Date()) {
+            throw new BadRequestException('Cannot reduce subscription below current date');
+        }
+
+        // Update subscription
+        const updated = await this.prisma.tenant.update({
+            where: { id: tenantId },
+            data: {
+                subscriptionEndsAt: newEnd,
+                nextBillingDate: newEnd,
+            },
+        });
+
+        // Log admin activity
+        await this.logActivity({
+            userId: adminId,
+            action: 'SUBSCRIPTION_REDUCE',
+            entityType: 'TENANT',
+            entityId: tenantId,
+            entityName: tenant.name,
+            details: JSON.stringify({ oldEnd: currentEnd, newEnd, months }),
+        });
+
+        return updated;
+    }
+
+    /**
+     * Get detailed subscription information for a tenant
+     */
+    async getTenantSubscription(tenantId: string) {
+        const tenant = await this.prisma.tenant.findUnique({
+            where: { id: tenantId },
+            select: {
+                subscriptionStatus: true,
+                subscriptionStartedAt: true,
+                subscriptionEndsAt: true,
+                nextBillingDate: true,
+                monthlyBill: true,
+                autoRenew: true,
+                trialEndsAt: true,
+                planTier: true,
+                name: true,
+            },
+        });
+
+        if (!tenant) {
+            throw new NotFoundException('Tenant not found');
+        }
+
+        // Calculate days remaining
+        const now = new Date();
+        const endDate = tenant.subscriptionEndsAt ? new Date(tenant.subscriptionEndsAt) : null;
+        const daysRemaining = endDate
+            ? Math.ceil((endDate.getTime() - now.getTime()) / (1000 * 60 * 60 * 24))
+            : null;
+
+        return {
+            ...tenant,
+            daysRemaining,
+        };
+    }
 }
 

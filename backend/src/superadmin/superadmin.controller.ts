@@ -10,6 +10,7 @@ import {
     CreateTenantDto, UpdateTenantDto, UpdateTenantStatusDto, SuspendTenantDto,
     UpgradeTenantPlanDto, DirectPlanChangeDto
 } from './dto/tenant.dto';
+import { ExtendSubscriptionDto, ReduceSubscriptionDto } from './dto/subscription.dto';
 import { CreateAdminStaffDto } from './dto/user.dto';
 import { CreateInvoiceDto, VerifyInvoiceDto } from './dto/invoice.dto';
 import { CreateApprovalRequestDto, ProcessApprovalRequestDto } from './dto/approval.dto';
@@ -387,5 +388,33 @@ export class SuperadminController {
     @Roles('SUPERADMIN')
     async updateCms(@Body() data: any) {
         return this.superadminService.updateLandingContent(data);
+    }
+
+    // ==================== SUBSCRIPTION MANAGEMENT ====================
+
+    @Patch('tenants/:id/subscription/extend')
+    @Roles('SUPERADMIN')
+    async extendSubscription(
+        @Param('id') id: string,
+        @Body() dto: ExtendSubscriptionDto,
+        @Request() req: any
+    ) {
+        return this.superadminService.extendSubscription(id, dto.months, req.user.id);
+    }
+
+    @Patch('tenants/:id/subscription/reduce')
+    @Roles('SUPERADMIN')
+    async reduceSubscription(
+        @Param('id') id: string,
+        @Body() dto: ReduceSubscriptionDto,
+        @Request() req: any
+    ) {
+        return this.superadminService.reduceSubscription(id, dto.months, req.user.id);
+    }
+
+    @Get('tenants/:id/subscription')
+    @Roles('SUPERADMIN')
+    async getTenantSubscription(@Param('id') id: string) {
+        return this.superadminService.getTenantSubscription(id);
     }
 }

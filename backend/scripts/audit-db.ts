@@ -35,7 +35,7 @@ async function audit() {
         const userCount = await prisma.user.count();
         console.log(`📊 Total Users: ${userCount}`);
 
-    } catch (e) {
+    } catch (e: any) {
         console.error('❌ Connectivity Check Failed:', e.message);
         if (e.code) console.error('   Error Code:', e.code);
     } finally {

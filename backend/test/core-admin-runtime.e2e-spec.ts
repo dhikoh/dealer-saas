@@ -1,6 +1,6 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { INestApplication } from '@nestjs/common';
-import * as request from 'supertest';
+import request from 'supertest';
 import { AppModule } from './../src/app.module';
 import { PrismaClient } from '@prisma/client';
 import * as bcrypt from 'bcrypt';
@@ -53,6 +53,7 @@ describe('Core Admin Runtime Validation (E2E)', () => {
             create: {
                 email: testAdmin.email,
                 name: testAdmin.name,
+                username: `e2e_superadmin_${Date.now()}`,
                 password: hashedPassword,
                 role: 'SUPERADMIN',
                 isVerified: true,
