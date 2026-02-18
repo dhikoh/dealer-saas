@@ -29,17 +29,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     const pathname = usePathname();
 
     const refreshUser = useCallback(async () => {
-        // Optimistic check from localStorage
-        const storedUser = localStorage.getItem('user_info');
-        if (storedUser && loading) {
-            try {
-                const parsed = JSON.parse(storedUser);
-                setUser(parsed);
-                setIsAuthenticated(true);
-            } catch {
-                localStorage.removeItem('user_info');
-            }
-        }
+        // REMOVED: Optimistic check from localStorage or document.cookie
+        // Authentication state is determined ONLY by calling GET /auth/me
 
         try {
             const res = await fetchApi('/auth/me', {
@@ -53,32 +44,19 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
                 setUser(data);
                 setIsAuthenticated(true);
                 setLoading(false);
-                localStorage.setItem('user_info', JSON.stringify(data));
             } else {
-                // Valid response but not OK (e.g. 401, 403)
-                // If 401, it's expected when not logged in.
+                // ... logic for 401 handling ...
                 if (res.status === 401) {
-                    console.warn('[AuthContext] 401 Session Expired.');
-
                     // Only redirect if NOT already on the auth page to prevent loops
                     if (typeof window !== 'undefined' && !window.location.pathname.startsWith('/auth')) {
-                        console.warn('Redirecting to /auth...');
-                        window.location.href = '/auth?error=session_expired';
-                    } else {
-                        // If already on /auth, just clear state so UI shows login form
-                        setUser(null);
-                        setIsAuthenticated(false);
-                        setLoading(false);
-                        localStorage.removeItem('user_info');
+                        // Optional: Redirect logic can be here or in useAuthProtection
+                        // For now, valid 401 means not authenticated.
                     }
-                } else {
-                    console.warn(`Auth check failed with status: ${res.status}`);
                 }
 
                 setUser(null);
                 setIsAuthenticated(false);
                 setLoading(false);
-                localStorage.removeItem('user_info');
             }
         } catch (error) {
             // Network error or other issues
