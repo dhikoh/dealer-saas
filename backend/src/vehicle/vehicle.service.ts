@@ -223,6 +223,78 @@ export class VehicleService {
         });
     }
 
+    async updateBrand(id: string, tenantId: string, data: { name?: string; category?: string }) {
+        const brand = await this.prisma.vehicleBrand.findFirst({
+            where: { id, tenantId },
+        });
+        if (!brand) {
+            throw new NotFoundException('Brand tidak ditemukan');
+        }
+        return this.prisma.vehicleBrand.update({
+            where: { id },
+            data: {
+                ...(data.name && { name: data.name.trim() }),
+                ...(data.category && { category: data.category }),
+            },
+        });
+    }
+
+    async deleteBrand(id: string, tenantId: string) {
+        const brand = await this.prisma.vehicleBrand.findFirst({
+            where: { id, tenantId },
+        });
+        if (!brand) {
+            throw new NotFoundException('Brand tidak ditemukan');
+        }
+        // Check if any vehicles use this brand name
+        const vehiclesUsingBrand = await this.prisma.vehicle.count({
+            where: { tenantId, make: brand.name },
+        });
+        if (vehiclesUsingBrand > 0) {
+            throw new BadRequestException(
+                `Tidak dapat menghapus brand. ${vehiclesUsingBrand} kendaraan masih menggunakan brand ini.`,
+            );
+        }
+        // Cascade deletes models automatically (schema onDelete: Cascade)
+        return this.prisma.vehicleBrand.delete({ where: { id } });
+    }
+
+    async updateModel(id: string, tenantId: string, data: { name?: string; variants?: string }) {
+        // SECURITY: Verify model belongs to tenant via brand
+        const model = await this.prisma.vehicleModel.findFirst({
+            where: { id, brand: { tenantId } },
+        });
+        if (!model) {
+            throw new NotFoundException('Model tidak ditemukan');
+        }
+        return this.prisma.vehicleModel.update({
+            where: { id },
+            data: {
+                ...(data.name && { name: data.name.trim() }),
+                ...(data.variants !== undefined && { variants: data.variants }),
+            },
+        });
+    }
+
+    async deleteModel(id: string, tenantId: string) {
+        const model = await this.prisma.vehicleModel.findFirst({
+            where: { id, brand: { tenantId } },
+        });
+        if (!model) {
+            throw new NotFoundException('Model tidak ditemukan');
+        }
+        // Check if any vehicles use this model name
+        const vehiclesUsingModel = await this.prisma.vehicle.count({
+            where: { tenantId, model: model.name },
+        });
+        if (vehiclesUsingModel > 0) {
+            throw new BadRequestException(
+                `Tidak dapat menghapus model. ${vehiclesUsingModel} kendaraan masih menggunakan model ini.`,
+            );
+        }
+        return this.prisma.vehicleModel.delete({ where: { id } });
+    }
+
     // ==================== STATS ====================
 
     async getStats(tenantId: string) {

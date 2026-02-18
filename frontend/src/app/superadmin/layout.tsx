@@ -5,7 +5,7 @@ import { useRouter, usePathname } from 'next/navigation';
 import Link from 'next/link';
 import {
     LayoutDashboard, Users, CreditCard, FileText, Settings, Bell,
-    ChevronLeft, ChevronRight, LogOut, Check, CheckCheck, X,
+    LogOut, Check, CheckCheck, X,
     ShieldCheck, Activity, Globe, Building2
 } from 'lucide-react';
 import { API_URL, fetchApi } from '@/lib/api';
@@ -36,7 +36,8 @@ export default function SuperadminLayout({ children }: { children: React.ReactNo
     const router = useRouter();
     const pathname = usePathname();
     const [mounted, setMounted] = useState(false);
-    const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+    const [sidebarHovered, setSidebarHovered] = useState(false);
+    const isExpanded = sidebarHovered;
 
     // Notifications
     const [notifications, setNotifications] = useState<Notification[]>([]);
@@ -145,59 +146,93 @@ export default function SuperadminLayout({ children }: { children: React.ReactNo
     return (
         <div className="flex min-h-screen bg-slate-100">
             {/* SIDEBAR */}
-            <aside className={`fixed left-0 top-0 h-full bg-white border-r border-slate-200 shadow-sm z-30 transition-all duration-300 ${sidebarCollapsed ? 'w-16' : 'w-64'}`}>
+            <aside
+                onMouseEnter={() => setSidebarHovered(true)}
+                onMouseLeave={() => setSidebarHovered(false)}
+                className="fixed left-0 top-0 h-full bg-white border-r border-slate-200 z-30 overflow-y-auto overflow-x-hidden no-scrollbar"
+                style={{
+                    width: isExpanded ? '256px' : '64px',
+                    transition: 'width 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275), box-shadow 0.3s ease',
+                    boxShadow: isExpanded ? '8px 0 30px rgba(0,0,0,0.08)' : '1px 0 0 rgb(226, 232, 240)',
+                }}
+            >
                 {/* Logo */}
-                <div className="h-16 flex items-center justify-between px-4 border-b border-slate-100">
-                    {!sidebarCollapsed && (
-                        <div className="flex items-center gap-2">
-                            <div className="w-8 h-8 rounded-lg bg-indigo-600 flex items-center justify-center text-white text-sm font-bold">O</div>
-                            <span className="font-bold text-slate-900">OTOHUB</span>
-                            <span className="text-[10px] bg-indigo-100 text-indigo-700 px-1.5 py-0.5 rounded font-medium">Admin</span>
-                        </div>
-                    )}
-                    <button
-                        onClick={() => setSidebarCollapsed(!sidebarCollapsed)}
-                        className="p-1.5 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded-lg transition-colors"
-                    >
-                        {sidebarCollapsed ? <ChevronRight className="w-4 h-4" /> : <ChevronLeft className="w-4 h-4" />}
-                    </button>
+                <div className="h-16 flex items-center gap-2 px-4 border-b border-slate-100" style={{ minHeight: '64px' }}>
+                    <div className="w-8 h-8 rounded-lg bg-indigo-600 flex items-center justify-center text-white text-sm font-bold flex-shrink-0">O</div>
+                    <span
+                        className="font-bold text-slate-900 whitespace-nowrap overflow-hidden"
+                        style={{
+                            opacity: isExpanded ? 1 : 0,
+                            maxWidth: isExpanded ? '120px' : '0px',
+                            transform: isExpanded ? 'translateX(0)' : 'translateX(-8px)',
+                            transition: 'opacity 0.25s ease 0.1s, max-width 0.3s ease, transform 0.3s ease',
+                        }}
+                    >OTOHUB</span>
+                    <span
+                        className="text-[10px] bg-indigo-100 text-indigo-700 px-1.5 py-0.5 rounded font-medium whitespace-nowrap"
+                        style={{
+                            opacity: isExpanded ? 1 : 0,
+                            maxWidth: isExpanded ? '50px' : '0px',
+                            transition: 'opacity 0.2s ease 0.15s, max-width 0.3s ease',
+                            overflow: 'hidden',
+                        }}
+                    >Admin</span>
                 </div>
 
                 {/* Nav */}
-                <nav className="p-3 space-y-1">
+                <nav className="p-2 space-y-1">
                     {menuItems.map(item => {
                         const isActive = pathname === item.href || (item.href !== '/superadmin' && pathname.startsWith(item.href));
                         return (
                             <Link
                                 key={item.id}
                                 href={item.href}
-                                className={`flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm transition-all ${isActive
+                                className={`flex items-center gap-3 py-2.5 rounded-lg text-sm ${isActive
                                     ? 'bg-indigo-50 text-indigo-700 font-medium'
                                     : 'text-slate-600 hover:bg-slate-100'
-                                    } ${sidebarCollapsed ? 'justify-center' : ''}`}
-                                title={sidebarCollapsed ? item.label : undefined}
+                                    } ${isExpanded ? 'px-3' : 'justify-center px-0'}`}
+                                style={{ transition: 'all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275)' }}
+                                title={!isExpanded ? item.label : undefined}
                             >
                                 <item.icon className={`w-5 h-5 flex-shrink-0 ${isActive ? 'text-indigo-600' : 'text-slate-400'}`} />
-                                {!sidebarCollapsed && <span>{item.label}</span>}
+                                <span
+                                    className="whitespace-nowrap overflow-hidden"
+                                    style={{
+                                        opacity: isExpanded ? 1 : 0,
+                                        maxWidth: isExpanded ? '160px' : '0px',
+                                        transform: isExpanded ? 'translateX(0)' : 'translateX(-8px)',
+                                        transition: 'opacity 0.25s ease, max-width 0.3s ease, transform 0.3s ease',
+                                    }}
+                                >{item.label}</span>
                             </Link>
                         );
                     })}
                 </nav>
 
                 {/* Logout */}
-                <div className="absolute bottom-4 left-0 right-0 px-3">
+                <div className="absolute bottom-4 left-0 right-0 px-2">
                     <button
                         onClick={handleLogout}
-                        className={`flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm text-rose-600 hover:bg-rose-50 w-full transition-colors ${sidebarCollapsed ? 'justify-center' : ''}`}
+                        className={`flex items-center gap-3 py-2.5 rounded-lg text-sm text-rose-600 hover:bg-rose-50 w-full ${isExpanded ? 'px-3' : 'justify-center px-0'}`}
+                        style={{ transition: 'all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275)' }}
+                        title={!isExpanded ? 'Logout' : undefined}
                     >
-                        <LogOut className="w-5 h-5" />
-                        {!sidebarCollapsed && <span>Logout</span>}
+                        <LogOut className="w-5 h-5 flex-shrink-0" />
+                        <span
+                            className="whitespace-nowrap overflow-hidden"
+                            style={{
+                                opacity: isExpanded ? 1 : 0,
+                                maxWidth: isExpanded ? '80px' : '0px',
+                                transform: isExpanded ? 'translateX(0)' : 'translateX(-8px)',
+                                transition: 'opacity 0.25s ease, max-width 0.3s ease, transform 0.3s ease',
+                            }}
+                        >Logout</span>
                     </button>
                 </div>
             </aside>
 
             {/* MAIN AREA */}
-            <div className={`flex-1 flex flex-col transition-all duration-300 ${sidebarCollapsed ? 'ml-16' : 'ml-64'}`}>
+            <div className="flex-1 flex flex-col ml-16">
                 {/* HEADER */}
                 <header className="sticky top-0 z-20 h-16 bg-white border-b border-slate-200 shadow-sm flex items-center justify-between px-6">
                     <div>

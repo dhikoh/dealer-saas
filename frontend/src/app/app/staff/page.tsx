@@ -13,7 +13,13 @@ interface Staff {
     phone: string | null;
     role: string;
     branchId: string | null;
+    branch?: { id: string; name: string } | null;
     createdAt: string;
+}
+
+interface Branch {
+    id: string;
+    name: string;
 }
 
 export default function StaffPage() {
@@ -32,11 +38,15 @@ export default function StaffPage() {
         phone: '',
         role: 'STAFF',
         password: '',
+        branchId: '',
     });
+    const [branches, setBranches] = useState<Branch[]>([]);
 
     const ROLES = [
-        { id: 'OWNER', name: 'Owner', desc: t.fullAccess, color: 'purple' },
+        { id: 'ADMIN', name: 'Admin', desc: 'Akses manajemen penuh', color: 'purple' },
         { id: 'STAFF', name: 'Staff', desc: t.limitedAccess, color: 'blue' },
+        { id: 'SALES', name: 'Sales', desc: 'Akses penjualan', color: 'green' },
+        { id: 'MECHANIC', name: 'Mekanik', desc: 'Akses teknis', color: 'orange' },
     ];
 
     useEffect(() => {
@@ -45,15 +55,23 @@ export default function StaffPage() {
 
     const fetchStaff = async () => {
         try {
-            const res = await fetchApi('/tenant/staff');
+            const [staffRes, branchRes] = await Promise.all([
+                fetchApi('/tenant/staff'),
+                fetchApi('/tenant/branches'),
+            ]);
 
-            if (!res.ok) throw new Error('Failed to fetch staff');
+            if (!staffRes.ok) throw new Error('Failed to fetch staff');
 
-            const data = await res.json();
-            setStaff(data);
+            const staffData = await staffRes.json();
+            setStaff(staffData);
+
+            if (branchRes.ok) {
+                const branchData = await branchRes.json();
+                setBranches(branchData);
+            }
         } catch (err) {
             console.error('Error fetching staff:', err);
-            toast.error(t.error); // Used generic error or maybe t.noStaffFound context? no, loading error.
+            toast.error(t.error);
         } finally {
             setLoading(false);
         }
@@ -75,6 +93,7 @@ export default function StaffPage() {
                         name: form.name,
                         phone: form.phone || null,
                         role: form.role,
+                        branchId: form.branchId || null,
                     }),
                 });
 
@@ -94,6 +113,7 @@ export default function StaffPage() {
                         phone: form.phone || null,
                         role: form.role,
                         password: form.password,
+                        branchId: form.branchId || null,
                     }),
                 });
 
@@ -136,7 +156,7 @@ export default function StaffPage() {
     };
 
     const resetForm = () => {
-        setForm({ name: '', email: '', phone: '', role: 'STAFF', password: '' });
+        setForm({ name: '', email: '', phone: '', role: 'STAFF', password: '', branchId: '' });
         setEditingStaff(null);
     };
 
@@ -148,6 +168,7 @@ export default function StaffPage() {
             phone: staffMember.phone || '',
             role: staffMember.role,
             password: '',
+            branchId: staffMember.branchId || '',
         });
         setShowModal(true);
     };
@@ -162,12 +183,20 @@ export default function StaffPage() {
         const colors: Record<string, string> = {
             purple: 'bg-purple-100 text-purple-700',
             blue: 'bg-blue-100 text-blue-700',
+            green: 'bg-emerald-100 text-emerald-700',
+            orange: 'bg-amber-100 text-amber-700',
         };
         return (
             <span className={`px-2.5 py-1 rounded-full text-xs font-medium ${colors[roleConfig?.color || 'blue']}`}>
                 {roleConfig?.name || role}
             </span>
         );
+    };
+
+    const getBranchName = (branchId: string | null) => {
+        if (!branchId) return '-';
+        const branch = branches.find(b => b.id === branchId);
+        return branch?.name || '-';
     };
 
     if (loading) {
@@ -356,6 +385,21 @@ export default function StaffPage() {
                                     ))}
                                 </div>
                             </div>
+                            {branches.length > 0 && (
+                                <div>
+                                    <label className="block text-sm font-medium text-gray-600 mb-2">Cabang</label>
+                                    <select
+                                        value={form.branchId}
+                                        onChange={(e) => setForm({ ...form, branchId: e.target.value })}
+                                        className="w-full px-4 py-3 rounded-xl bg-[#ecf0f3] border-none shadow-[inset_3px_3px_6px_#cbced1,inset_-3px_-3px_6px_#ffffff] focus:outline-none focus:ring-2 focus:ring-[#00bfa5] text-gray-700"
+                                    >
+                                        <option value="">Tidak ada cabang</option>
+                                        {branches.map((b) => (
+                                            <option key={b.id} value={b.id}>{b.name}</option>
+                                        ))}
+                                    </select>
+                                </div>
+                            )}
                             {!editingStaff && (
                                 <div>
                                     <label className="block text-sm font-medium text-gray-600 mb-2">{t.password}</label>
@@ -363,7 +407,7 @@ export default function StaffPage() {
                                         type="password"
                                         value={form.password}
                                         onChange={(e) => setForm({ ...form, password: e.target.value })}
-                                        placeholder={t.minChars}
+                                        placeholder="Min. 8 karakter, huruf besar, kecil, angka"
                                         className="w-full px-4 py-3 rounded-xl bg-[#ecf0f3] border-none shadow-[inset_3px_3px_6px_#cbced1,inset_-3px_-3px_6px_#ffffff] focus:outline-none focus:ring-2 focus:ring-[#00bfa5] text-gray-700"
                                     />
                                 </div>

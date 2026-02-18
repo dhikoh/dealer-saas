@@ -118,8 +118,13 @@ export default function SettingsPage() {
             return;
         }
 
-        if (passwordForm.newPassword.length < 6) {
-            toast.error(t.minChars);
+        if (passwordForm.newPassword.length < 8) {
+            toast.error('Password minimal 8 karakter');
+            return;
+        }
+
+        if (!/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)/.test(passwordForm.newPassword)) {
+            toast.error('Password harus mengandung huruf besar, huruf kecil, dan angka');
             return;
         }
 
@@ -148,11 +153,7 @@ export default function SettingsPage() {
     };
 
     const handleSaveNotifications = async () => {
-        setSaving(true);
-        // Simulating save - in real app would call API
-        await new Promise(resolve => setTimeout(resolve, 500));
-        toast.success(t.success);
-        setSaving(false);
+        toast.info('Fitur notifikasi akan segera hadir');
     };
 
     if (loading) {

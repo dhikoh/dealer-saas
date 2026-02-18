@@ -124,6 +124,20 @@ export class VehicleController {
         );
     }
 
+    @Put('brands/:brandId')
+    updateBrand(
+        @Param('brandId') brandId: string,
+        @Body() body: { name?: string; category?: string },
+        @ActiveTenant() tenantId: string,
+    ) {
+        return this.vehicleService.updateBrand(brandId, tenantId, body);
+    }
+
+    @Delete('brands/:brandId')
+    deleteBrand(@Param('brandId') brandId: string, @ActiveTenant() tenantId: string) {
+        return this.vehicleService.deleteBrand(brandId, tenantId);
+    }
+
     @Post('models')
     createModel(@Body() body: CreateModelDto, @ActiveTenant() tenantId: string) {
         return this.vehicleService.createModel(
@@ -132,6 +146,20 @@ export class VehicleController {
             body.name,
             body.variants,
         );
+    }
+
+    @Put('models/:modelId')
+    updateModel(
+        @Param('modelId') modelId: string,
+        @Body() body: { name?: string; variants?: string },
+        @ActiveTenant() tenantId: string,
+    ) {
+        return this.vehicleService.updateModel(modelId, tenantId, body);
+    }
+
+    @Delete('models/:modelId')
+    deleteModel(@Param('modelId') modelId: string, @ActiveTenant() tenantId: string) {
+        return this.vehicleService.deleteModel(modelId, tenantId);
     }
 
     @Post('seed-master-data')

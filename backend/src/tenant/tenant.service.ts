@@ -169,6 +169,15 @@ export class TenantService {
       },
     });
 
+    // Align with BillingService.upgradePlan — set pending status
+    await this.prisma.tenant.update({
+      where: { id: tenantId },
+      data: {
+        subscriptionStatus: 'PENDING_PAYMENT',
+        scheduledDeletionAt: null,
+      },
+    });
+
     return {
       success: true,
       invoice: {

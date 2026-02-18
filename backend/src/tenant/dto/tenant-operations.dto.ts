@@ -21,6 +21,11 @@ export class UpdateTenantProfileDto {
     @IsEmail({}, { message: 'Format email tidak valid' })
     @MaxLength(255)
     email?: string;
+
+    @IsOptional()
+    @IsString()
+    @MaxLength(10, { message: 'Kode mata uang maksimal 10 karakter' })
+    currency?: string;
 }
 
 /** POST /tenant/staff */
@@ -65,6 +70,11 @@ export class UpdateStaffDto {
     @IsString()
     @MaxLength(255, { message: 'Nama maksimal 255 karakter' })
     name?: string;
+
+    @IsOptional()
+    @IsEmail({}, { message: 'Format email tidak valid' })
+    @MaxLength(255)
+    email?: string;
 
     @IsOptional()
     @IsString()

@@ -1,9 +1,13 @@
-import { Controller, Get, Post, Put, Delete, Body, Param, Query } from '@nestjs/common';
+import { Controller, Get, Post, Put, Delete, Body, Param, Query, UseGuards } from '@nestjs/common';
 import { FinanceService } from './finance.service';
 import { ActiveTenant } from '../common/decorators/active-tenant.decorator';
 import { CreateCostDto, UpdateCostDto } from './dto/finance.dto';
+import { Roles } from '../auth/roles.decorator';
+import { RolesGuard } from '../auth/roles.guard';
 
-// Protected by global JwtAuthGuard + TenantGuard
+// Protected by global JwtAuthGuard + TenantGuard + RolesGuard
+@UseGuards(RolesGuard)
+@Roles('OWNER', 'ADMIN')
 @Controller('finance')
 export class FinanceController {
     constructor(private readonly financeService: FinanceService) { }

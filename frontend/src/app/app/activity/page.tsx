@@ -11,7 +11,7 @@ interface Activity {
     title: string;
     description: string;
     createdAt: string;
-    user?: { name: string };
+    user?: { name: string; email: string } | null;
 }
 
 const ACTIVITY_ICONS: Record<string, React.ReactNode> = {
@@ -44,19 +44,17 @@ export default function ActivityLogPage() {
 
     const fetchActivities = async () => {
         try {
-            // Fetch from notifications as activity proxy
-            const res = await fetchApi('/notifications');
+            const res = await fetchApi('/activity-logs?page=1&limit=50');
 
             if (res.ok) {
                 const data = await res.json();
-                // Map notifications to activity format
-                setActivities(data.map((n: any) => ({
-                    id: n.id,
-                    type: getTypeFromTitle(n.title),
-                    title: n.title,
-                    description: n.message,
-                    createdAt: n.createdAt,
-                    user: null,
+                setActivities((data.logs || []).map((log: any) => ({
+                    id: log.id,
+                    type: mapEntityType(log.entityType),
+                    title: log.action,
+                    description: log.details ? (typeof log.details === 'string' ? log.details : JSON.stringify(log.details)) : (log.entityName || ''),
+                    createdAt: log.createdAt,
+                    user: log.user || null,
                 })));
             } else {
                 setActivities([]);
@@ -68,13 +66,14 @@ export default function ActivityLogPage() {
         }
     };
 
-    const getTypeFromTitle = (title: string): string => {
-        const lower = title.toLowerCase();
-        if (lower.includes('kendaraan') || lower.includes('vehicle')) return 'VEHICLE';
-        if (lower.includes('transaksi') || lower.includes('jual') || lower.includes('beli') || lower.includes('transaction') || lower.includes('sale') || lower.includes('purchase')) return 'TRANSACTION';
-        if (lower.includes('customer') || lower.includes('pelanggan')) return 'CUSTOMER';
-        if (lower.includes('staff') || lower.includes('user') || lower.includes('pengguna')) return 'STAFF';
-        if (lower.includes('setting') || lower.includes('pengaturan')) return 'SETTINGS';
+    const mapEntityType = (entityType: string | null): string => {
+        if (!entityType) return 'OTHER';
+        const upper = entityType.toUpperCase();
+        if (upper.includes('VEHICLE') || upper.includes('BRAND') || upper.includes('MODEL')) return 'VEHICLE';
+        if (upper.includes('TRANSACTION') || upper.includes('SALE') || upper.includes('PURCHASE')) return 'TRANSACTION';
+        if (upper.includes('CUSTOMER')) return 'CUSTOMER';
+        if (upper.includes('STAFF') || upper.includes('USER')) return 'STAFF';
+        if (upper.includes('SETTING') || upper.includes('TENANT') || upper.includes('BRANCH')) return 'SETTINGS';
         return 'OTHER';
     };
 
@@ -160,7 +159,10 @@ export default function ActivityLogPage() {
                                 <h4 className="font-medium text-gray-800 dark:text-white">{activity.title}</h4>
                                 <p className="text-sm text-gray-500 dark:text-gray-400 truncate">{activity.description}</p>
                             </div>
-                            <div className="flex items-center gap-2 text-xs text-gray-400">
+                            <div className="flex items-center gap-2 text-xs text-gray-400 flex-shrink-0">
+                                {activity.user && (
+                                    <span className="text-gray-500 font-medium">{activity.user.name || activity.user.email}</span>
+                                )}
                                 <Clock className="w-3 h-3" />
                                 {formatTimeAgo(activity.createdAt)}
                             </div>

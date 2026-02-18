@@ -250,9 +250,9 @@ export default function TransactionsPage() {
     });
 
     const stats = {
-        totalSales: transactions.filter(t => t.type === 'SALE' && t.status === 'PAID').reduce((a, b) => a + (b.finalPrice || 0), 0),
-        totalPurchases: transactions.filter(t => t.type === 'PURCHASE' && t.status === 'PAID').reduce((a, b) => a + (b.finalPrice || 0), 0),
-        totalProfit: transactions.filter(t => t.type === 'SALE' && t.status === 'PAID').reduce((a, b) => a + (b.profit || 0), 0),
+        totalSales: transactions.filter(t => t.type === 'SALE' && (t.status === 'PAID' || t.status === 'COMPLETED')).reduce((a, b) => a + (b.finalPrice || 0), 0),
+        totalPurchases: transactions.filter(t => t.type === 'PURCHASE' && (t.status === 'PAID' || t.status === 'COMPLETED')).reduce((a, b) => a + (b.finalPrice || 0), 0),
+        totalProfit: transactions.filter(t => t.type === 'SALE' && (t.status === 'PAID' || t.status === 'COMPLETED')).reduce((a, b) => a + (b.profit || 0), 0),
         pending: transactions.filter(t => t.status === 'PENDING').length,
     };
 

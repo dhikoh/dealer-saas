@@ -1,8 +1,10 @@
-import { Controller, Get, Query } from '@nestjs/common';
+import { Controller, Get, Query, UseGuards } from '@nestjs/common';
 import { ReportService } from './report.service';
 import { Roles } from '../auth/roles.decorator';
+import { RolesGuard } from '../auth/roles.guard';
 import { ActiveTenant } from '../common/decorators/active-tenant.decorator';
 
+@UseGuards(RolesGuard)
 @Roles('OWNER')
 @Controller('reports')
 export class ReportController {

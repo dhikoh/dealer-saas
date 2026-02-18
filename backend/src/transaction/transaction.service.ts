@@ -89,12 +89,12 @@ export class TransactionService {
     async getStats(tenantId: string) {
         const [totalSales, totalPurchases, pendingCount, completedThisMonth] = await Promise.all([
             this.prisma.transaction.aggregate({
-                where: { tenantId, type: 'SALE', status: 'PAID' },
+                where: { tenantId, type: 'SALE', status: { in: ['PAID', 'COMPLETED'] } },
                 _sum: { finalPrice: true },
                 _count: true,
             }),
             this.prisma.transaction.aggregate({
-                where: { tenantId, type: 'PURCHASE', status: 'PAID' },
+                where: { tenantId, type: 'PURCHASE', status: { in: ['PAID', 'COMPLETED'] } },
                 _sum: { finalPrice: true },
                 _count: true,
             }),
@@ -104,7 +104,7 @@ export class TransactionService {
             this.prisma.transaction.count({
                 where: {
                     tenantId,
-                    status: 'PAID',
+                    status: { in: ['PAID', 'COMPLETED'] },
                     date: {
                         gte: new Date(new Date().getFullYear(), new Date().getMonth(), 1),
                     },

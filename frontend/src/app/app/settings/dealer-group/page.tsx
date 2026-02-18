@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faUsers, faPlus, faSignInAlt, faCopy, faSignOutAlt, faInfoCircle, faCheck, faCrown, faBuilding } from '@fortawesome/free-solid-svg-icons';
+import { faUsers, faPlus, faSignInAlt, faCopy, faSignOutAlt, faInfoCircle, faCheck, faCrown, faBuilding, faChartLine } from '@fortawesome/free-solid-svg-icons';
 import { toast } from 'sonner';
 import { API_URL, fetchApi } from '@/lib/api';
 import Link from 'next/link';
@@ -254,6 +254,17 @@ export default function DealerGroupPage() {
                             </div>
                         </div>
                     </div>
+                </div>
+
+                {/* Quick Action: View Group Dashboard */}
+                <div className="flex justify-end">
+                    <Link
+                        href="/app/group"
+                        className="flex items-center gap-2 px-5 py-2.5 bg-orange-600 text-white rounded-xl font-bold hover:bg-orange-700 transition-colors shadow-lg shadow-orange-200"
+                    >
+                        <FontAwesomeIcon icon={faChartLine} />
+                        Lihat Dashboard Grup
+                    </Link>
                 </div>
 
                 {/* MEMBER MANAGEMENT */}
