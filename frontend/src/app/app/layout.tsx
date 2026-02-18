@@ -2,7 +2,8 @@
 
 import React, { useEffect, useState } from 'react';
 import { useRouter, usePathname } from 'next/navigation';
-import Sidebar from '@/components/Sidebar';
+// import Sidebar from '@/components/Sidebar'; // Replaced by BottomNav
+import BottomNav from '@/components/BottomNav';
 import Header from '@/components/Header';
 import { Toaster } from 'sonner';
 import { BranchProvider } from '@/context/BranchContext';
@@ -78,17 +79,17 @@ export default function DashboardLayout({
 
     return (
         <BranchProvider>
-            <div className="flex min-h-screen bg-[#ecf0f3] font-poppins text-gray-700">
-                {/* SIDEBAR - Fixed Left, hidden on mobile */}
-                <Sidebar />
+            <div className="flex min-h-screen bg-[#ecf0f3] font-poppins text-gray-700 relative">
+                {/* BOTTOM NAVIGATION - Fixed Bottom */}
+                <BottomNav />
 
-                {/* Main content area - responsive margin */}
-                <div className="flex-1 flex flex-col lg:ml-[72px]">
+                {/* Main content area - full width */}
+                <div className="flex-1 flex flex-col w-full">
                     {/* HEADER - Fixed Top */}
                     <Header />
 
-                    {/* MAIN CONTENT - Scrollable, responsive padding */}
-                    <main className="flex-1 mt-20 p-4 md:p-6 lg:p-8 overflow-y-auto bg-[#ecf0f3]">
+                    {/* MAIN CONTENT - Scrollable, responsive padding, extra bottom padding for nav */}
+                    <main className="flex-1 mt-20 p-4 md:p-6 lg:p-8 pb-32 overflow-y-auto bg-[#ecf0f3]">
                         {children}
                     </main>
                 </div>
@@ -98,4 +99,3 @@ export default function DashboardLayout({
         </BranchProvider>
     );
 }
-

@@ -239,7 +239,7 @@ export default function Header() {
 
     return (
         <>
-            <header className={`fixed top-0 left-0 lg:left-64 right-0 h-20 flex items-center justify-between px-4 lg:px-8 z-40 backdrop-blur-sm transition-colors ${theme === 'dark' ? 'bg-gray-900/90' : 'bg-[#ecf0f3]/90'
+            <header className={`fixed top-0 left-0 right-0 h-20 flex items-center justify-between px-4 lg:px-8 z-40 backdrop-blur-sm transition-colors ${theme === 'dark' ? 'bg-gray-900/90' : 'bg-[#ecf0f3]/90'
                 }`}>
                 {/* LEFT: GROUP CONTEXT SWITCHER OR SEARCH */}
                 <div className="flex-1 max-w-3xl flex items-center gap-4">
