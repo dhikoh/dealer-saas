@@ -719,6 +719,8 @@ export class AuthService {
         role: true,
         language: true,
         tenantId: true,
+        isVerified: true,
+        onboardingCompleted: true,
         createdAt: true,
         tenant: {
           select: {
