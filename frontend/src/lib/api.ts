@@ -144,11 +144,11 @@ export async function fetchApi(
 
         // Refresh failed — full logout
         // Check if we should skip redirect (e.g. for initial auth check)
-        const skipRedirect = options.headers && (
+        const shouldSkipRedirect = options.headers && (
             (options.headers as Record<string, string>)['X-Skip-Redirect'] === 'true'
         );
 
-        if (!skipRedirect) {
+        if (!shouldSkipRedirect) {
             clearAuthAndRedirect();
         }
     }

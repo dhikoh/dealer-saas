@@ -260,6 +260,14 @@ export default function TenantsPage() {
         return new Date(date).toLocaleDateString('id-ID', { day: 'numeric', month: 'short', year: 'numeric' });
     };
 
+    const getDaysRemaining = (date: string | null | undefined) => {
+        if (!date) return null;
+        const now = new Date();
+        const end = new Date(date);
+        const diff = Math.ceil((end.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
+        return diff;
+    };
+
     if (authLoading || dataLoading) {
         return (
             <div className="flex items-center justify-center h-64">
@@ -351,7 +359,18 @@ export default function TenantsPage() {
                                     <td className="px-6 py-4 font-medium text-slate-700">
                                         <div className="flex flex-col">
                                             <span>{formatCurrency(tenant.monthlyBill)}/bln</span>
-                                            <span className="text-[10px] text-slate-400">Next: {formatDate(tenant.nextBillingDate)}</span>
+                                            {(() => {
+                                                const endDate = tenant.subscriptionStatus === 'TRIAL' ? tenant.trialEndsAt : tenant.subscriptionEndsAt;
+                                                const days = getDaysRemaining(endDate);
+                                                if (days !== null && days >= 0) {
+                                                    const color = days <= 7 ? 'text-rose-600' : days <= 14 ? 'text-amber-600' : 'text-emerald-600';
+                                                    return <span className={`text-[10px] font-semibold ${color}`}>{days} hari lagi</span>;
+                                                }
+                                                if (days !== null && days < 0) {
+                                                    return <span className="text-[10px] font-semibold text-rose-600">Expired</span>;
+                                                }
+                                                return <span className="text-[10px] text-slate-400">Next: {formatDate(tenant.nextBillingDate)}</span>;
+                                            })()}
                                         </div>
                                     </td>
                                     <td className="px-6 py-4 text-right relative">
@@ -378,7 +397,7 @@ export default function TenantsPage() {
                                                     <button
                                                         onClick={() => {
                                                             setEditTenant(tenant);
-                                                            setEditForm({ name: tenant.name, email: tenant.email || '', phone: tenant.phone || '', address: tenant.address || '' });
+                                                            setEditForm({ name: tenant.name, email: tenant.email || '', phone: tenant.phone || '', address: (tenant as any).address || '' });
                                                             setActionMenuId(null);
                                                         }}
                                                         className="w-full px-4 py-2 text-left text-sm text-blue-600 hover:bg-blue-50 flex items-center gap-2"
@@ -551,29 +570,62 @@ export default function TenantsPage() {
                 </div>
             )}
 
-            {/* EDIT TENANT MODAL */}
             {editTenant && (
                 <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-                    <div className="bg-white rounded-xl shadow-xl max-w-lg w-full" onClick={e => e.stopPropagation()}>
+                    <div className="bg-white rounded-xl shadow-xl max-w-lg w-full max-h-[90vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
                         <div className="p-6 border-b border-slate-200 flex justify-between items-center">
                             <h3 className="text-lg font-semibold text-slate-900">Edit Profile Tenant</h3>
                             <button onClick={() => setEditTenant(null)} className="p-1 hover:bg-slate-100 rounded"><X className="w-5 h-5" /></button>
                         </div>
                         <div className="p-6 space-y-4">
+                            {/* Owner Info (read-only) */}
+                            {editTenant.owner && (
+                                <div className="bg-indigo-50 p-4 rounded-xl border border-indigo-100">
+                                    <h4 className="text-xs font-semibold text-indigo-600 uppercase tracking-wider mb-2">Pemilik Akun</h4>
+                                    <div className="grid grid-cols-2 gap-2 text-sm">
+                                        <div><p className="text-indigo-400 text-xs">Nama</p><p className="font-medium text-slate-900">{editTenant.owner.name}</p></div>
+                                        <div><p className="text-indigo-400 text-xs">Email</p><p className="font-medium text-slate-900">{editTenant.owner.email}</p></div>
+                                        <div><p className="text-indigo-400 text-xs">HP</p><p className="font-medium text-slate-900">{editTenant.owner.phone || '-'}</p></div>
+                                        <div><p className="text-indigo-400 text-xs">Plan</p><PlanBadge plan={editTenant.planTier} /></div>
+                                    </div>
+                                </div>
+                            )}
+
+                            {/* Subscription Countdown */}
+                            {(() => {
+                                const endDate = editTenant.subscriptionStatus === 'TRIAL' ? editTenant.trialEndsAt : editTenant.subscriptionEndsAt;
+                                const days = getDaysRemaining(endDate);
+                                if (days !== null) {
+                                    const color = days <= 0 ? 'bg-rose-50 border-rose-200 text-rose-700' : days <= 7 ? 'bg-amber-50 border-amber-200 text-amber-700' : 'bg-emerald-50 border-emerald-200 text-emerald-700';
+                                    return (
+                                        <div className={`p-3 rounded-lg border text-sm font-medium flex items-center gap-2 ${color}`}>
+                                            <Calendar className="w-4 h-4" />
+                                            {days <= 0 ? 'Langganan telah expired' : `${days} hari tersisa (${editTenant.subscriptionStatus === 'TRIAL' ? 'Trial' : 'Subscription'})`}
+                                        </div>
+                                    );
+                                }
+                                return null;
+                            })()}
+
+                            <div className="border-t border-slate-100 pt-4">
+                                <h4 className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-3">Informasi Dealer</h4>
+                            </div>
                             <div>
                                 <label className="block text-sm font-medium text-slate-700 mb-1">Nama Dealer</label>
                                 <input type="text" value={editForm.name} onChange={e => setEditForm({ ...editForm, name: e.target.value })}
                                     className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500" />
                             </div>
-                            <div>
-                                <label className="block text-sm font-medium text-slate-700 mb-1">Email</label>
-                                <input type="email" value={editForm.email} onChange={e => setEditForm({ ...editForm, email: e.target.value })}
-                                    className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500" />
-                            </div>
-                            <div>
-                                <label className="block text-sm font-medium text-slate-700 mb-1">Telepon</label>
-                                <input type="text" value={editForm.phone} onChange={e => setEditForm({ ...editForm, phone: e.target.value })}
-                                    className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500" />
+                            <div className="grid grid-cols-2 gap-3">
+                                <div>
+                                    <label className="block text-sm font-medium text-slate-700 mb-1">Email</label>
+                                    <input type="email" value={editForm.email} onChange={e => setEditForm({ ...editForm, email: e.target.value })}
+                                        className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500" />
+                                </div>
+                                <div>
+                                    <label className="block text-sm font-medium text-slate-700 mb-1">Telepon</label>
+                                    <input type="text" value={editForm.phone} onChange={e => setEditForm({ ...editForm, phone: e.target.value })}
+                                        className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500" />
+                                </div>
                             </div>
                             <div>
                                 <label className="block text-sm font-medium text-slate-700 mb-1">Alamat</label>

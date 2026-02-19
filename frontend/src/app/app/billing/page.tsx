@@ -141,14 +141,14 @@ export default function BillingPage() {
 
             if (plansRes.ok) {
                 const rawPlans = await plansRes.json();
-                // Compute isCurrent + canUpgrade from tenant's current plan
-                const order = ['DEMO', 'BASIC', 'PRO', 'UNLIMITED'];
+                // Compute isCurrent + canUpgrade using price-based comparison
+                // This works regardless of plan slug names (UNLIMITED vs ENTERPRISE, etc.)
                 const currentTier = currentProfile?.planTier || '';
-                const currentIndex = order.indexOf(currentTier);
+                const currentPlanPrice = rawPlans.find((p: any) => p.id === currentTier)?.price ?? 0;
                 const enriched = rawPlans.map((p: any) => ({
                     ...p,
                     isCurrent: p.id === currentTier,
-                    canUpgrade: currentIndex >= 0 ? order.indexOf(p.id) > currentIndex : true,
+                    canUpgrade: p.price > currentPlanPrice && p.id !== currentTier,
                 }));
                 setPlans(enriched);
             }

@@ -147,6 +147,7 @@ export class SuperadminService implements OnModuleInit {
         const tenants = await this.prisma.tenant.findMany({
             where,
             orderBy: { createdAt: 'desc' },
+            include: { plan: true },
         });
 
         if (tenants.length === 0) return [];
@@ -201,11 +202,18 @@ export class SuperadminService implements OnModuleInit {
                 slug: t.slug,
                 email: t.email,
                 phone: t.phone,
+                address: t.address,
                 planTier: t.planTier,
-                planDetails: getPlanById(t.planTier),
+                planDetails: (t as any).plan ? {
+                    id: (t as any).plan.slug.toUpperCase(),
+                    name: (t as any).plan.name,
+                    price: Number((t as any).plan.price),
+                } : getPlanById(t.planTier),
                 subscriptionStatus: t.subscriptionStatus,
                 trialEndsAt: t.trialEndsAt,
+                subscriptionStartedAt: t.subscriptionStartedAt,
                 subscriptionEndsAt: t.subscriptionEndsAt,
+                nextBillingDate: t.nextBillingDate,
                 monthlyBill: Number(t.monthlyBill || 0),
                 autoRenew: t.autoRenew,
                 owner: owner ? { name: owner.name, email: owner.email, phone: owner.phone } : null,
