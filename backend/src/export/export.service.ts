@@ -143,7 +143,7 @@ export class ExportService {
     }
 
     async exportInvoicesCsv(): Promise<string> {
-        const invoices = await (this.prisma as any).systemInvoice.findMany({
+        const invoices = await this.prisma.systemInvoice.findMany({
             include: { tenant: { select: { name: true } } },
             orderBy: { createdAt: 'desc' },
         });

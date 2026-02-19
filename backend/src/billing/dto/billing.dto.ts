@@ -12,10 +12,4 @@ export class VerifyPaymentDto {
     verifiedBy: string;
 }
 
-/** POST /billing/my-invoices/:id/upload-proof */
-export class UploadPaymentProofDto {
-    @IsNotEmpty({ message: 'URL bukti pembayaran wajib diisi' })
-    @IsString()
-    @MaxLength(500, { message: 'URL bukti maksimal 500 karakter' })
-    proofUrl: string;
-}
+// UploadPaymentProofDto removed — now using Multer file upload directly

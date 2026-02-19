@@ -1,12 +1,18 @@
 'use client';
 
 import React, { useEffect, useState } from 'react';
-import { CreditCard, Check, X, AlertCircle, Upload, Clock, Crown, Zap, Star, FileText, ChevronRight, Loader2 } from 'lucide-react';
+import { CreditCard, Check, X, AlertCircle, Upload, Clock, Crown, Zap, Star, FileText, ChevronRight, Loader2, Calendar } from 'lucide-react';
 import { toast } from 'sonner';
 import { API_URL, fetchApi } from '@/lib/api';
 import { useLanguage } from '@/hooks/useLanguage';
 import { useCurrency } from '@/hooks/useCurrency';
 import PaymentModal from '@/components/billing/PaymentModal';
+
+interface BillingPeriod {
+    months: number;
+    discountPercent: number;
+    label: string;
+}
 
 interface TenantProfile {
     planTier: string;
@@ -68,6 +74,12 @@ export default function BillingPage() {
     const [showPaymentModal, setShowPaymentModal] = useState(false);
     const [selectedInvoice, setSelectedInvoice] = useState<Invoice | null>(null);
 
+    // Multi-Month Period Selection
+    const [billingPeriods, setBillingPeriods] = useState<BillingPeriod[]>([]);
+    const [showPeriodModal, setShowPeriodModal] = useState(false);
+    const [pendingPlanId, setPendingPlanId] = useState<string | null>(null);
+    const [selectedMonths, setSelectedMonths] = useState(1);
+
     const getLabel = (key: string) => {
         const labels: Record<string, Record<string, string>> = {
             billingTitle: { id: 'Langganan & Billing', en: 'Subscription & Billing' },
@@ -127,10 +139,11 @@ export default function BillingPage() {
 
     const fetchData = async () => {
         try {
-            const [profileRes, plansRes, invoicesRes] = await Promise.all([
+            const [profileRes, plansRes, invoicesRes, periodsRes] = await Promise.all([
                 fetchApi('/billing/my-subscription'),
                 fetchApi('/billing/plans'),
                 fetchApi('/billing/my-invoices'),
+                fetchApi('/billing/periods'),
             ]);
 
             let currentProfile: TenantProfile | null = null;
@@ -141,8 +154,6 @@ export default function BillingPage() {
 
             if (plansRes.ok) {
                 const rawPlans = await plansRes.json();
-                // Compute isCurrent + canUpgrade using price-based comparison
-                // This works regardless of plan slug names (UNLIMITED vs ENTERPRISE, etc.)
                 const currentTier = currentProfile?.planTier || '';
                 const currentPlanPrice = rawPlans.find((p: any) => p.id === currentTier)?.price ?? 0;
                 const enriched = rawPlans.map((p: any) => ({
@@ -154,6 +165,7 @@ export default function BillingPage() {
             }
 
             if (invoicesRes.ok) setInvoices(await invoicesRes.json());
+            if (periodsRes.ok) setBillingPeriods(await periodsRes.json());
         } catch (err) {
             console.error('Error fetching data:', err);
             toast.error(getLabel('loadError'));
@@ -163,12 +175,36 @@ export default function BillingPage() {
     };
 
     const handleUpgrade = async (planId: string) => {
+        // Check for active invoices first
+        const activeInvoice = invoices.find(inv => inv.status === 'PENDING' || inv.status === 'VERIFYING');
+        if (activeInvoice) {
+            toast.error(
+                language === 'id'
+                    ? `Anda masih memiliki invoice aktif (#${activeInvoice.invoiceNumber}). Tunggu verifikasi atau hubungi admin.`
+                    : `You still have an active invoice (#${activeInvoice.invoiceNumber}). Wait for verification or contact admin.`
+            );
+            return;
+        }
+
+        // Show period selector if we have multiple periods
+        if (billingPeriods.length > 1) {
+            setPendingPlanId(planId);
+            setSelectedMonths(1);
+            setShowPeriodModal(true);
+            return;
+        }
+
+        // Single period — upgrade directly
+        await doUpgrade(planId, 1);
+    };
+
+    const doUpgrade = async (planId: string, months: number) => {
         setUpgrading(true);
         setSelectedPlan(planId);
         try {
             const res = await fetchApi('/tenant/upgrade', {
                 method: 'POST',
-                body: JSON.stringify({ planTier: planId }),
+                body: JSON.stringify({ planTier: planId, months }),
             });
 
             if (res.ok) {
@@ -184,6 +220,8 @@ export default function BillingPage() {
         } finally {
             setUpgrading(false);
             setSelectedPlan(null);
+            setShowPeriodModal(false);
+            setPendingPlanId(null);
         }
     };
 
@@ -213,6 +251,7 @@ export default function BillingPage() {
             PENDING: 'bg-amber-100 text-amber-700',
             VERIFYING: 'bg-blue-100 text-blue-700',
             OVERDUE: 'bg-rose-100 text-rose-700',
+            REJECTED: 'bg-rose-100 text-rose-700',
             CANCELLED: 'bg-slate-100 text-slate-600',
         };
         const localizedStatus: Record<string, string> = {
@@ -220,6 +259,7 @@ export default function BillingPage() {
             PENDING: t.pending || 'Pending',
             VERIFYING: 'Verifying',
             OVERDUE: 'Overdue',
+            REJECTED: language === 'id' ? 'Ditolak' : 'Rejected',
             CANCELLED: t.cancelled || 'Cancelled',
         };
 
@@ -456,6 +496,80 @@ export default function BillingPage() {
                     amount={selectedInvoice.amount}
                     onUploadSuccess={handlePaymentSuccess}
                 />
+            )}
+
+            {/* PERIOD SELECTION MODAL */}
+            {showPeriodModal && pendingPlanId && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm">
+                    <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg mx-4 p-6 animate-in slide-in-from-bottom-4">
+                        <h3 className="text-lg font-bold text-gray-900 flex items-center gap-2 mb-1">
+                            <Calendar className="w-5 h-5 text-indigo-600" />
+                            {language === 'id' ? 'Pilih Durasi Langganan' : 'Select Billing Period'}
+                        </h3>
+                        <p className="text-sm text-gray-500 mb-6">
+                            {language === 'id'
+                                ? 'Langganan lebih lama = diskon lebih besar'
+                                : 'Longer subscription = bigger discount'}
+                        </p>
+
+                        <div className="space-y-3">
+                            {billingPeriods.map((p) => {
+                                const plan = plans.find(pl => pl.id === pendingPlanId);
+                                const monthlyPrice = plan?.price || 0;
+                                const total = monthlyPrice * p.months;
+                                const discount = Math.round(total * p.discountPercent / 100);
+                                const finalPrice = total - discount;
+
+                                return (
+                                    <button
+                                        key={p.months}
+                                        onClick={() => setSelectedMonths(p.months)}
+                                        className={`w-full p-4 rounded-xl border-2 transition-all text-left flex items-center justify-between ${selectedMonths === p.months
+                                                ? 'border-indigo-500 bg-indigo-50 ring-2 ring-indigo-200'
+                                                : 'border-slate-200 hover:border-indigo-300 bg-white'
+                                            }`}
+                                    >
+                                        <div>
+                                            <span className="font-bold text-gray-900">{p.label}</span>
+                                            {p.discountPercent > 0 && (
+                                                <span className="ml-2 text-xs font-bold px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-700">
+                                                    -{p.discountPercent}%
+                                                </span>
+                                            )}
+                                            {p.discountPercent > 0 && (
+                                                <p className="text-xs text-gray-400 mt-1 line-through">
+                                                    {fmt(total)}
+                                                </p>
+                                            )}
+                                        </div>
+                                        <span className="text-lg font-bold text-gray-900">{fmt(finalPrice)}</span>
+                                    </button>
+                                );
+                            })}
+                        </div>
+
+                        <div className="flex gap-3 mt-6">
+                            <button
+                                onClick={() => { setShowPeriodModal(false); setPendingPlanId(null); }}
+                                className="flex-1 py-2.5 rounded-lg border border-slate-300 text-slate-600 font-medium hover:bg-slate-50 transition-colors"
+                                disabled={upgrading}
+                            >
+                                {getLabel('cancel')}
+                            </button>
+                            <button
+                                onClick={() => doUpgrade(pendingPlanId, selectedMonths)}
+                                disabled={upgrading}
+                                className="flex-1 py-2.5 rounded-lg bg-indigo-600 text-white font-medium hover:bg-indigo-700 transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
+                            >
+                                {upgrading ? (
+                                    <><Loader2 className="w-4 h-4 animate-spin" /> {getLabel('processing')}</>
+                                ) : (
+                                    language === 'id' ? 'Buat Invoice' : 'Create Invoice'
+                                )}
+                            </button>
+                        </div>
+                    </div>
+                </div>
             )}
         </div>
     );

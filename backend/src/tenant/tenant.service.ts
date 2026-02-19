@@ -6,6 +6,7 @@ import { TENANT_ROLES } from '../config/roles.config';
 import { SubscriptionStateService } from '../billing/subscription-state.service';
 import { FeatureLimitService } from '../billing/feature-limit.service';
 import { Feature } from '../billing/features.enum';
+import { BillingService } from '../billing/billing.service';
 
 @Injectable()
 export class TenantService {
@@ -15,6 +16,7 @@ export class TenantService {
     private prisma: PrismaService,
     private subscriptionStateService: SubscriptionStateService,
     private featureLimitService: FeatureLimitService,
+    private billingService: BillingService,
   ) { }
 
   // Get current tenant profile with subscription info
@@ -136,118 +138,20 @@ export class TenantService {
     return plans;
   }
 
-  // Request upgrade (creates pending invoice)
-  async requestUpgrade(tenantId: string, targetPlan: string) {
-    const tenant = await this.prisma.tenant.findUnique({
-      where: { id: tenantId },
-    });
-
-    if (!tenant) {
-      throw new NotFoundException('Tenant tidak ditemukan');
-    }
-
-    const plan = getPlanById(targetPlan);
-    if (!plan) {
-      throw new BadRequestException('Paket langganan tidak valid');
-    }
-
-    if (!canUpgrade(tenant.planTier, targetPlan)) {
-      throw new BadRequestException('Tidak dapat upgrade ke paket ini');
-    }
-
-    // Generate invoice number
-    const invoiceCount = await (this.prisma as any).systemInvoice.count();
-    const invoiceNumber = `INV-${new Date().getFullYear()}-${String(invoiceCount + 1).padStart(4, '0')}`;
-
-    // Create system invoice for upgrade payment
-    const dueDate = new Date();
-    dueDate.setDate(dueDate.getDate() + 7); // 7 days to pay
-
-    const invoice = await (this.prisma as any).systemInvoice.create({
-      data: {
-        tenantId,
-        invoiceNumber,
-        amount: plan.price,
-        dueDate,
-        status: 'PENDING',
-        items: JSON.stringify({
-          type: 'UPGRADE',
-          fromPlan: tenant.planTier,
-          toPlan: targetPlan,
-          description: `Upgrade ke paket ${plan.name}`,
-        }),
-      },
-    });
-
-    // Align with BillingService.upgradePlan — set pending status via Service
-    // Update Plan Metadata pending transition
-    await this.prisma.tenant.update({
-      where: { id: tenantId },
-      data: {
-        // subscriptionStatus: 'PENDING_PAYMENT', // REPLACED
-        scheduledDeletionAt: null,
-      },
-    });
-
-    await this.subscriptionStateService.transition(
-      tenantId,
-      'GRACE', // PENDING_PAYMENT maps to GRACE (Limited Access)
-      `Upgrade requested to ${plan.name}`,
-      'BILLING',
-      invoice.id
-    );
-
-    return {
-      success: true,
-      invoice: {
-        id: invoice.id,
-        invoiceNumber: invoice.invoiceNumber,
-        amount: plan.price,
-        dueDate: invoice.dueDate,
-        plan: plan.name,
-      },
-      message: `Invoice untuk upgrade ke ${plan.name} telah dibuat. Silakan lakukan pembayaran.`,
-    };
+  // Request upgrade — DELEGATES to BillingService (Single Source of Truth)
+  // Accepts optional months param for multi-month billing
+  async requestUpgrade(tenantId: string, targetPlan: string, months: number = 1) {
+    return this.billingService.upgradePlan(tenantId, targetPlan, months);
   }
 
-  // Upload payment proof
+  // Upload payment proof — DELEGATES to BillingService
   async uploadPaymentProof(tenantId: string, invoiceId: string, proofUrl: string) {
-    const invoice = await (this.prisma as any).systemInvoice.findFirst({
-      where: {
-        id: invoiceId,
-        tenantId,
-      },
-    });
-
-    if (!invoice) {
-      throw new NotFoundException('Invoice tidak ditemukan');
-    }
-
-    if (invoice.status === 'PAID') {
-      throw new BadRequestException('Invoice sudah dibayar');
-    }
-
-    // Update invoice with proof and set to VERIFYING
-    await (this.prisma as any).systemInvoice.update({
-      where: { id: invoiceId },
-      data: {
-        paymentProof: proofUrl,
-        status: 'VERIFYING',
-      },
-    });
-
-    return {
-      success: true,
-      message: 'Bukti pembayaran berhasil diupload. Menunggu verifikasi admin.',
-    };
+    return this.billingService.uploadPaymentProof(invoiceId, tenantId, proofUrl);
   }
 
-  // Get tenant's invoices
+  // Get tenant's invoices — typed (no `as any`)
   async getInvoices(tenantId: string) {
-    return (this.prisma as any).systemInvoice.findMany({
-      where: { tenantId },
-      orderBy: { createdAt: 'desc' },
-    });
+    return this.billingService.getMyInvoices(tenantId);
   }
 
   // ==================== STAFF MANAGEMENT ====================

@@ -1,10 +1,31 @@
-import { Controller, Get, Post, Patch, Param, Body, UseGuards, Request, ForbiddenException } from '@nestjs/common';
+import { Controller, Get, Post, Patch, Param, Body, UseGuards, Request, ForbiddenException, UseInterceptors, UploadedFile, BadRequestException } from '@nestjs/common';
+import { FileInterceptor } from '@nestjs/platform-express';
 import { BillingService } from './billing.service';
 import { RolesGuard } from '../auth/roles.guard';
 import { Roles } from '../auth/roles.decorator';
 import { Public } from '../auth/public.decorator';
 import { ActiveTenant } from '../common/decorators/active-tenant.decorator';
-import { VerifyPaymentDto, UploadPaymentProofDto } from './dto/billing.dto';
+import { VerifyPaymentDto } from './dto/billing.dto';
+import { diskStorage } from 'multer';
+import { extname, join } from 'path';
+import { existsSync, mkdirSync } from 'fs';
+
+// Multer storage config for payment proofs
+const proofStorage = diskStorage({
+    destination: (req, file, cb) => {
+        const uploadDir = process.env.UPLOAD_DIR || './uploads';
+        const destPath = join(uploadDir, 'payments');
+        if (!existsSync(destPath)) {
+            mkdirSync(destPath, { recursive: true });
+        }
+        cb(null, destPath);
+    },
+    filename: (req, file, cb) => {
+        const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1e9);
+        const ext = extname(file.originalname);
+        cb(null, `proof-${uniqueSuffix}${ext}`);
+    },
+});
 
 // Protected by global JwtAuthGuard (except @Public routes)
 @Controller('billing')
@@ -17,6 +38,12 @@ export class BillingController {
     @Get('plans')
     getAllPlans() {
         return this.billingService.getAllPlans();
+    }
+
+    @Public()
+    @Get('periods')
+    getBillingPeriods() {
+        return this.billingService.getBillingPeriods();
     }
 
     // ==================== AUTHORIZED USERS ====================
@@ -68,9 +95,10 @@ export class BillingController {
     @Roles('SUPERADMIN')
     async upgradePlan(
         @Param('tenantId') tenantId: string,
-        @Body('planId') planId: string
+        @Body('planId') planId: string,
+        @Body('months') months?: number
     ) {
-        return this.billingService.upgradePlan(tenantId, planId);
+        return this.billingService.upgradePlan(tenantId, planId, months || 1);
     }
 
     @Patch('admin/tenant/:tenantId/downgrade')
@@ -102,17 +130,43 @@ export class BillingController {
         return this.billingService.getMyInvoices(tenantId);
     }
 
+    /**
+     * Upload payment proof (accepts file via FormData).
+     * Content-Type: multipart/form-data, field name: 'proof'
+     */
     @Post('my-invoices/:id/upload-proof')
+    @UseInterceptors(FileInterceptor('proof', {
+        storage: proofStorage,
+        limits: { fileSize: 10 * 1024 * 1024 }, // 10MB
+        fileFilter: (req, file, cb) => {
+            const allowed = ['image/jpeg', 'image/png', 'image/webp', 'application/pdf'];
+            if (allowed.includes(file.mimetype)) {
+                cb(null, true);
+            } else {
+                cb(new BadRequestException('Format file tidak didukung. Gunakan JPG, PNG, WebP, atau PDF.'), false);
+            }
+        },
+    }))
     async uploadPaymentProof(
         @Param('id') invoiceId: string,
-        @Body() body: UploadPaymentProofDto,
+        @UploadedFile() file: Express.Multer.File,
         @ActiveTenant() tenantId: string,
     ) {
-        return this.billingService.uploadPaymentProof(invoiceId, tenantId, body.proofUrl);
+        if (!file) {
+            throw new BadRequestException('File bukti pembayaran wajib diupload');
+        }
+
+        // Generate accessible URL for the uploaded file
+        const proofUrl = `/uploads/payments/${file.filename}`;
+        return this.billingService.uploadPaymentProof(invoiceId, tenantId, proofUrl);
     }
 
     @Post('subscribe')
-    async subscribeToPlan(@Body('planId') planId: string, @ActiveTenant() tenantId: string) {
-        return this.billingService.upgradePlan(tenantId, planId);
+    async subscribeToPlan(
+        @Body('planId') planId: string,
+        @Body('months') months: number,
+        @ActiveTenant() tenantId: string,
+    ) {
+        return this.billingService.upgradePlan(tenantId, planId, months || 1);
     }
 }

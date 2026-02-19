@@ -703,26 +703,73 @@ function ApiConfigTab() {
 
 // ================== TAB 5: BILLING INTEGRATION ==================
 
-function BillingIntegrationTab() {
+interface PaymentMethodItem {
+    id: string;
+    provider: string;
+    accountName: string;
+    accountNumber: string;
+    description?: string;
+    isActive: boolean;
+}
 
+interface BillingPeriodConfig {
+    months: number;
+    discountPercent: number;
+    label: string;
+}
+
+function BillingIntegrationTab() {
+    // Gateway & Auto-Invoice (saved to PlatformSetting)
     const [gateway, setGateway] = useState('manual');
-    const [bankInfo, setBankInfo] = useState({ bankName: 'BCA', accountNumber: '', accountHolder: '' });
     const [autoInvoice, setAutoInvoice] = useState(true);
     const [toast, setToast] = useState<string | null>(null);
     const [saving, setSaving] = useState(false);
     const [loading, setLoading] = useState(true);
 
-    // Load saved config on mount
+    // Payment Methods (CRUD via /payment-methods API)
+    const [methods, setMethods] = useState<PaymentMethodItem[]>([]);
+    const [showAddForm, setShowAddForm] = useState(false);
+    const [newMethod, setNewMethod] = useState({ provider: '', accountName: '', accountNumber: '', description: '' });
+    const [addingMethod, setAddingMethod] = useState(false);
+
+    // Billing Periods (saved to PlatformSetting)
+    const [periods, setPeriods] = useState<BillingPeriodConfig[]>([
+        { months: 1, discountPercent: 0, label: '1 Bulan' },
+        { months: 6, discountPercent: 10, label: '6 Bulan' },
+        { months: 12, discountPercent: 20, label: '12 Bulan' },
+    ]);
+
+    // Load all configs on mount
     useEffect(() => {
         (async () => {
             try {
-                const res = await fetchApi('/superadmin/platform-settings/billing_config');
-                if (res.ok) {
-                    const data = await res.json();
+                const [configRes, methodsRes, periodsRes] = await Promise.all([
+                    fetchApi('/superadmin/platform-settings/billing_config'),
+                    fetchApi('/payment-methods'),
+                    fetchApi('/superadmin/platform-settings/billing_periods'),
+                ]);
+
+                if (configRes.ok) {
+                    const data = await configRes.json();
                     if (data.value) {
                         setGateway(data.value.gateway || 'manual');
-                        setBankInfo(data.value.bankInfo || { bankName: 'BCA', accountNumber: '', accountHolder: '' });
                         setAutoInvoice(data.value.autoInvoice ?? true);
+                    }
+                }
+
+                if (methodsRes.ok) {
+                    setMethods(await methodsRes.json());
+                }
+
+                if (periodsRes.ok) {
+                    const data = await periodsRes.json();
+                    if (data.value) {
+                        try {
+                            const parsed = typeof data.value === 'string' ? JSON.parse(data.value) : data.value;
+                            if (Array.isArray(parsed) && parsed.length > 0) {
+                                setPeriods(parsed);
+                            }
+                        } catch { /* ignore parse error, use defaults */ }
                     }
                 }
             } catch { /* ignore - use defaults */ }
@@ -734,21 +781,92 @@ function BillingIntegrationTab() {
         if (toast) { const t = setTimeout(() => setToast(null), 3000); return () => clearTimeout(t); }
     }, [toast]);
 
-    const handleSave = async () => {
+    // Save gateway + auto-invoice config
+    const handleSaveConfig = async () => {
         setSaving(true);
         try {
-            // FIX: Backend DTO strict validation:
-            // 'value' must be a JSON string, not an object.
             const res = await fetchApi('/superadmin/platform-settings/billing_config', {
                 method: 'PATCH',
-                body: JSON.stringify({ value: JSON.stringify(sanitizePayload({ gateway, bankInfo, autoInvoice })) }),
+                body: JSON.stringify({ value: JSON.stringify(sanitizePayload({ gateway, autoInvoice })) }),
             });
-            if (!res.ok) throw new Error('Failed to save');
+            if (!res.ok) throw new Error('Failed');
             setToast('Konfigurasi billing berhasil disimpan!');
         } catch {
             setToast('Gagal menyimpan konfigurasi');
         } finally {
             setSaving(false);
+        }
+    };
+
+    // Save billing periods config
+    const handleSavePeriods = async () => {
+        setSaving(true);
+        try {
+            const res = await fetchApi('/superadmin/platform-settings/billing_periods', {
+                method: 'PATCH',
+                body: JSON.stringify({ value: JSON.stringify(periods) }),
+            });
+            if (!res.ok) throw new Error('Failed');
+            setToast('Konfigurasi diskon periode berhasil disimpan!');
+        } catch {
+            setToast('Gagal menyimpan konfigurasi periode');
+        } finally {
+            setSaving(false);
+        }
+    };
+
+    // Payment Method CRUD
+    const handleAddMethod = async () => {
+        if (!newMethod.provider || !newMethod.accountName || !newMethod.accountNumber) {
+            setToast('Gagal: Semua field wajib diisi');
+            return;
+        }
+        setAddingMethod(true);
+        try {
+            const res = await fetchApi('/payment-methods', {
+                method: 'POST',
+                body: JSON.stringify(newMethod),
+            });
+            if (res.ok) {
+                const created = await res.json();
+                setMethods(prev => [...prev, created]);
+                setNewMethod({ provider: '', accountName: '', accountNumber: '', description: '' });
+                setShowAddForm(false);
+                setToast('Metode pembayaran berhasil ditambahkan!');
+            } else {
+                throw new Error('Failed');
+            }
+        } catch {
+            setToast('Gagal menambahkan metode pembayaran');
+        } finally {
+            setAddingMethod(false);
+        }
+    };
+
+    const handleToggleMethod = async (id: string, isActive: boolean) => {
+        try {
+            const res = await fetchApi(`/payment-methods/${id}`, {
+                method: 'PATCH',
+                body: JSON.stringify({ isActive: !isActive }),
+            });
+            if (res.ok) {
+                setMethods(prev => prev.map(m => m.id === id ? { ...m, isActive: !isActive } : m));
+            }
+        } catch {
+            setToast('Gagal mengubah status');
+        }
+    };
+
+    const handleDeleteMethod = async (id: string) => {
+        if (!confirm('Hapus metode pembayaran ini?')) return;
+        try {
+            const res = await fetchApi(`/payment-methods/${id}`, { method: 'DELETE' });
+            if (res.ok) {
+                setMethods(prev => prev.filter(m => m.id !== id));
+                setToast('Metode pembayaran dihapus');
+            }
+        } catch {
+            setToast('Gagal menghapus');
         }
     };
 
@@ -761,6 +879,8 @@ function BillingIntegrationTab() {
                     {toast.includes('Gagal') ? '❌' : '✅'} {toast}
                 </div>
             )}
+
+            {/* Payment Gateway Selection */}
             <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-6 space-y-5">
                 <h3 className="text-lg font-semibold text-slate-900 flex items-center gap-2">
                     <CreditCard className="w-5 h-5 text-indigo-600" /> Payment Gateway
@@ -787,34 +907,121 @@ function BillingIntegrationTab() {
                 </div>
             </div>
 
+            {/* Payment Methods Management */}
             <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-6 space-y-4">
-                <h3 className="text-lg font-semibold text-slate-900">Informasi Rekening Bank</h3>
-                <p className="text-sm text-slate-500">Rekening ini akan ditampilkan ke tenant saat pembayaran manual.</p>
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                    <div>
-                        <label className="block text-sm font-medium text-slate-700 mb-1">Nama Bank</label>
-                        <select value={bankInfo.bankName} onChange={e => setBankInfo({ ...bankInfo, bankName: e.target.value })}
-                            className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500">
-                            <option>BCA</option>
-                            <option>BNI</option>
-                            <option>BRI</option>
-                            <option>Mandiri</option>
-                            <option>CIMB Niaga</option>
-                        </select>
+                <div className="flex items-center justify-between">
+                    <h3 className="text-lg font-semibold text-slate-900">Metode Pembayaran</h3>
+                    <button onClick={() => setShowAddForm(!showAddForm)}
+                        className="px-3 py-1.5 text-sm font-medium text-indigo-600 bg-indigo-50 rounded-lg hover:bg-indigo-100 flex items-center gap-1">
+                        <Plus className="w-4 h-4" /> Tambah
+                    </button>
+                </div>
+                <p className="text-sm text-slate-500">Metode ini ditampilkan ke tenant saat pembayaran. Tenant memilih salah satu untuk transfer.</p>
+
+                {/* Add Form */}
+                {showAddForm && (
+                    <div className="border border-indigo-200 bg-indigo-50/50 rounded-xl p-4 space-y-3">
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                            <div>
+                                <label className="block text-xs font-medium text-slate-700 mb-1">Provider (Bank/E-Wallet)</label>
+                                <input type="text" placeholder="BCA, BNI, Dana, QRIS..."
+                                    value={newMethod.provider} onChange={e => setNewMethod({ ...newMethod, provider: e.target.value })}
+                                    className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500 focus:outline-none" />
+                            </div>
+                            <div>
+                                <label className="block text-xs font-medium text-slate-700 mb-1">Nama Akun</label>
+                                <input type="text" placeholder="PT. OTOHUB Indonesia"
+                                    value={newMethod.accountName} onChange={e => setNewMethod({ ...newMethod, accountName: e.target.value })}
+                                    className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500 focus:outline-none" />
+                            </div>
+                            <div>
+                                <label className="block text-xs font-medium text-slate-700 mb-1">Nomor Rekening</label>
+                                <input type="text" placeholder="1234567890"
+                                    value={newMethod.accountNumber} onChange={e => setNewMethod({ ...newMethod, accountNumber: e.target.value })}
+                                    className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500 focus:outline-none" />
+                            </div>
+                            <div>
+                                <label className="block text-xs font-medium text-slate-700 mb-1">Keterangan (opsional)</label>
+                                <input type="text" placeholder="Rekening utama"
+                                    value={newMethod.description} onChange={e => setNewMethod({ ...newMethod, description: e.target.value })}
+                                    className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500 focus:outline-none" />
+                            </div>
+                        </div>
+                        <div className="flex gap-2 justify-end">
+                            <button onClick={() => setShowAddForm(false)} className="px-3 py-1.5 text-sm text-slate-600 hover:bg-slate-100 rounded-lg">Batal</button>
+                            <button onClick={handleAddMethod} disabled={addingMethod}
+                                className="px-4 py-1.5 text-sm bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 disabled:opacity-50 flex items-center gap-1">
+                                {addingMethod ? 'Menyimpan...' : <><CheckCircle className="w-4 h-4" /> Simpan</>}
+                            </button>
+                        </div>
                     </div>
-                    <div>
-                        <label className="block text-sm font-medium text-slate-700 mb-1">Nomor Rekening</label>
-                        <input type="text" value={bankInfo.accountNumber} onChange={e => setBankInfo({ ...bankInfo, accountNumber: e.target.value })}
-                            className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500" />
+                )}
+
+                {/* Methods List */}
+                {methods.length > 0 ? (
+                    <div className="space-y-2">
+                        {methods.map(m => (
+                            <div key={m.id} className={`flex items-center justify-between p-4 border rounded-xl transition-colors ${m.isActive ? 'border-slate-200 bg-white' : 'border-slate-100 bg-slate-50 opacity-60'}`}>
+                                <div>
+                                    <p className="text-sm font-bold text-slate-900">{m.provider}</p>
+                                    <p className="text-xs text-slate-500">{m.accountNumber} &middot; {m.accountName}</p>
+                                    {m.description && <p className="text-xs text-slate-400 mt-0.5">{m.description}</p>}
+                                </div>
+                                <div className="flex items-center gap-2">
+                                    <button onClick={() => handleToggleMethod(m.id, m.isActive)}
+                                        className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors ${m.isActive ? 'bg-emerald-500' : 'bg-slate-300'}`}>
+                                        <span className={`inline-block h-3.5 w-3.5 transform rounded-full bg-white transition-transform ${m.isActive ? 'translate-x-4' : 'translate-x-0.5'}`} />
+                                    </button>
+                                    <button onClick={() => handleDeleteMethod(m.id)}
+                                        className="p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-colors">
+                                        <Trash2 className="w-4 h-4" />
+                                    </button>
+                                </div>
+                            </div>
+                        ))}
                     </div>
-                    <div>
-                        <label className="block text-sm font-medium text-slate-700 mb-1">Nama Pemilik</label>
-                        <input type="text" value={bankInfo.accountHolder} onChange={e => setBankInfo({ ...bankInfo, accountHolder: e.target.value })}
-                            className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500" />
-                    </div>
+                ) : (
+                    <div className="text-center py-6 text-slate-400 text-sm">Belum ada metode pembayaran. Tambahkan minimal satu.</div>
+                )}
+            </div>
+
+            {/* Billing Periods & Discounts */}
+            <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-6 space-y-4">
+                <h3 className="text-lg font-semibold text-slate-900">Diskon Periode Langganan</h3>
+                <p className="text-sm text-slate-500">Atur diskon untuk tenant yang berlangganan lebih dari 1 bulan.</p>
+                <div className="space-y-3">
+                    {periods.map((p, i) => (
+                        <div key={p.months} className="flex items-center gap-4 p-3 border border-slate-200 rounded-xl bg-slate-50">
+                            <div className="flex-1">
+                                <p className="text-sm font-medium text-slate-900">{p.label}</p>
+                                <p className="text-xs text-slate-500">{p.months} bulan</p>
+                            </div>
+                            <div className="flex items-center gap-2">
+                                <label className="text-xs text-slate-600 whitespace-nowrap">Diskon:</label>
+                                <input
+                                    type="number" min="0" max="50"
+                                    value={p.discountPercent}
+                                    onChange={e => {
+                                        const updated = [...periods];
+                                        updated[i] = { ...p, discountPercent: Math.max(0, Math.min(50, Number(e.target.value))) };
+                                        setPeriods(updated);
+                                    }}
+                                    className="w-16 px-2 py-1 border border-slate-300 rounded-lg text-sm text-center focus:ring-2 focus:ring-indigo-500 focus:outline-none"
+                                />
+                                <span className="text-sm text-slate-500">%</span>
+                            </div>
+                        </div>
+                    ))}
+                </div>
+                <div className="flex justify-end">
+                    <button onClick={handleSavePeriods} disabled={saving}
+                        className="px-4 py-1.5 text-sm bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 disabled:opacity-50 flex items-center gap-1">
+                        <Save className="w-4 h-4" /> Simpan Periode
+                    </button>
                 </div>
             </div>
 
+            {/* Auto-Invoice */}
             <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-6 space-y-4">
                 <h3 className="text-lg font-semibold text-slate-900">Auto-Invoice Bulanan</h3>
                 <div className="flex items-center justify-between">
@@ -832,7 +1039,7 @@ function BillingIntegrationTab() {
             </div>
 
             <div className="flex justify-end">
-                <button onClick={handleSave} disabled={saving}
+                <button onClick={handleSaveConfig} disabled={saving}
                     className="px-5 py-2 bg-indigo-600 text-white rounded-lg text-sm font-medium hover:bg-indigo-700 disabled:opacity-50 flex items-center gap-2">
                     <Save className="w-4 h-4" /> {saving ? 'Menyimpan...' : 'Simpan Konfigurasi'}
                 </button>

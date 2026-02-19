@@ -885,7 +885,7 @@ export class PdfService {
      * Used by superadmin and tenant for subscription billing
      */
     async generateSystemInvoicePdf(invoiceId: string, res: any) {
-        const invoice = await (this.prisma as any).systemInvoice.findUnique({
+        const invoice = await this.prisma.systemInvoice.findUnique({
             where: { id: invoiceId },
             include: { tenant: true },
         });

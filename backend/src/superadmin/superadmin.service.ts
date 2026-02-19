@@ -5,6 +5,8 @@ import { getPlanById, PLAN_TIERS, PlanTier } from '../config/plan-tiers.config';
 import { CreateTenantDto, UpdateTenantDto } from './dto/tenant.dto';
 import { CreateInvoiceDto } from './dto/invoice.dto';
 import { SubscriptionStateService } from '../billing/subscription-state.service';
+import { NotificationService } from '../notification/notification.service';
+import { BillingService } from '../billing/billing.service';
 
 @Injectable()
 export class SuperadminService implements OnModuleInit {
@@ -12,7 +14,9 @@ export class SuperadminService implements OnModuleInit {
 
     constructor(
         private prisma: PrismaService,
-        private subscriptionStateService: SubscriptionStateService
+        private subscriptionStateService: SubscriptionStateService,
+        private notificationService: NotificationService,
+        private billingService: BillingService,
     ) { }
 
     // ==================== PLAN SEEDING ON STARTUP ====================
@@ -99,7 +103,7 @@ export class SuperadminService implements OnModuleInit {
                 _sum: { monthlyBill: true },
                 where: { subscriptionStatus: 'ACTIVE' },
             }),
-            (this.prisma as any).systemInvoice.count({
+            this.prisma.systemInvoice.count({
                 where: { status: 'PENDING' },
             }),
             this.getRecentActivity(5),
@@ -244,7 +248,7 @@ export class SuperadminService implements OnModuleInit {
         if (!tenant) return null;
 
         // Get recent invoices
-        const invoices = await (this.prisma as any).systemInvoice.findMany({
+        const invoices = await this.prisma.systemInvoice.findMany({
             where: { tenantId: id },
             orderBy: { createdAt: 'desc' },
             take: 5,
@@ -651,7 +655,7 @@ export class SuperadminService implements OnModuleInit {
             where.tenantId = filters.tenantId;
         }
 
-        return (this.prisma as any).systemInvoice.findMany({
+        return this.prisma.systemInvoice.findMany({
             where,
             include: { tenant: { select: { name: true, email: true } } },
             orderBy: { createdAt: 'desc' },
@@ -659,70 +663,30 @@ export class SuperadminService implements OnModuleInit {
     }
 
     async verifyInvoice(invoiceId: string, approved: boolean, adminId?: string, adminEmail?: string) {
-        // SECURITY: Prevent double-approval / double-rejection
-        const existingInvoice = await (this.prisma as any).systemInvoice.findUnique({
-            where: { id: invoiceId },
-        });
-        if (!existingInvoice) throw new NotFoundException('Invoice not found');
-        if (existingInvoice.status === 'PAID') {
-            throw new BadRequestException('Invoice sudah disetujui sebelumnya');
-        }
-        if (existingInvoice.status === 'CANCELLED') {
-            throw new BadRequestException('Invoice sudah dibatalkan sebelumnya');
-        }
+        // DELEGATE to BillingService (Single Source of Truth)
+        // BillingService handles: status update, plan upgrade, subscription dates, notifications
+        const result = await this.billingService.verifyPayment(invoiceId, approved, adminEmail);
 
-        const newStatus = approved ? 'PAID' : 'CANCELLED';
-
-        const invoice = await (this.prisma as any).systemInvoice.update({
-            where: { id: invoiceId },
-            data: { status: newStatus },
-            include: { tenant: { select: { name: true, id: true } } },
-        });
-
-        // If approved, activate tenant subscription
-        if (approved) {
-            // Parse items to check for plan upgrade info
-            let toPlan: string | null = null;
-            try {
-                const items = JSON.parse(invoice.items || '{}');
-                toPlan = items.toPlan || (Array.isArray(items) ? items[0]?.toPlan : null);
-            } catch { /* ignore parse errors */ }
-
-            // 1. Update Plan Details
-            await this.prisma.tenant.update({
-                where: { id: invoice.tenantId },
-                data: {
-                    ...(toPlan ? { planTier: toPlan } : {}),
-                    // subscriptionStatus: 'ACTIVE', // Handled below
-                    subscriptionStartedAt: new Date(),
-                    subscriptionEndsAt: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
-                },
-            });
-
-            // 2. Strict Transition
-            await this.subscriptionStateService.transition(
-                invoice.tenantId,
-                'ACTIVE',
-                `Invoice ${invoice.invoiceNumber} Verified`,
-                'SUPERADMIN',
-                invoiceId
-            );
-        }
-
-        // Log activity
+        // Superadmin-specific: Log activity for audit trail
         if (adminId) {
-            await this.logActivity({
-                userId: adminId,
-                userEmail: adminEmail,
-                action: approved ? 'INVOICE_APPROVE' : 'INVOICE_REJECT',
-                entityType: 'INVOICE',
-                entityId: invoiceId,
-                entityName: invoice.invoiceNumber,
-                details: JSON.stringify({ tenantId: invoice.tenantId, tenantName: invoice.tenant.name }),
+            const invoice = await this.prisma.systemInvoice.findUnique({
+                where: { id: invoiceId },
+                include: { tenant: { select: { name: true, id: true } } },
             });
+            if (invoice) {
+                await this.logActivity({
+                    userId: adminId,
+                    userEmail: adminEmail,
+                    action: approved ? 'INVOICE_APPROVE' : 'INVOICE_REJECT',
+                    entityType: 'INVOICE',
+                    entityId: invoiceId,
+                    entityName: invoice.invoiceNumber,
+                    details: JSON.stringify({ tenantId: invoice.tenantId, tenantName: invoice.tenant?.name }),
+                });
+            }
         }
 
-        return invoice;
+        return result;
     }
 
     // ==================== CREATE INVOICE ====================
@@ -737,14 +701,14 @@ export class SuperadminService implements OnModuleInit {
         if (!tenant) throw new NotFoundException('Tenant not found');
 
         const year = new Date().getFullYear();
-        const count = await (this.prisma as any).systemInvoice.count({
+        const count = await this.prisma.systemInvoice.count({
             where: {
                 invoiceNumber: { startsWith: `INV-${year}` },
             },
         });
-        const invoiceNumber = `INV-${year}-${String(count + 1).padStart(3, '0')}`;
+        const invoiceNumber = `INV-${year}-${String(count + 1).padStart(4, '0')}`;
 
-        const invoice = await (this.prisma as any).systemInvoice.create({
+        const invoice = await this.prisma.systemInvoice.create({
             data: {
                 tenantId: data.tenantId,
                 invoiceNumber,

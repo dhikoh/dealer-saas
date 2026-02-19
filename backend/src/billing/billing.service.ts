@@ -7,6 +7,13 @@ import { Cron, CronExpression } from '@nestjs/schedule';
 import { PLAN_TIERS, getPlanById, canUpgrade, canDowngrade } from '../config/plan-tiers.config';
 import { SubscriptionStateService } from './subscription-state.service';
 
+/** Default billing periods (fallback if PlatformSetting not configured) */
+const DEFAULT_BILLING_PERIODS = [
+    { months: 1, discountPercent: 0, label: '1 Bulan' },
+    { months: 6, discountPercent: 10, label: '6 Bulan' },
+    { months: 12, discountPercent: 20, label: '12 Bulan' },
+];
+
 @Injectable()
 export class BillingService {
     private readonly logger = new Logger(BillingService.name);
@@ -17,135 +24,31 @@ export class BillingService {
         private subscriptionStateService: SubscriptionStateService
     ) { }
 
-    // ==================== PUBLIC ====================
+    // ==================== BILLING PERIODS ====================
 
-    // ==================== AUTHORIZED USERS ====================
-
-    // ... (rest of the file until verifyPayment)
-
-    async verifyPayment(invoiceId: string, approved: boolean, verifiedBy: string) {
-        const invoice = await (this.prisma as any).systemInvoice.findUnique({
-            where: { id: invoiceId },
-            include: { tenant: true } // Need tenant to find owner
-        });
-
-        if (!invoice) throw new BadRequestException('Invoice not found');
-
-        // Find Tenant Owner for notification
-        const owner = await this.prisma.user.findFirst({
-            where: { tenantId: invoice.tenantId, role: 'OWNER' }
-        });
-
-        if (approved) {
-            // Approve payment
-            await (this.prisma as any).systemInvoice.update({
-                where: { id: invoiceId },
-                data: { status: 'PAID' }
+    /**
+     * Get available billing periods (with discounts).
+     * Reads from PlatformSetting 'billing_periods', falls back to defaults.
+     */
+    async getBillingPeriods() {
+        try {
+            const setting = await this.prisma.platformSetting.findUnique({
+                where: { key: 'billing_periods' },
             });
-
-            // Parse items to check for plan upgrade info
-            let toPlan: string | null = null;
-            try {
-                const items = JSON.parse(invoice.items || '{}');
-                toPlan = items.toPlan || (Array.isArray(items) ? items[0]?.toPlan : null);
-            } catch { /* ignore parse errors */ }
-
-            // Activate subscription and upgrade planTier if applicable
-            const now = new Date();
-            const subscriptionEndsAt = new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000);
-
-            // 1. Update Plan Logic (Non-Status)
-            await this.prisma.tenant.update({
-                where: { id: invoice.tenantId },
-                data: {
-                    ...(toPlan ? { planTier: toPlan } : {}),
-                    // Status handled by service below
-                    subscriptionStartedAt: now,
-                    subscriptionEndsAt,
-                    nextBillingDate: subscriptionEndsAt,
-                    scheduledDeletionAt: null, // Cancel auto-deletion timer
+            if (setting?.value) {
+                const parsed = JSON.parse(setting.value);
+                // Accept both formats: bare array [...] or wrapped { periods: [...] }
+                const periods = Array.isArray(parsed)
+                    ? parsed
+                    : (parsed?.periods && Array.isArray(parsed.periods) ? parsed.periods : null);
+                if (periods && periods.length > 0) {
+                    return periods;
                 }
-            });
-
-            // 2. Strict State Transition
-            await this.subscriptionStateService.transition(
-                invoice.tenantId,
-                'ACTIVE',
-                `Payment verified for Invoice #${invoice.invoiceNumber}`,
-                'SUPERADMIN',
-                invoiceId
-            );
-
-            // Notify Owner
-            if (owner) {
-                await this.notificationService.createNotification({
-                    userId: owner.id,
-                    title: 'Pembayaran Diterima ✅',
-                    message: `Pembayaran untuk Invoice #${invoice.invoiceNumber} telah diverifikasi. Langganan Anda aktif kembali.`,
-                    type: 'success',
-                    link: '/app/billing'
-                });
             }
-
-            return { success: true, message: 'Payment verified and subscription activated' };
-        } else {
-            // Reject payment
-            await (this.prisma as any).systemInvoice.update({
-                where: { id: invoiceId },
-                data: { status: 'REJECTED' }
-            });
-
-            // Notify Owner
-            if (owner) {
-                await this.notificationService.createNotification({
-                    userId: owner.id,
-                    title: 'Pembayaran Ditolak ❌',
-                    message: `Pembayaran untuk Invoice #${invoice.invoiceNumber} ditolak. Silakan upload bukti yang valid.`,
-                    type: 'error',
-                    link: '/app/billing'
-                });
-            }
-
-            return { success: true, message: 'Payment rejected' };
+        } catch (e) {
+            this.logger.warn('Failed to parse billing_periods setting, using defaults');
         }
-    }
-
-    async uploadPaymentProof(invoiceId: string, tenantId: string, proofUrl: string) {
-        const invoice = await (this.prisma as any).systemInvoice.findUnique({
-            where: { id: invoiceId },
-            include: { tenant: true }
-        });
-
-        if (!invoice) throw new BadRequestException('Invoice not found');
-        if (invoice.tenantId !== tenantId) throw new BadRequestException('Access denied');
-        if (invoice.status !== 'PENDING' && invoice.status !== 'REJECTED') {
-            throw new BadRequestException('Invoice sudah diproses dan tidak bisa diupload ulang');
-        }
-
-        const updated = await (this.prisma as any).systemInvoice.update({
-            where: { id: invoiceId },
-            data: {
-                status: 'VERIFYING',
-                paymentProof: proofUrl,
-            },
-        });
-
-        // Notify Superadmins
-        const superadmins = await this.prisma.user.findMany({
-            where: { role: 'SUPERADMIN' }
-        });
-
-        for (const admin of superadmins) {
-            await this.notificationService.createNotification({
-                userId: admin.id,
-                title: 'New Payment Proof 💸',
-                message: `Tenant ${invoice.tenant?.name} uploaded proof for #${invoice.invoiceNumber}.`,
-                type: 'info',
-                link: '/superadmin/invoices'
-            });
-        }
-
-        return updated;
+        return DEFAULT_BILLING_PERIODS;
     }
 
     // ==================== SUBSCRIPTION STATUS ====================
@@ -201,53 +104,120 @@ export class BillingService {
 
     // ==================== PLAN MANAGEMENT ====================
 
-    async upgradePlan(tenantId: string, newPlanId: string) {
-        const tenant = await this.prisma.tenant.findUnique({ where: { id: tenantId } });
+    /**
+     * Upgrade Plan — SINGLE SOURCE OF TRUTH for both tenant-facing and admin-facing upgrade.
+     * 
+     * @param tenantId - tenant to upgrade
+     * @param newPlanId - target plan slug (e.g. 'PRO')
+     * @param months - billing period (1, 6, 12). Default 1.
+     */
+    async upgradePlan(tenantId: string, newPlanId: string, months: number = 1) {
+        const tenant = await this.prisma.tenant.findUnique({
+            where: { id: tenantId },
+            include: { plan: true },
+        });
         if (!tenant) throw new BadRequestException('Tenant not found');
 
         if (!canUpgrade(tenant.planTier, newPlanId)) {
-            throw new BadRequestException(`Cannot upgrade from ${tenant.planTier} to ${newPlanId}`);
+            throw new BadRequestException(`Tidak dapat upgrade dari ${tenant.planTier} ke ${newPlanId}`);
         }
 
-        const newPlan = getPlanById(newPlanId);
-        if (!newPlan) throw new BadRequestException('Invalid plan');
+        // === DUPLICATE INVOICE GUARD ===
+        const activeInvoice = await this.prisma.systemInvoice.findFirst({
+            where: {
+                tenantId,
+                status: { in: ['PENDING', 'VERIFYING'] },
+            },
+        });
+        if (activeInvoice) {
+            throw new BadRequestException(
+                `Anda masih memiliki invoice aktif (#${activeInvoice.invoiceNumber}). Tunggu verifikasi atau hubungi admin untuk membatalkan.`
+            );
+        }
+
+        // === GET PLAN PRICE (DB first, fallback to config) ===
+        const dbPlan = await this.prisma.plan.findFirst({
+            where: { slug: { equals: newPlanId, mode: 'insensitive' } },
+        });
+        const planPrice = dbPlan ? Number(dbPlan.price) : (getPlanById(newPlanId)?.price ?? 0);
+        const planName = dbPlan ? dbPlan.name : (getPlanById(newPlanId)?.name ?? newPlanId);
+
+        if (planPrice <= 0) {
+            throw new BadRequestException('Harga paket tidak valid');
+        }
+
+        // === BILLING PERIOD DISCOUNT ===
+        const periods = await this.getBillingPeriods();
+        const selectedPeriod = periods.find((p: any) => p.months === months);
+        const discountPercent = selectedPeriod?.discountPercent ?? 0;
+        const totalBeforeDiscount = planPrice * months;
+        const discountAmount = Math.round(totalBeforeDiscount * discountPercent / 100);
+        const totalAfterDiscount = totalBeforeDiscount - discountAmount;
 
         const now = new Date();
-        const subscriptionEndsAt = new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000); // 30 days
+        const dueDate = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000); // 7 days to pay
 
-        // Generate invoice for upgrade — store toPlan so verifyPayment can upgrade planTier
-        const invoice = await (this.prisma as any).systemInvoice.create({
+        // === GENERATE INVOICE ===
+        const invoiceNumber = await this.generateInvoiceNumber();
+        const invoice = await this.prisma.systemInvoice.create({
             data: {
                 tenantId,
-                invoiceNumber: `INV-${Date.now()}`,
-                amount: newPlan.price,
+                invoiceNumber,
+                amount: totalAfterDiscount,
                 status: 'PENDING',
-                dueDate: subscriptionEndsAt,
-                items: JSON.stringify({ toPlan: newPlanId, description: `Upgrade to ${newPlan.name}` }),
-            }
+                dueDate,
+                items: JSON.stringify({
+                    type: 'UPGRADE',
+                    fromPlan: tenant.planTier,
+                    toPlan: newPlanId,
+                    months,
+                    monthlyPrice: planPrice,
+                    discountPercent,
+                    totalBeforeDiscount,
+                    discountAmount,
+                    totalAfterDiscount,
+                    description: months > 1
+                        ? `Upgrade ke ${planName} (${months} bulan, diskon ${discountPercent}%)`
+                        : `Upgrade ke ${planName}`,
+                }),
+            },
         });
 
-        // DON'T change planTier yet 
+        // DON'T change planTier yet — wait for payment verification
         await this.prisma.tenant.update({
             where: { id: tenantId },
             data: {
-                // subscriptionStatus: 'PENDING_PAYMENT', // Removed
-                monthlyBill: newPlan.price,
-                nextBillingDate: subscriptionEndsAt,
-                scheduledDeletionAt: null, // Cancel auto-deletion timer
-            }
+                monthlyBill: planPrice,
+                scheduledDeletionAt: null,
+            },
         });
 
         // Switch to GRACE (Read-Only) until payment
         await this.subscriptionStateService.transition(
             tenantId,
             'GRACE',
-            `Upgrade requested to ${newPlan.name}`,
+            `Upgrade requested to ${planName} (${months} bulan)`,
             'BILLING',
             invoice.id
         );
 
-        return { success: true, invoice, newPlan };
+        return {
+            success: true,
+            invoice: {
+                id: invoice.id,
+                invoiceNumber: invoice.invoiceNumber,
+                amount: totalAfterDiscount,
+                dueDate: invoice.dueDate,
+                plan: planName,
+                months,
+                discountPercent,
+                totalBeforeDiscount,
+                discountAmount,
+            },
+            message: months > 1
+                ? `Invoice untuk upgrade ke ${planName} (${months} bulan, diskon ${discountPercent}%) telah dibuat.`
+                : `Invoice untuk upgrade ke ${planName} telah dibuat. Silakan lakukan pembayaran.`,
+        };
     }
 
     async downgradePlan(tenantId: string, newPlanId: string) {
@@ -265,30 +235,181 @@ export class BillingService {
         await this.prisma.tenant.update({
             where: { id: tenantId },
             data: {
-                // Keep current plan until period ends
-                // Store pending downgrade in metadata or separate field
                 monthlyBill: newPlan.price,
-            }
+            },
         });
 
         return { success: true, message: `Downgrade to ${newPlan.name} will take effect at end of billing period` };
     }
 
+    // ==================== PAYMENT PROOF UPLOAD ====================
+
+    async uploadPaymentProof(invoiceId: string, tenantId: string, proofUrl: string) {
+        const invoice = await this.prisma.systemInvoice.findUnique({
+            where: { id: invoiceId },
+            include: { tenant: true },
+        });
+
+        if (!invoice) throw new BadRequestException('Invoice not found');
+        if (invoice.tenantId !== tenantId) throw new BadRequestException('Access denied');
+        if (invoice.status !== 'PENDING' && invoice.status !== 'REJECTED') {
+            throw new BadRequestException('Invoice sudah diproses atau sedang di-verifikasi. Tidak bisa upload ulang.');
+        }
+
+        const updated = await this.prisma.systemInvoice.update({
+            where: { id: invoiceId },
+            data: {
+                status: 'VERIFYING',
+                paymentProof: proofUrl,
+            },
+        });
+
+        // Notify all Superadmins
+        const superadmins = await this.prisma.user.findMany({
+            where: { role: 'SUPERADMIN' },
+        });
+
+        for (const admin of superadmins) {
+            await this.notificationService.createNotification({
+                userId: admin.id,
+                title: 'Bukti Pembayaran Baru 💸',
+                message: `Tenant ${invoice.tenant?.name} upload bukti untuk Invoice #${invoice.invoiceNumber}.`,
+                type: 'info',
+                link: '/superadmin/invoices',
+            });
+        }
+
+        return updated;
+    }
+
+    // ==================== VERIFY PAYMENT (Single Source of Truth) ====================
+
+    /**
+     * Verify/Reject a payment. Called by SuperadminService (which handles activity logging).
+     * This method handles: invoice status, plan upgrade, subscription dates, notifications.
+     */
+    async verifyPayment(invoiceId: string, approved: boolean, verifiedBy?: string) {
+        const invoice = await this.prisma.systemInvoice.findUnique({
+            where: { id: invoiceId },
+            include: { tenant: true },
+        });
+
+        if (!invoice) throw new BadRequestException('Invoice not found');
+        if (invoice.status === 'PAID') {
+            throw new BadRequestException('Invoice sudah disetujui sebelumnya');
+        }
+        if (invoice.status === 'CANCELLED') {
+            throw new BadRequestException('Invoice sudah dibatalkan');
+        }
+
+        // Find Tenant Owner for notification
+        const owner = await this.prisma.user.findFirst({
+            where: { tenantId: invoice.tenantId, role: 'OWNER' },
+        });
+
+        if (approved) {
+            // === APPROVE PAYMENT ===
+            await this.prisma.systemInvoice.update({
+                where: { id: invoiceId },
+                data: { status: 'PAID' },
+            });
+
+            // Parse items for plan upgrade + billing period info
+            let toPlan: string | null = null;
+            let months = 1;
+            try {
+                const items = JSON.parse(invoice.items || '{}');
+                toPlan = items.toPlan || (Array.isArray(items) ? items[0]?.toPlan : null);
+                months = items.months || 1;
+            } catch { /* ignore parse errors */ }
+
+            // Calculate subscription duration based on months purchased
+            const now = new Date();
+            const durationMs = months * 30 * 24 * 60 * 60 * 1000;
+            const subscriptionEndsAt = new Date(now.getTime() + durationMs);
+
+            // 1. Update Plan + Subscription Dates
+            await this.prisma.tenant.update({
+                where: { id: invoice.tenantId },
+                data: {
+                    ...(toPlan ? { planTier: toPlan } : {}),
+                    subscriptionStartedAt: now,
+                    subscriptionEndsAt,
+                    nextBillingDate: subscriptionEndsAt, // Critical: cron reads this
+                    scheduledDeletionAt: null,
+                },
+            });
+
+            // 2. Strict State Transition
+            await this.subscriptionStateService.transition(
+                invoice.tenantId,
+                'ACTIVE',
+                `Payment verified for Invoice #${invoice.invoiceNumber} (${months} bulan)`,
+                'SUPERADMIN',
+                invoiceId
+            );
+
+            // 3. Notify Owner
+            if (owner) {
+                const periodText = months > 1 ? ` untuk ${months} bulan` : '';
+                await this.notificationService.createNotification({
+                    userId: owner.id,
+                    title: 'Pembayaran Diterima ✅',
+                    message: `Pembayaran untuk Invoice #${invoice.invoiceNumber}${periodText} telah diverifikasi. Langganan Anda aktif kembali.`,
+                    type: 'success',
+                    link: '/app/billing',
+                });
+            }
+
+            return { success: true, message: `Payment verified and subscription activated for ${months} month(s)` };
+        } else {
+            // === REJECT PAYMENT (use REJECTED, not CANCELLED) ===
+            await this.prisma.systemInvoice.update({
+                where: { id: invoiceId },
+                data: { status: 'REJECTED' },
+            });
+
+            // Notify Owner
+            if (owner) {
+                await this.notificationService.createNotification({
+                    userId: owner.id,
+                    title: 'Pembayaran Ditolak ❌',
+                    message: `Pembayaran untuk Invoice #${invoice.invoiceNumber} ditolak. Silakan upload bukti yang valid.`,
+                    type: 'error',
+                    link: '/app/billing',
+                });
+            }
+
+            return { success: true, message: 'Payment rejected — tenant can re-upload proof' };
+        }
+    }
+
     // ==================== INVOICE GENERATION ====================
 
-    async generateInvoice(tenantId: string, amount: number, description: string) {
-        const invoiceNumber = `INV-${Date.now()}-${Math.random().toString(36).substring(2, 7).toUpperCase()}`;
+    /**
+     * Generate a unique invoice number: INV-YYYY-XXXX
+     */
+    private async generateInvoiceNumber(): Promise<string> {
+        const year = new Date().getFullYear();
+        const count = await this.prisma.systemInvoice.count({
+            where: { invoiceNumber: { startsWith: `INV-${year}` } },
+        });
+        return `INV-${year}-${String(count + 1).padStart(4, '0')}`;
+    }
+
+    async generateInvoice(tenantId: string, amount: number, description: string, months: number = 1) {
+        const invoiceNumber = await this.generateInvoiceNumber();
         const dueDate = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000); // 7 days to pay
 
-        const invoice = await (this.prisma as any).systemInvoice.create({
+        const invoice = await this.prisma.systemInvoice.create({
             data: {
                 tenantId,
                 invoiceNumber,
                 amount,
                 dueDate,
                 status: 'PENDING',
-                items: JSON.stringify([{ description, amount }]),
-            }
+                items: JSON.stringify([{ description, amount, months }]),
+            },
         });
 
         return invoice;
@@ -303,19 +424,38 @@ export class BillingService {
                 planTier: { not: 'DEMO' },
                 autoRenew: true,
                 nextBillingDate: { lte: now },
-            }
+            },
+            include: { plan: true }, // Use DB Plan for price
         });
 
         const results: { tenantId: string; invoiceId: string }[] = [];
         for (const tenant of tenants) {
-            const plan = getPlanById(tenant.planTier);
-            if (plan) {
+            // Use DB Plan price if available, fallback to hardcoded config
+            const price = tenant.plan ? Number(tenant.plan.price) : (getPlanById(tenant.planTier)?.price ?? 0);
+            const planName = tenant.plan ? tenant.plan.name : (getPlanById(tenant.planTier)?.name ?? tenant.planTier);
+
+            if (price > 0) {
                 const invoice = await this.generateInvoice(
                     tenant.id,
-                    plan.price,
-                    `Monthly subscription - ${plan.name}`
+                    price,
+                    `Langganan bulanan - ${planName}`,
+                    1
                 );
                 results.push({ tenantId: tenant.id, invoiceId: invoice.id });
+
+                // Notify tenant owner
+                const owner = await this.prisma.user.findFirst({
+                    where: { tenantId: tenant.id, role: 'OWNER' },
+                });
+                if (owner) {
+                    await this.notificationService.createNotification({
+                        userId: owner.id,
+                        title: 'Invoice Baru 📄',
+                        message: `Invoice langganan bulanan #${invoice.invoiceNumber} telah dibuat. Silakan lakukan pembayaran.`,
+                        type: 'info',
+                        link: '/app/billing',
+                    });
+                }
             }
         }
 
@@ -332,9 +472,8 @@ export class BillingService {
             where: { id: tenantId },
             data: {
                 planTier: 'DEMO',
-                // subscriptionStatus: 'TRIAL', // Handled below
                 trialEndsAt,
-            }
+            },
         });
 
         await this.subscriptionStateService.transition(
@@ -354,7 +493,7 @@ export class BillingService {
                 planTier: 'DEMO',
                 trialEndsAt: { lt: now },
                 subscriptionStatus: { not: 'CANCELLED' },
-            }
+            },
         });
     }
 
@@ -373,10 +512,10 @@ export class BillingService {
             this.prisma.tenant.count({ where: { subscriptionStatus: 'ACTIVE', planTier: { not: 'DEMO' } } }),
             this.prisma.tenant.count({ where: { subscriptionStatus: 'TRIAL' } }),
             this.prisma.tenant.count({ where: { subscriptionStatus: 'SUSPENDED' } }),
-            (this.prisma as any).systemInvoice.count({ where: { status: 'PENDING' } }),
+            this.prisma.systemInvoice.count({ where: { status: 'PENDING' } }),
             this.prisma.tenant.aggregate({
                 _sum: { monthlyBill: true },
-                where: { subscriptionStatus: 'ACTIVE' }
+                where: { subscriptionStatus: 'ACTIVE' },
             }),
         ]);
 
@@ -418,7 +557,6 @@ export class BillingService {
 
     /**
      * Format a DB Plan record into the shape expected by frontend.
-     * Reusable by getAllPlans() and checkSubscriptionStatus().
      */
     private formatDbPlan(p: any) {
         const feat = typeof p.features === 'object' && p.features !== null
@@ -459,7 +597,7 @@ export class BillingService {
     // ==================== TENANT-FACING ====================
 
     async getMyInvoices(tenantId: string) {
-        return (this.prisma as any).systemInvoice.findMany({
+        return this.prisma.systemInvoice.findMany({
             where: { tenantId },
             orderBy: { createdAt: 'desc' },
             take: 50,
@@ -507,7 +645,6 @@ export class BillingService {
 
         const suspended: string[] = [];
         for (const tenant of overdueTenants) {
-            // Direct update replaced by service transition
             await this.subscriptionStateService.transition(
                 tenant.id,
                 'SUSPENDED',

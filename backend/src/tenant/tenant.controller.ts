@@ -32,24 +32,18 @@ export class TenantController {
     return this.tenantService.getAvailablePlans(tenantId);
   }
 
-  // Request plan upgrade
+  // Request plan upgrade (supports multi-month billing)
   @Post('upgrade')
   async requestUpgrade(
     @ActiveTenant() tenantId: string,
-    @Body('planTier') planTier: string
+    @Body('planTier') planTier: string,
+    @Body('months') months?: number
   ) {
-    return this.tenantService.requestUpgrade(tenantId, planTier);
+    return this.tenantService.requestUpgrade(tenantId, planTier, months || 1);
   }
 
-  // Upload payment proof for invoice
-  @Post('invoice/:invoiceId/proof')
-  async uploadPaymentProof(
-    @ActiveTenant() tenantId: string,
-    @Param('invoiceId') invoiceId: string,
-    @Body('proofUrl') proofUrl: string
-  ) {
-    return this.tenantService.uploadPaymentProof(tenantId, invoiceId, proofUrl);
-  }
+  // NOTE: Payment proof upload is handled via POST /billing/my-invoices/:id/upload-proof (Multer/FormData)
+  // The tenant controller does NOT handle file uploads; see BillingController.
 
   // Get tenant's invoices
   @Get('invoices')

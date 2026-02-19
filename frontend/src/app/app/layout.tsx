@@ -28,6 +28,7 @@ export default function DashboardLayout({
     }, [loading, isAuthenticated, router]);
 
     // H4: Check subscription status — redirect to suspended page if needed
+    // H4: Check subscription status — redirect to suspended page if needed
     useEffect(() => {
         if (loading || !isAuthenticated || !user) return;
         // Don't check on the suspended page itself to avoid redirect loops
@@ -35,21 +36,12 @@ export default function DashboardLayout({
         // SUPERADMIN doesn't have subscription
         if (user.role === 'SUPERADMIN') return;
 
-        const checkSubscriptionStatus = async () => {
-            try {
-                const res = await fetchApi('/tenant/profile');
-                if (res.ok) {
-                    const data = await res.json();
-                    if (data.subscriptionStatus === 'SUSPENDED' || data.subscriptionStatus === 'CANCELLED') {
-                        router.push('/app/suspended');
-                    }
-                }
-            } catch (err) {
-                // Silent fail — don't block the dashboard
-                console.error('Subscription check failed:', err);
-            }
-        };
-        checkSubscriptionStatus();
+        // OPTIMIZATION: Check directly from user object (filled by getProfile)
+        // instead of making a redundant API call to /tenant/profile
+        const tenant = user.tenant as any; // Type assertion since User has [key: string]: any
+        if (tenant?.subscriptionStatus === 'SUSPENDED' || tenant?.subscriptionStatus === 'CANCELLED') {
+            router.push('/app/suspended');
+        }
     }, [loading, isAuthenticated, user, pathname, router]);
 
     if (loading) {
