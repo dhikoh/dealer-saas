@@ -1,9 +1,11 @@
+
 import { Injectable, Logger, BadRequestException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { NotificationService } from '../notification/notification.service';
 import { Cron, CronExpression } from '@nestjs/schedule';
 
 import { PLAN_TIERS, getPlanById, canUpgrade, canDowngrade } from '../config/plan-tiers.config';
+import { SubscriptionStateService } from './subscription-state.service';
 
 @Injectable()
 export class BillingService {
@@ -11,10 +13,15 @@ export class BillingService {
 
     constructor(
         private prisma: PrismaService,
-        private notificationService: NotificationService
+        private notificationService: NotificationService,
+        private subscriptionStateService: SubscriptionStateService
     ) { }
 
-    // ... (rest of the file until uploadPaymentProof)
+    // ==================== PUBLIC ====================
+
+    // ==================== AUTHORIZED USERS ====================
+
+    // ... (rest of the file until verifyPayment)
 
     async verifyPayment(invoiceId: string, approved: boolean, verifiedBy: string) {
         const invoice = await (this.prisma as any).systemInvoice.findUnique({
@@ -47,17 +54,27 @@ export class BillingService {
             const now = new Date();
             const subscriptionEndsAt = new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000);
 
+            // 1. Update Plan Logic (Non-Status)
             await this.prisma.tenant.update({
                 where: { id: invoice.tenantId },
                 data: {
                     ...(toPlan ? { planTier: toPlan } : {}),
-                    subscriptionStatus: 'ACTIVE',
+                    // Status handled by service below
                     subscriptionStartedAt: now,
                     subscriptionEndsAt,
                     nextBillingDate: subscriptionEndsAt,
                     scheduledDeletionAt: null, // Cancel auto-deletion timer
                 }
             });
+
+            // 2. Strict State Transition
+            await this.subscriptionStateService.transition(
+                invoice.tenantId,
+                'ACTIVE',
+                `Payment verified for Invoice #${invoice.invoiceNumber}`,
+                'SUPERADMIN',
+                invoiceId
+            );
 
             // Notify Owner
             if (owner) {
@@ -93,8 +110,6 @@ export class BillingService {
         }
     }
 
-    // ... (rest of methods)
-
     async uploadPaymentProof(invoiceId: string, tenantId: string, proofUrl: string) {
         const invoice = await (this.prisma as any).systemInvoice.findUnique({
             where: { id: invoiceId },
@@ -111,7 +126,7 @@ export class BillingService {
             where: { id: invoiceId },
             data: {
                 status: 'VERIFYING',
-                paymentProof: proofUrl, // FIXED: paymentProofUrl -> paymentProof
+                paymentProof: proofUrl,
             },
         });
 
@@ -157,7 +172,7 @@ export class BillingService {
         // Check trial expiry
         if (tenant.planTier === 'DEMO' && tenant.trialEndsAt) {
             if (now > tenant.trialEndsAt) {
-                status = 'EXPIRED';
+                status = 'EXPIRED'; // Legacy logic for viewing purposes mainly, actual status in DB is strict
             } else {
                 daysRemaining = Math.ceil((tenant.trialEndsAt.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
             }
@@ -166,9 +181,9 @@ export class BillingService {
         // Check subscription expiry
         if (tenant.subscriptionEndsAt && now > tenant.subscriptionEndsAt) {
             if (tenant.autoRenew) {
-                status = 'PENDING_RENEWAL';
+                status = 'PENDING_RENEWAL'; // Legacy logic for view
             } else {
-                status = 'EXPIRED';
+                status = 'EXPIRED'; // Legacy logic for view
             }
         } else if (tenant.subscriptionEndsAt) {
             daysRemaining = Math.ceil((tenant.subscriptionEndsAt.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
@@ -212,17 +227,25 @@ export class BillingService {
             }
         });
 
-        // DON'T change planTier yet — only switch status to PENDING_PAYMENT
-        // planTier will be upgraded by verifyPayment() after admin approves
+        // DON'T change planTier yet 
         await this.prisma.tenant.update({
             where: { id: tenantId },
             data: {
-                subscriptionStatus: 'PENDING_PAYMENT',
+                // subscriptionStatus: 'PENDING_PAYMENT', // Removed
                 monthlyBill: newPlan.price,
                 nextBillingDate: subscriptionEndsAt,
                 scheduledDeletionAt: null, // Cancel auto-deletion timer
             }
         });
+
+        // Switch to GRACE (Read-Only) until payment
+        await this.subscriptionStateService.transition(
+            tenantId,
+            'GRACE',
+            `Upgrade requested to ${newPlan.name}`,
+            'BILLING',
+            invoice.id
+        );
 
         return { success: true, invoice, newPlan };
     }
@@ -299,10 +322,6 @@ export class BillingService {
         return { generated: results.length, invoices: results };
     }
 
-    // ==================== PAYMENT VERIFICATION ====================
-    // Methods verifyPayment and uploadPaymentProof are already defined above.
-    // access denied logic and notifications are handled there.
-
     // ==================== TRIAL MANAGEMENT ====================
 
     async startTrial(tenantId: string) {
@@ -313,10 +332,17 @@ export class BillingService {
             where: { id: tenantId },
             data: {
                 planTier: 'DEMO',
-                subscriptionStatus: 'TRIAL',
+                // subscriptionStatus: 'TRIAL', // Handled below
                 trialEndsAt,
             }
         });
+
+        await this.subscriptionStateService.transition(
+            tenantId,
+            'TRIAL',
+            'Trial Started',
+            'SYSTEM'
+        );
 
         return { success: true, trialEndsAt };
     }
@@ -433,10 +459,16 @@ export class BillingService {
 
         const suspended: string[] = [];
         for (const tenant of overdueTenants) {
-            await this.prisma.tenant.update({
-                where: { id: tenant.id },
-                data: { subscriptionStatus: 'SUSPENDED' },
-            });
+            // Direct update replaced by service transition
+            await this.subscriptionStateService.transition(
+                tenant.id,
+                'SUSPENDED',
+                'Overdue > 30 days',
+                'SYSTEM',
+                undefined,
+                'SOFT'
+            );
+
             suspended.push(tenant.name);
             this.logger.warn(`🚫 Suspended tenant: ${tenant.name} (Overdue > 30 days)`);
         }

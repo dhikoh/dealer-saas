@@ -26,7 +26,8 @@ model Tenant {
   
   // Legacy fields (will be migrated)
   planTier           String   @default("DEMO") 
-  subscriptionStatus String   @default("ACTIVE") // ACTIVE, TRIAL, SUSPENDED, CANCELLED
+  subscriptionStatus SubscriptionStatus @default(ACTIVE) // Changed from String to Enum
+  suspensionType     SuspensionType?   // New field for Hard/Soft suspension
   trialEndsAt        DateTime?
   subscriptionStartedAt DateTime?
   subscriptionEndsAt DateTime?
@@ -61,6 +62,7 @@ model Tenant {
   blacklistEntries BlacklistEntry[]
   invoices     SystemInvoice[]
   activityLogs ActivityLog[]
+  statusHistory TenantStatusHistory[] // New Relation
   vehicleCosts VehicleCost[]
   operatingCosts OperatingCost[]
 
@@ -71,7 +73,40 @@ model Tenant {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
+  @@index([subscriptionStatus])
   @@map("tenants")
+}
+
+// ==================== ENUMS & HISTORY (v2.4) ====================
+
+enum SubscriptionStatus {
+  ACTIVE
+  TRIAL
+  GRACE
+  SUSPENDED
+  CANCELLED
+}
+
+enum SuspensionType {
+  SOFT // Billing access only
+  HARD // No access
+}
+
+model TenantStatusHistory {
+  id          String   @id @default(uuid())
+  tenantId    String
+  tenant      Tenant   @relation(fields: [tenantId], references: [id]) // No Cascade Delete
+  
+  oldStatus   SubscriptionStatus
+  newStatus   SubscriptionStatus
+  reason      String?
+  triggeredBy String   // SYSTEM | BILLING | SUPERADMIN
+  referenceId String?
+  
+  createdAt   DateTime @default(now())
+
+  @@index([tenantId])
+  @@map("tenant_status_history")
 }
 
 // ... (Plan & DealerGroup omitted for brevity, no changes needed there) ...

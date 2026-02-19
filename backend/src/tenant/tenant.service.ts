@@ -1,11 +1,18 @@
-import { Injectable, NotFoundException, BadRequestException, ForbiddenException } from '@nestjs/common';
+
+import { Injectable, NotFoundException, BadRequestException, ForbiddenException, Logger } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { getPlanById, PLAN_TIERS, canUpgrade } from '../config/plan-tiers.config';
 import { TENANT_ROLES } from '../config/roles.config';
+import { SubscriptionStateService } from '../billing/subscription-state.service';
 
 @Injectable()
 export class TenantService {
-  constructor(private prisma: PrismaService) { }
+  private readonly logger = new Logger(TenantService.name);
+
+  constructor(
+    private prisma: PrismaService,
+    private subscriptionStateService: SubscriptionStateService
+  ) { }
 
   // Get current tenant profile with subscription info
   async getProfile(tenantId: string) {
@@ -169,14 +176,23 @@ export class TenantService {
       },
     });
 
-    // Align with BillingService.upgradePlan — set pending status
+    // Align with BillingService.upgradePlan — set pending status via Service
+    // Update Plan Metadata pending transition
     await this.prisma.tenant.update({
       where: { id: tenantId },
       data: {
-        subscriptionStatus: 'PENDING_PAYMENT',
+        // subscriptionStatus: 'PENDING_PAYMENT', // REPLACED
         scheduledDeletionAt: null,
       },
     });
+
+    await this.subscriptionStateService.transition(
+      tenantId,
+      'GRACE', // PENDING_PAYMENT maps to GRACE (Limited Access)
+      `Upgrade requested to ${plan.name}`,
+      'BILLING',
+      invoice.id
+    );
 
     return {
       success: true,

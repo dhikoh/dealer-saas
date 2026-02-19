@@ -5,6 +5,7 @@ import { APP_GUARD } from '@nestjs/core';
 import { JwtAuthGuard } from './auth/jwt-auth.guard';
 import { UserStateGuard } from './auth/user-state.guard';
 import { TenantGuard } from './auth/tenant.guard';
+import { SubscriptionGuard } from './auth/subscription.guard';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
 import { PrismaModule } from './prisma/prisma.module';
@@ -113,7 +114,12 @@ import { FinanceModule } from './finance/finance.module';
       provide: APP_GUARD,
       useClass: UserStateGuard,
     },
-    // 4. Tenant isolation globally (strict tenant context enforcement)
+    // 4. Subscription/Billing enforcement (Check status BEFORE tenant isolation)
+    {
+      provide: APP_GUARD,
+      useClass: SubscriptionGuard,
+    },
+    // 5. Tenant isolation globally (strict tenant context enforcement)
     {
       provide: APP_GUARD,
       useClass: TenantGuard,

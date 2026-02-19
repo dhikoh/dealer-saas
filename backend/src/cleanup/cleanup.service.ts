@@ -1,12 +1,17 @@
-import { Injectable, ConsoleLogger } from '@nestjs/common';
+
+import { Injectable, Logger } from '@nestjs/common';
 import { Cron } from '@nestjs/schedule';
 import { PrismaService } from '../prisma/prisma.service';
+import { SubscriptionStateService } from '../billing/subscription-state.service';
 
 @Injectable()
 export class CleanupService {
-    private readonly logger = new ConsoleLogger(CleanupService.name);
+    private readonly logger = new Logger(CleanupService.name);
 
-    constructor(private prisma: PrismaService) { }
+    constructor(
+        private prisma: PrismaService,
+        private subscriptionStateService: SubscriptionStateService
+    ) { }
 
     /**
      * Runs daily at 02:00 AM
@@ -47,17 +52,29 @@ export class CleanupService {
             const expiryDate = tenant.subscriptionEndsAt || tenant.trialEndsAt || now;
             const scheduledDeletionAt = new Date(expiryDate.getTime() + sixMonthsMs);
 
-            await this.prisma.tenant.update({
-                where: { id: tenant.id },
-                data: {
-                    subscriptionStatus: 'SUSPENDED',
-                    scheduledDeletionAt,
-                },
-            });
+            try {
+                // 1. Transition Status to SUSPENDED (Hard Block)
+                await this.subscriptionStateService.transition(
+                    tenant.id,
+                    'SUSPENDED',
+                    'Expired > Scheduled for Deletion',
+                    'SYSTEM',
+                    undefined,
+                    'HARD'
+                );
 
-            this.logger.log(
-                `📅 Tenant "${tenant.name}" (${tenant.id}) scheduled for deletion on ${scheduledDeletionAt.toISOString()}`
-            );
+                // 2. Set Deletion Schedule
+                await this.prisma.tenant.update({
+                    where: { id: tenant.id },
+                    data: { scheduledDeletionAt },
+                });
+
+                this.logger.log(
+                    `📅 Tenant "${tenant.name}" (${tenant.id}) scheduled for deletion on ${scheduledDeletionAt.toISOString()}`
+                );
+            } catch (error) {
+                this.logger.error(`Failed to schedule deletion for tenant ${tenant.id}: ${error.message}`);
+            }
         }
 
         if (expiredTenants.length > 0) {
@@ -73,17 +90,27 @@ export class CleanupService {
         });
 
         for (const tenant of tenantsToDelete) {
-            await this.prisma.tenant.update({
-                where: { id: tenant.id },
-                data: {
-                    deletedAt: now,
-                    subscriptionStatus: 'CANCELLED',
-                },
-            });
+            try {
+                // 1. Transition Status to CANCELLED
+                await this.subscriptionStateService.transition(
+                    tenant.id,
+                    'CANCELLED',
+                    'Auto Soft Delete (Scheduled)',
+                    'SYSTEM'
+                );
 
-            this.logger.log(
-                `🗑️ Tenant "${tenant.name}" (${tenant.id}) soft deleted.`
-            );
+                // 2. Perform Soft Delete
+                await this.prisma.tenant.update({
+                    where: { id: tenant.id },
+                    data: { deletedAt: now },
+                });
+
+                this.logger.log(
+                    `🗑️ Tenant "${tenant.name}" (${tenant.id}) soft deleted.`
+                );
+            } catch (error) {
+                this.logger.error(`Failed to soft delete tenant ${tenant.id}: ${error.message}`);
+            }
         }
 
         if (tenantsToDelete.length > 0) {
