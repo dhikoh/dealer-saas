@@ -3,72 +3,66 @@ import { PrismaClient } from '@prisma/client';
 const prisma = new PrismaClient();
 
 async function main() {
-    console.log('🌱 Seeding Plans...');
-
     const plans = [
         {
             name: 'Basic',
             slug: 'basic',
-            description: 'Untuk dealer kecil yang baru memulai.',
-            price: 500000,
-            currency: 'IDR',
-            maxVehicles: 20,
-            maxUsers: 2,
+            price: 0,
+            maxVehicles: 50,
+            maxUsers: 3,
             maxBranches: 1,
-            canCreateGroup: false,
+            maxCustomers: 200,      // Typed column (canonical)
             maxGroupMembers: 0,
-            features: {
-                api: false,
-                support: 'standard',
-                whiteLabel: false,
-            },
+            canCreateGroup: false,
+            features: { api: false, support: 'basic' }, // UI metadata only
         },
         {
             name: 'Pro',
             slug: 'pro',
-            description: 'Untuk dealer berkembang dengan tim sales.',
-            price: 1500000,
-            currency: 'IDR',
-            maxVehicles: 100,
-            maxUsers: 5,
-            maxBranches: 2,
-            canCreateGroup: false,
+            price: 500000,
+            maxVehicles: 200,
+            maxUsers: 10,
+            maxBranches: 5,
+            maxCustomers: 1000,     // Typed column (canonical)
             maxGroupMembers: 0,
-            features: {
-                api: true,
-                support: 'priority',
-                whiteLabel: false,
-            },
+            canCreateGroup: false,
+            features: { api: true, support: 'priority' },
         },
         {
             name: 'Enterprise',
             slug: 'enterprise',
-            description: 'Solusi lengkap untuk grup dealer besar.',
-            price: 5000000,
-            currency: 'IDR',
-            maxVehicles: 9999,
-            maxUsers: 50,
-            maxBranches: 10,
+            price: 2000000,
+            maxVehicles: -1,
+            maxUsers: -1,
+            maxBranches: -1,
+            maxCustomers: -1,       // Unlimited
+            maxGroupMembers: -1,
             canCreateGroup: true,
-            maxGroupMembers: 20,
-            features: {
-                api: true,
-                support: 'dedicated',
-                whiteLabel: true,
-            },
+            features: { api: true, support: 'dedicated' },
         },
     ];
 
+    console.log('Seeding Plans (idempotent)...');
+
     for (const plan of plans) {
-        const upsertedPlan = await prisma.plan.upsert({
+        await prisma.plan.upsert({
             where: { slug: plan.slug },
-            update: plan,
             create: plan,
+            update: {
+                // Only update limit columns — do not overwrite name or price if admin changed them
+                maxVehicles: plan.maxVehicles,
+                maxUsers: plan.maxUsers,
+                maxBranches: plan.maxBranches,
+                maxCustomers: plan.maxCustomers,
+                maxGroupMembers: plan.maxGroupMembers,
+                canCreateGroup: plan.canCreateGroup,
+                features: plan.features,
+            },
         });
-        console.log(`  Included plan: ${upsertedPlan.name}`);
+        console.log(`  ✓ ${plan.name} (slug: ${plan.slug}) upserted.`);
     }
 
-    console.log('✅ Plans seeded successfully.');
+    console.log('Done.');
 }
 
 main()

@@ -1,0 +1,7 @@
+export enum Feature {
+    VEHICLES = 'VEHICLES',
+    USERS = 'USERS',
+    BRANCHES = 'BRANCHES',
+    CUSTOMERS = 'CUSTOMERS',
+    DEALER_GROUP = 'DEALER_GROUP',
+}
