@@ -133,8 +133,26 @@ export default function BillingPage() {
                 fetchApi('/billing/my-invoices'),
             ]);
 
-            if (profileRes.ok) setProfile(await profileRes.json());
-            if (plansRes.ok) setPlans(await plansRes.json());
+            let currentProfile: TenantProfile | null = null;
+            if (profileRes.ok) {
+                currentProfile = await profileRes.json();
+                setProfile(currentProfile);
+            }
+
+            if (plansRes.ok) {
+                const rawPlans = await plansRes.json();
+                // Compute isCurrent + canUpgrade from tenant's current plan
+                const order = ['DEMO', 'BASIC', 'PRO', 'UNLIMITED'];
+                const currentTier = currentProfile?.planTier || '';
+                const currentIndex = order.indexOf(currentTier);
+                const enriched = rawPlans.map((p: any) => ({
+                    ...p,
+                    isCurrent: p.id === currentTier,
+                    canUpgrade: currentIndex >= 0 ? order.indexOf(p.id) > currentIndex : true,
+                }));
+                setPlans(enriched);
+            }
+
             if (invoicesRes.ok) setInvoices(await invoicesRes.json());
         } catch (err) {
             console.error('Error fetching data:', err);

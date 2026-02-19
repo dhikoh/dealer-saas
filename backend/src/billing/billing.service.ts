@@ -153,14 +153,7 @@ export class BillingService {
     async checkSubscriptionStatus(tenantId: string) {
         const tenant = await this.prisma.tenant.findUnique({
             where: { id: tenantId },
-            select: {
-                planTier: true,
-                subscriptionStatus: true,
-                trialEndsAt: true,
-                subscriptionEndsAt: true,
-                autoRenew: true,
-                monthlyBill: true,
-            }
+            include: { plan: true },
         });
 
         if (!tenant) throw new BadRequestException('Tenant not found');
@@ -172,7 +165,7 @@ export class BillingService {
         // Check trial expiry
         if (tenant.planTier === 'DEMO' && tenant.trialEndsAt) {
             if (now > tenant.trialEndsAt) {
-                status = 'EXPIRED'; // Legacy logic for viewing purposes mainly, actual status in DB is strict
+                status = 'EXPIRED';
             } else {
                 daysRemaining = Math.ceil((tenant.trialEndsAt.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
             }
@@ -181,19 +174,26 @@ export class BillingService {
         // Check subscription expiry
         if (tenant.subscriptionEndsAt && now > tenant.subscriptionEndsAt) {
             if (tenant.autoRenew) {
-                status = 'PENDING_RENEWAL'; // Legacy logic for view
+                status = 'PENDING_RENEWAL';
             } else {
-                status = 'EXPIRED'; // Legacy logic for view
+                status = 'EXPIRED';
             }
         } else if (tenant.subscriptionEndsAt) {
             daysRemaining = Math.ceil((tenant.subscriptionEndsAt.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
         }
 
+        // Use DB plan data (superadmin-managed) with fallback to hardcoded config
+        const planDetails = tenant.plan
+            ? this.formatDbPlan(tenant.plan)
+            : getPlanById(tenant.planTier);
+
         return {
             planTier: tenant.planTier,
-            planDetails: getPlanById(tenant.planTier),
-            status,
-            daysRemaining,
+            planDetails,
+            subscriptionStatus: status,
+            trialEndsAt: tenant.trialEndsAt,
+            trialDaysRemaining: daysRemaining,
+            subscriptionEndsAt: tenant.subscriptionEndsAt,
             autoRenew: tenant.autoRenew,
             monthlyBill: Number(tenant.monthlyBill || 0),
         };
@@ -403,9 +403,57 @@ export class BillingService {
         }));
     }
 
-    // Get all plan tiers for management
-    getAllPlans() {
+    // Get all plan tiers from DB (synced with superadmin edits)
+    async getAllPlans() {
+        const dbPlans = await this.prisma.plan.findMany({ orderBy: { price: 'asc' } });
+
+        // If DB has plans, use them (superadmin-managed)
+        if (dbPlans.length > 0) {
+            return dbPlans.map(p => this.formatDbPlan(p));
+        }
+
+        // Fallback to hardcoded config if DB is empty
         return Object.values(PLAN_TIERS);
+    }
+
+    /**
+     * Format a DB Plan record into the shape expected by frontend.
+     * Reusable by getAllPlans() and checkSubscriptionStatus().
+     */
+    private formatDbPlan(p: any) {
+        const feat = typeof p.features === 'object' && p.features !== null
+            ? p.features as Record<string, any> : {};
+        return {
+            id: p.slug.toUpperCase(),
+            name: p.name,
+            description: p.description,
+            descriptionId: feat.descriptionId || p.description,
+            price: Number(p.price),
+            priceLabel: feat.priceLabel || `Rp ${Number(p.price).toLocaleString('id-ID')}`,
+            billingCycle: feat.billingCycle || (Number(p.price) > 0 ? 'monthly' : null),
+            trialDays: feat.trialDays || 0,
+            features: {
+                maxVehicles: p.maxVehicles,
+                maxUsers: p.maxUsers,
+                maxCustomers: p.maxCustomers ?? feat.maxCustomers ?? 0,
+                maxBranches: p.maxBranches,
+                pdfExport: feat.pdfExport ?? false,
+                internalReports: feat.internalReports ?? false,
+                blacklistAccess: feat.blacklistAccess ?? false,
+                reminderNotifications: feat.reminderNotifications ?? false,
+                multiLanguage: feat.multiLanguage ?? false,
+                prioritySupport: feat.prioritySupport ?? false,
+                apiAccess: feat.apiAccess ?? false,
+                customBranding: feat.customBranding ?? false,
+                advancedAnalytics: feat.advancedAnalytics ?? false,
+                dataExport: feat.dataExport ?? false,
+                whatsappIntegration: feat.whatsappIntegration ?? false,
+            },
+            badge: feat.badge || p.slug,
+            badgeColor: feat.badgeColor || 'gray',
+            recommended: feat.recommended || false,
+            yearlyDiscount: feat.yearlyDiscount || 0,
+        };
     }
 
     // ==================== TENANT-FACING ====================

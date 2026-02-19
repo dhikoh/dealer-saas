@@ -116,7 +116,12 @@ export async function fetchApi(
     const res = await fetch(url, fetchOptions);
 
     if (res.status === 401 && typeof window !== 'undefined') {
-        console.warn(`[API] 401 Unauthorized for ${url}. Attempting refresh...`);
+        // Only log warning if this isn't an expected auth check (X-Skip-Redirect suppresses noise on login page)
+        const skipRedirect = options.headers &&
+            (options.headers as Record<string, string>)['X-Skip-Redirect'] === 'true';
+        if (!skipRedirect) {
+            console.warn(`[API] 401 Unauthorized for ${url}. Attempting refresh...`);
+        }
         // Deduplicate concurrent refresh attempts
         if (!isRefreshing) {
             isRefreshing = true;
