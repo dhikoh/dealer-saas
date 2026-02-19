@@ -36,7 +36,7 @@ export class CleanupService {
                     // Paid subscriptions that expired
                     {
                         subscriptionEndsAt: { lt: now },
-                        subscriptionStatus: { in: ['EXPIRED', 'SUSPENDED', 'CANCELLED'] },
+                        subscriptionStatus: { in: ['SUSPENDED', 'CANCELLED'] },
                     },
                     // Trial/Demo that expired
                     {

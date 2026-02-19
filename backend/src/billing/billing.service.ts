@@ -166,7 +166,7 @@ export class BillingService {
         if (!tenant) throw new BadRequestException('Tenant not found');
 
         const now = new Date();
-        let status = tenant.subscriptionStatus;
+        let status: string = tenant.subscriptionStatus;
         let daysRemaining = 0;
 
         // Check trial expiry

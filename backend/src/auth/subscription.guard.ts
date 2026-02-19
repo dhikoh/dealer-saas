@@ -1,8 +1,9 @@
 
 import { Injectable, CanActivate, ExecutionContext, ForbiddenException, Logger } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
-import { SubscriptionStateService, ACCESS_LEVEL } from '../billing/subscription-state.service';
+import { SubscriptionStateService, AccessLevel } from '../billing/subscription-state.service';
 import { IS_PUBLIC_KEY } from './public.decorator';
+import { PrismaService } from '../prisma/prisma.service';
 
 /**
  * SubscriptionGuard - Enforces billing/subscription status (GLOBAL)
@@ -22,7 +23,8 @@ export class SubscriptionGuard implements CanActivate {
 
     constructor(
         private reflector: Reflector,
-        privatesubscriptionStateService: SubscriptionStateService
+        private prisma: PrismaService,
+        private subscriptionStateService: SubscriptionStateService
     ) { }
 
     async canActivate(context: ExecutionContext): Promise<boolean> {
@@ -54,20 +56,30 @@ export class SubscriptionGuard implements CanActivate {
             return true;
         }
 
-        // 6. Resolve Access Level via Service
-        const { accessLevel, status } = await this.subscriptionStateService.resolveAccess(user.tenantId);
+        // 6. Fetch Tenant Status
+        const tenant = await this.prisma.tenant.findUnique({
+            where: { id: user.tenantId },
+            select: { subscriptionStatus: true, suspensionType: true, name: true }
+        });
 
-        // 7. Enforce Access Policy
-        if (accessLevel === ACCESS_LEVEL.NONE) {
-            this.logger.warn(`Blocked access for ${status} tenant: ${user.tenantId}`);
-            throw new ForbiddenException(`Access denied. Tenant status: ${status}`);
+        if (!tenant) {
+            throw new ForbiddenException('Tenant not found');
         }
 
-        if (accessLevel === ACCESS_LEVEL.READ_ONLY) {
+        // 7. Resolve Access Level via Service
+        const accessLevel = this.subscriptionStateService.resolveAccess(tenant.subscriptionStatus, tenant.suspensionType);
+
+        // 8. Enforce Access Policy
+        if (accessLevel === AccessLevel.BLOCK) {
+            this.logger.warn(`Blocked access for ${tenant.subscriptionStatus} tenant: ${user.tenantId}`);
+            throw new ForbiddenException(`Access denied. Tenant status: ${tenant.subscriptionStatus}`);
+        }
+
+        if (accessLevel === AccessLevel.READ_ONLY) {
             // Allow only GET requests for Read-Only mode
             if (request.method !== 'GET') {
-                this.logger.warn(`Blocked WRITE access for ${status} tenant: ${user.tenantId}`);
-                throw new ForbiddenException(`Account is in ${status} state. Payment required to perform actions.`);
+                this.logger.warn(`Blocked WRITE access for ${tenant.subscriptionStatus} tenant: ${user.tenantId}`);
+                throw new ForbiddenException(`Account is in ${tenant.subscriptionStatus} state. Payment required to perform actions.`);
             }
         }
 
