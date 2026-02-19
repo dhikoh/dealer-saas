@@ -1,23 +1,31 @@
 
 import { Injectable, BadRequestException, NotFoundException, Logger } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
+import { FeatureLimitService } from '../billing/feature-limit.service';
+import { Feature } from '../billing/features.enum';
 
 @Injectable()
 export class DealerGroupService {
     private readonly logger = new Logger(DealerGroupService.name);
 
-    constructor(private prisma: PrismaService) { }
+    constructor(
+        private prisma: PrismaService,
+        private featureLimitService: FeatureLimitService,
+    ) { }
 
     async createGroup(userId: string, name: string) {
-        // userId comes from JWT — safe to use findUnique (no IDOR: user can only access their own JWT userId)
+        // userId comes from JWT — safe to use findUnique
         const user = await this.prisma.user.findUnique({
             where: { id: userId },
-            include: { tenant: { include: { plan: true } } },
+            select: { tenantId: true },
         });
 
-        if (!user?.tenant?.plan?.canCreateGroup) {
-            throw new BadRequestException('Upgrade to Enterprise plan to create a Dealer Group');
+        if (!user?.tenantId) {
+            throw new BadRequestException('User has no associated tenant');
         }
+
+        // FEATURE GATE: Centralized boolean feature check (DB-only, fail-closed)
+        await this.featureLimitService.assertFeatureEnabled(user.tenantId, Feature.DEALER_GROUP);
 
         const code = this.generateInviteCode(name);
 

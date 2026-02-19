@@ -1,13 +1,17 @@
 import { Injectable, BadRequestException, NotFoundException, ForbiddenException, Logger } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
-import { getPlanById } from '../config/plan-tiers.config';
+import { FeatureLimitService } from '../billing/feature-limit.service';
+import { Feature } from '../billing/features.enum';
 import { sanitizeInput } from '../common/helpers/tenant-security.helper';
 
 @Injectable()
 export class CustomerService {
     private readonly logger = new Logger(CustomerService.name);
 
-    constructor(private prisma: PrismaService) { }
+    constructor(
+        private prisma: PrismaService,
+        private featureLimitService: FeatureLimitService,
+    ) { }
 
     async findAll(tenantId: string, search?: string) {
         return this.prisma.customer.findMany({
@@ -44,35 +48,9 @@ export class CustomerService {
     }
 
     async create(tenantId: string, data: any) {
-        // Check plan limit
-        const tenant = await this.prisma.tenant.findUnique({
-            where: { id: tenantId },
-            include: {
-                _count: { select: { customers: true } },
-                plan: true
-            },
-        });
-
-        if (tenant) {
-            let limit = 0;
-            let planName = '';
-
-            if (tenant.plan) {
-                // maxCustomers is in features JSON, not a column
-                limit = (tenant.plan.features as any)?.maxCustomers ?? 0;
-                planName = tenant.plan.name;
-            } else {
-                const legacyPlan = getPlanById(tenant.planTier);
-                limit = legacyPlan?.features.maxCustomers ?? 0;
-                planName = legacyPlan?.name || 'Unknown';
-            }
-
-            if (limit !== -1 && tenant._count.customers >= limit) {
-                throw new BadRequestException(
-                    `Batas customer tercapai (${limit} customer pada paket ${planName}). Upgrade plan untuk menambah lebih banyak.`
-                );
-            }
-        }
+        // FEATURE GATE: Centralized customer limit check (DB-only, fail-closed)
+        // NOTE: Now reads plan.maxCustomers typed column — NOT features JSON blob
+        await this.featureLimitService.assertCanCreate(tenantId, Feature.CUSTOMERS);
 
         // DUPLICATE CHECK: KTP & Phone
         if (data.ktpNumber || data.phone) {

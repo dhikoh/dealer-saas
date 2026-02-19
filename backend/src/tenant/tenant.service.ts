@@ -4,6 +4,8 @@ import { PrismaService } from '../prisma/prisma.service';
 import { getPlanById, PLAN_TIERS, canUpgrade } from '../config/plan-tiers.config';
 import { TENANT_ROLES } from '../config/roles.config';
 import { SubscriptionStateService } from '../billing/subscription-state.service';
+import { FeatureLimitService } from '../billing/feature-limit.service';
+import { Feature } from '../billing/features.enum';
 
 @Injectable()
 export class TenantService {
@@ -11,7 +13,8 @@ export class TenantService {
 
   constructor(
     private prisma: PrismaService,
-    private subscriptionStateService: SubscriptionStateService
+    private subscriptionStateService: SubscriptionStateService,
+    private featureLimitService: FeatureLimitService,
   ) { }
 
   // Get current tenant profile with subscription info
@@ -68,11 +71,11 @@ export class TenantService {
         customers: tenant._count.customers,
         branches: tenant._count.branches,
       },
-      // Limits from plan (Dynamic or Legacy)
+      // Limits from plan (Dynamic — typed columns only)
       limits: tenant.plan ? {
         maxUsers: tenant.plan.maxUsers,
         maxVehicles: tenant.plan.maxVehicles,
-        maxCustomers: (tenant.plan.features as any)?.maxCustomers || 200,
+        maxCustomers: (tenant.plan as any).maxCustomers ?? 200, // typed column via migration
         maxBranches: tenant.plan.maxBranches,
       } : (plan ? {
         maxUsers: plan.features.maxUsers,
@@ -296,32 +299,8 @@ export class TenantService {
       throw new ForbiddenException('Manager tidak dapat membuat user Manager lain.');
     }
 
-    // Check plan limit
-    const tenant = await this.prisma.tenant.findUnique({
-      where: { id: tenantId },
-      include: {
-        _count: { select: { users: true } },
-        plan: true
-      },
-    });
-
-    if (!tenant) {
-      throw new NotFoundException('Tenant tidak ditemukan');
-    }
-
-    let limit = 0;
-    if (tenant.plan) {
-      limit = tenant.plan.maxUsers;
-    } else {
-      const legacyPlan = getPlanById(tenant.planTier);
-      limit = legacyPlan?.features.maxUsers ?? 0;
-    }
-
-    if (limit !== -1 && tenant._count.users >= limit) {
-      throw new BadRequestException(
-        `Batas user tercapai (${limit} user). Upgrade plan untuk menambah lebih banyak user.`
-      );
-    }
+    // FEATURE GATE: Centralized user limit check (DB-only, fail-closed)
+    await this.featureLimitService.assertCanCreate(tenantId, Feature.USERS);
 
     // Check if email already exists
     const existingUser = await this.prisma.user.findUnique({
@@ -513,32 +492,8 @@ export class TenantService {
   }
 
   async createBranch(tenantId: string, data: { name: string; address: string; phone?: string }) {
-    // Check plan limit
-    const tenant = await this.prisma.tenant.findUnique({
-      where: { id: tenantId },
-      include: {
-        _count: { select: { branches: true } },
-        plan: true
-      },
-    });
-
-    if (!tenant) {
-      throw new NotFoundException('Tenant tidak ditemukan');
-    }
-
-    let limit = 0;
-    if (tenant.plan) {
-      limit = tenant.plan.maxBranches;
-    } else {
-      const legacyPlan = getPlanById(tenant.planTier);
-      limit = legacyPlan?.features.maxBranches ?? 0;
-    }
-
-    if (limit !== -1 && tenant._count.branches >= limit) {
-      throw new BadRequestException(
-        `Batas cabang tercapai (${limit} cabang). Upgrade plan untuk menambah lebih banyak cabang.`
-      );
-    }
+    // FEATURE GATE: Centralized branch limit check (DB-only, fail-closed)
+    await this.featureLimitService.assertCanCreate(tenantId, Feature.BRANCHES);
 
     return this.prisma.branch.create({
       data: {
