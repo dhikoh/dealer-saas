@@ -5,7 +5,14 @@
  * - Token injection
  */
 
-export const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
+/**
+ * API_URL Configuration
+ * - Server Side: Uses direct backend URL (NEXT_PUBLIC_API_URL) for internal communication.
+ * - Client Side: Uses /api/proxy to route requests through Next.js server (BFF) to solve CORS/Cookie issues.
+ */
+export const API_URL = typeof window === 'undefined'
+    ? (process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000')
+    : '/api/proxy';
 
 let isRefreshing = false;
 let refreshPromise: Promise<boolean> | null = null;
