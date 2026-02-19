@@ -22,8 +22,8 @@ export class VehicleService {
         condition?: string;
         branchId?: string;
     }, pagination?: { skip: number; take: number }) {
+        const scoped = this.prisma.forTenant(tenantId);
         const where = {
-            tenantId,
             deletedAt: null,
             ...(filters?.category && { category: filters.category }),
             ...(filters?.status && { status: filters.status }),
@@ -33,26 +33,27 @@ export class VehicleService {
 
         if (pagination) {
             const [data, total] = await this.prisma.$transaction([
-                this.prisma.vehicle.findMany({
+                scoped.vehicle.findMany({
                     where,
                     orderBy: { createdAt: 'desc' },
                     skip: pagination.skip,
                     take: pagination.take,
                 }),
-                this.prisma.vehicle.count({ where }),
+                scoped.vehicle.count({ where }),
             ]);
             return { data, total };
         }
 
-        return this.prisma.vehicle.findMany({
+        return scoped.vehicle.findMany({
             where,
             orderBy: { createdAt: 'desc' },
         });
     }
 
     async findOne(id: string, tenantId: string) {
-        return this.prisma.vehicle.findFirst({
-            where: { id, tenantId, deletedAt: null },
+        const scoped = this.prisma.forTenant(tenantId);
+        return scoped.vehicle.findFirst({
+            where: { id, deletedAt: null },
         });
     }
 
@@ -68,18 +69,19 @@ export class VehicleService {
         if (createData.taxExpiry) createData.taxExpiry = new Date(createData.taxExpiry);
         if (createData.purchaseDate) createData.purchaseDate = new Date(createData.purchaseDate);
 
-        return this.prisma.vehicle.create({
-            data: {
-                ...createData,
-                tenantId,
-            },
+        // HARDENED: tenantId auto-injected via forTenant()
+        const scoped = this.prisma.forTenant(tenantId);
+        return scoped.vehicle.create({
+            data: createData,
         });
     }
 
     async update(id: string, tenantId: string, data: Omit<Prisma.VehicleUncheckedUpdateInput, 'tenantId'> & { isShowroom?: boolean; isOwnerDifferent?: boolean; bpkbOwnerName?: string; images?: string; stnkExpiry?: string | Date; taxExpiry?: string | Date; purchaseDate?: string | Date }) {
-        // SECURITY: Verify ownership before update
-        const vehicle = await this.prisma.vehicle.findFirst({
-            where: { id, tenantId },
+        const scoped = this.prisma.forTenant(tenantId);
+
+        // SECURITY: Verify ownership before update (tenantId auto-injected)
+        const vehicle = await scoped.vehicle.findFirst({
+            where: { id },
         });
         if (!vehicle) {
             throw new NotFoundException('Kendaraan tidak ditemukan');
@@ -123,16 +125,19 @@ export class VehicleService {
             ...(data.purchaseDate && { purchaseDate: new Date(data.purchaseDate) }),
         };
 
-        return this.prisma.vehicle.update({
+        // HARDENED: tenantId auto-injected into where clause
+        return scoped.vehicle.update({
             where: { id },
             data: updateData,
         });
     }
 
     async delete(id: string, tenantId: string) {
-        // SECURITY: Verify ownership & Check dependencies
-        const vehicle = await this.prisma.vehicle.findFirst({
-            where: { id, tenantId, deletedAt: null },
+        const scoped = this.prisma.forTenant(tenantId);
+
+        // SECURITY: Verify ownership & Check dependencies (tenantId auto-injected)
+        const vehicle = await scoped.vehicle.findFirst({
+            where: { id, deletedAt: null },
             include: {
                 _count: {
                     select: { transactions: true }
@@ -151,8 +156,8 @@ export class VehicleService {
             );
         }
 
-        // Soft delete: set deletedAt timestamp
-        return this.prisma.vehicle.update({
+        // HARDENED: Soft delete with tenantId auto-injected
+        return scoped.vehicle.update({
             where: { id },
             data: { deletedAt: new Date() },
         });
@@ -161,9 +166,9 @@ export class VehicleService {
     // ==================== MASTER DATA (Brands & Models) ====================
 
     async findAllBrands(tenantId: string, category?: string) {
-        return this.prisma.vehicleBrand.findMany({
+        const scoped = this.prisma.forTenant(tenantId);
+        return scoped.vehicleBrand.findMany({
             where: {
-                tenantId,
                 ...(category && { category }),
             },
             include: { models: true },
@@ -182,9 +187,10 @@ export class VehicleService {
     }
 
     async createModel(tenantId: string, brandId: string, name: string, variants?: string) {
-        // SECURITY: Verify brand belongs to tenant
-        const brand = await this.prisma.vehicleBrand.findFirst({
-            where: { id: brandId, tenantId },
+        const scoped = this.prisma.forTenant(tenantId);
+        // SECURITY: Verify brand belongs to tenant (tenantId auto-injected)
+        const brand = await scoped.vehicleBrand.findFirst({
+            where: { id: brandId },
         });
         if (!brand) {
             throw new NotFoundException('Brand tidak ditemukan');
@@ -199,13 +205,15 @@ export class VehicleService {
     }
 
     async updateBrand(id: string, tenantId: string, data: { name?: string; category?: string }) {
-        const brand = await this.prisma.vehicleBrand.findFirst({
-            where: { id, tenantId },
+        const scoped = this.prisma.forTenant(tenantId);
+        const brand = await scoped.vehicleBrand.findFirst({
+            where: { id },
         });
         if (!brand) {
             throw new NotFoundException('Brand tidak ditemukan');
         }
-        return this.prisma.vehicleBrand.update({
+        // HARDENED: tenantId auto-injected into where clause
+        return scoped.vehicleBrand.update({
             where: { id },
             data: {
                 ...(data.name && { name: data.name.trim() }),
@@ -215,23 +223,25 @@ export class VehicleService {
     }
 
     async deleteBrand(id: string, tenantId: string) {
-        const brand = await this.prisma.vehicleBrand.findFirst({
-            where: { id, tenantId },
+        const scoped = this.prisma.forTenant(tenantId);
+        const brand = await scoped.vehicleBrand.findFirst({
+            where: { id },
         });
         if (!brand) {
             throw new NotFoundException('Brand tidak ditemukan');
         }
         // Check if any vehicles use this brand name
-        const vehiclesUsingBrand = await this.prisma.vehicle.count({
-            where: { tenantId, make: brand.name },
+        const vehiclesUsingBrand = await scoped.vehicle.count({
+            where: { make: brand.name },
         });
         if (vehiclesUsingBrand > 0) {
             throw new BadRequestException(
                 `Tidak dapat menghapus brand. ${vehiclesUsingBrand} kendaraan masih menggunakan brand ini.`,
             );
         }
+        // HARDENED: tenantId auto-injected into where clause
         // Cascade deletes models automatically (schema onDelete: Cascade)
-        return this.prisma.vehicleBrand.delete({ where: { id } });
+        return scoped.vehicleBrand.delete({ where: { id } });
     }
 
     async updateModel(id: string, tenantId: string, data: { name?: string; variants?: string }) {
@@ -258,9 +268,10 @@ export class VehicleService {
         if (!model) {
             throw new NotFoundException('Model tidak ditemukan');
         }
+        const scoped = this.prisma.forTenant(tenantId);
         // Check if any vehicles use this model name
-        const vehiclesUsingModel = await this.prisma.vehicle.count({
-            where: { tenantId, model: model.name },
+        const vehiclesUsingModel = await scoped.vehicle.count({
+            where: { model: model.name },
         });
         if (vehiclesUsingModel > 0) {
             throw new BadRequestException(
@@ -273,11 +284,12 @@ export class VehicleService {
     // ==================== STATS ====================
 
     async getStats(tenantId: string) {
+        const scoped = this.prisma.forTenant(tenantId);
         const [total, available, sold, repair] = await Promise.all([
-            this.prisma.vehicle.count({ where: { tenantId } }),
-            this.prisma.vehicle.count({ where: { tenantId, status: 'AVAILABLE' } }),
-            this.prisma.vehicle.count({ where: { tenantId, status: 'SOLD' } }),
-            this.prisma.vehicle.count({ where: { tenantId, condition: 'REPAIR' } }),
+            scoped.vehicle.count({ where: {} }),
+            scoped.vehicle.count({ where: { status: 'AVAILABLE' } }),
+            scoped.vehicle.count({ where: { status: 'SOLD' } }),
+            scoped.vehicle.count({ where: { condition: 'REPAIR' } }),
         ]);
 
         return { total, available, sold, repair };
@@ -286,15 +298,16 @@ export class VehicleService {
     // ==================== VEHICLE COST TRACKING ====================
 
     async getCosts(vehicleId: string, tenantId: string) {
-        // SECURITY: Verify vehicle belongs to tenant
-        const vehicle = await this.prisma.vehicle.findFirst({
-            where: { id: vehicleId, tenantId },
+        const scoped = this.prisma.forTenant(tenantId);
+        // SECURITY: Verify vehicle belongs to tenant (tenantId auto-injected)
+        const vehicle = await scoped.vehicle.findFirst({
+            where: { id: vehicleId },
         });
         if (!vehicle) {
             throw new NotFoundException('Kendaraan tidak ditemukan');
         }
-        return this.prisma.vehicleCost.findMany({
-            where: { vehicleId, tenantId },
+        return scoped.vehicleCost.findMany({
+            where: { vehicleId },
             orderBy: { date: 'desc' },
         });
     }
@@ -306,16 +319,17 @@ export class VehicleService {
         date: string | Date;
         receiptImage?: string;
     }) {
-        // SECURITY: Verify vehicle belongs to tenant
-        const vehicle = await this.prisma.vehicle.findFirst({
-            where: { id: vehicleId, tenantId },
+        const scoped = this.prisma.forTenant(tenantId);
+        // SECURITY: Verify vehicle belongs to tenant (tenantId auto-injected)
+        const vehicle = await scoped.vehicle.findFirst({
+            where: { id: vehicleId },
         });
         if (!vehicle) {
             throw new NotFoundException('Kendaraan tidak ditemukan');
         }
-        return this.prisma.vehicleCost.create({
+        // HARDENED: tenantId auto-injected into data
+        return scoped.vehicleCost.create({
             data: {
-                tenantId,
                 vehicleId,
                 costType: data.costType,
                 amount: data.amount,
@@ -327,29 +341,32 @@ export class VehicleService {
     }
 
     async deleteCost(costId: string, tenantId: string) {
-        // SECURITY: Direct tenant check on VehicleCost
-        const cost = await this.prisma.vehicleCost.findFirst({
-            where: { id: costId, tenantId },
+        const scoped = this.prisma.forTenant(tenantId);
+        // SECURITY: Direct tenant check on VehicleCost (tenantId auto-injected)
+        const cost = await scoped.vehicleCost.findFirst({
+            where: { id: costId },
         });
         if (!cost) {
             throw new NotFoundException('Biaya tidak ditemukan');
         }
-        return this.prisma.vehicleCost.delete({
+        // HARDENED: tenantId auto-injected into where clause
+        return scoped.vehicleCost.delete({
             where: { id: costId },
         });
     }
 
     // Get vehicle with full cost breakdown and profit calculation
     async getVehicleWithCosts(vehicleId: string, tenantId: string) {
-        const vehicle = await this.prisma.vehicle.findFirst({
-            where: { id: vehicleId, tenantId },
+        const scoped = this.prisma.forTenant(tenantId);
+        const vehicle = await scoped.vehicle.findFirst({
+            where: { id: vehicleId },
         });
 
         if (!vehicle) return null;
 
         // Correctly fetch costs without casting or silent failure
-        const costs = await this.prisma.vehicleCost.findMany({
-            where: { vehicleId, tenantId },
+        const costs = await scoped.vehicleCost.findMany({
+            where: { vehicleId },
             orderBy: { date: 'desc' },
         });
 
@@ -375,6 +392,7 @@ export class VehicleService {
     }
 
     // ==================== DEALER GROUP FEATURES ====================
+    // NOTE: These methods are CROSS-TENANT by design — they do NOT use forTenant()
 
     async findGroupStock(tenantId: string, filters?: any) {
         const tenant = await this.prisma.tenant.findUnique({
@@ -405,7 +423,7 @@ export class VehicleService {
     }
 
     async copyVehicle(tenantId: string, sourceVehicleId: string) {
-        // 1. Get Requestor & Source
+        // 1. Get Requestor & Source — CROSS-TENANT (uses raw prisma)
         const requestor = await this.prisma.tenant.findUnique({
             where: { id: tenantId },
             select: { dealerGroupId: true, name: true }
@@ -434,7 +452,7 @@ export class VehicleService {
             purchaseDate: new Date(),
         });
 
-        // 5. Notify source dealer's OWNER users about the copy
+        // 5. Notify source dealer's OWNER users about the copy — CROSS-TENANT
         try {
             const sourceOwners = await this.prisma.user.findMany({
                 where: { tenantId: sourceVehicle.tenant.id, role: 'OWNER' },
@@ -463,6 +481,7 @@ export class VehicleService {
     /**
      * Seeds popular Indonesian vehicle brands, models, and variants
      * for a new tenant during onboarding. Uses upsert to avoid duplicates.
+     * NOTE: Uses raw prisma because upsert with compound unique keys needs explicit tenantId
      */
     async seedDefaultBrands(tenantId: string) {
         const defaultBrands: { name: string; category: string; models: { name: string; variants?: string }[] }[] = [

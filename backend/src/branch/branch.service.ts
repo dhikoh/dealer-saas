@@ -14,18 +14,17 @@ export class BranchService {
         // FEATURE GATE: Centralized branch limit check (DB-only, fail-closed)
         await this.featureLimitService.assertCanCreate(tenantId, Feature.BRANCHES);
 
-        return this.prisma.branch.create({
-            data: {
-                ...data,
-                tenantId,
-            },
+        const scoped = this.prisma.forTenant(tenantId);
+        return scoped.branch.create({
+            data,
         });
     }
 
     async findAll(tenantId: string) {
         if (!tenantId) return []; // Handle Superadmin or specialized cases
-        return this.prisma.branch.findMany({
-            where: { tenantId },
+        const scoped = this.prisma.forTenant(tenantId);
+        return scoped.branch.findMany({
+            where: {},
             include: {
                 _count: {
                     select: { vehicles: true, users: true },
@@ -36,8 +35,9 @@ export class BranchService {
     }
 
     async findOne(id: string, tenantId: string) {
-        const branch = await this.prisma.branch.findFirst({
-            where: { id, tenantId },
+        const scoped = this.prisma.forTenant(tenantId);
+        const branch = await scoped.branch.findFirst({
+            where: { id },
             include: {
                 users: {
                     select: { id: true, name: true, role: true, email: true },
@@ -53,7 +53,7 @@ export class BranchService {
     }
 
     async update(id: string, data: any, tenantId: string) {
-        await this.findOne(id, tenantId); // Validate existence
+        await this.findOne(id, tenantId); // Validate existence + ownership
 
         // SECURITY: Strip dangerous fields before update
         const safeData = { ...data };
@@ -62,19 +62,21 @@ export class BranchService {
         delete safeData.createdAt;
         delete safeData.updatedAt;
 
-        return this.prisma.branch.update({
+        // HARDENED: tenantId auto-injected into where clause
+        const scoped = this.prisma.forTenant(tenantId);
+        return scoped.branch.update({
             where: { id },
             data: safeData,
         });
     }
 
     async remove(id: string, tenantId: string) {
-        await this.findOne(id, tenantId); // Validate existence
+        await this.findOne(id, tenantId); // Validate existence + ownership
 
-        // TODO: Add check for active transactions if necessary.
-        // Ideally should soft-delete or prevent if related data exists.
-
-        return this.prisma.branch.delete({
+        // HARDENED: tenantId auto-injected into where clause
+        // Previously used this.prisma.branch.delete({ where: { id } }) — no tenant scoping!
+        const scoped = this.prisma.forTenant(tenantId);
+        return scoped.branch.delete({
             where: { id },
         });
     }

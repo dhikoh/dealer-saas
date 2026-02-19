@@ -14,9 +14,9 @@ export class CustomerService {
     ) { }
 
     async findAll(tenantId: string, search?: string) {
-        return this.prisma.customer.findMany({
+        const scoped = this.prisma.forTenant(tenantId);
+        return scoped.customer.findMany({
             where: {
-                tenantId,
                 deletedAt: null,
                 ...(search && {
                     OR: [
@@ -37,8 +37,9 @@ export class CustomerService {
     }
 
     async findOne(id: string, tenantId: string) {
-        return this.prisma.customer.findFirst({
-            where: { id, tenantId, deletedAt: null },
+        const scoped = this.prisma.forTenant(tenantId);
+        return scoped.customer.findFirst({
+            where: { id, deletedAt: null },
             include: {
                 transactions: {
                     include: { vehicle: true, credit: true },
@@ -52,11 +53,12 @@ export class CustomerService {
         // NOTE: Now reads plan.maxCustomers typed column — NOT features JSON blob
         await this.featureLimitService.assertCanCreate(tenantId, Feature.CUSTOMERS);
 
+        const scoped = this.prisma.forTenant(tenantId);
+
         // DUPLICATE CHECK: KTP & Phone
         if (data.ktpNumber || data.phone) {
-            const existing = await this.prisma.customer.findFirst({
+            const existing = await scoped.customer.findFirst({
                 where: {
-                    tenantId,
                     deletedAt: null,
                     OR: [
                         ...(data.ktpNumber ? [{ ktpNumber: data.ktpNumber }] : []),
@@ -79,15 +81,17 @@ export class CustomerService {
         // SECURITY: Strip dangerous fields before create
         const safeData = sanitizeInput(data);
 
-        return this.prisma.customer.create({
-            data: { ...safeData, tenantId } as any,
+        return scoped.customer.create({
+            data: safeData as any,
         });
     }
 
     async update(id: string, tenantId: string, data: any) {
-        // SECURITY: Verify ownership before update
-        const customer = await this.prisma.customer.findFirst({
-            where: { id, tenantId },
+        const scoped = this.prisma.forTenant(tenantId);
+
+        // SECURITY: Verify ownership before update (tenantId auto-injected)
+        const customer = await scoped.customer.findFirst({
+            where: { id },
         });
         if (!customer) {
             throw new NotFoundException('Customer tidak ditemukan');
@@ -95,22 +99,25 @@ export class CustomerService {
         // SECURITY: Strip dangerous fields before update
         const safeData = sanitizeInput(data);
 
-        return this.prisma.customer.update({
+        // HARDENED: tenantId auto-injected into where clause
+        return scoped.customer.update({
             where: { id },
             data: safeData,
         });
     }
 
     async delete(id: string, tenantId: string) {
-        // SECURITY: Verify ownership before delete
-        const customer = await this.prisma.customer.findFirst({
-            where: { id, tenantId, deletedAt: null },
+        const scoped = this.prisma.forTenant(tenantId);
+
+        // SECURITY: Verify ownership before delete (tenantId auto-injected)
+        const customer = await scoped.customer.findFirst({
+            where: { id, deletedAt: null },
         });
         if (!customer) {
             throw new NotFoundException('Customer tidak ditemukan');
         }
-        // Soft delete: set deletedAt timestamp
-        return this.prisma.customer.update({
+        // HARDENED: Soft delete with tenantId auto-injected
+        return scoped.customer.update({
             where: { id },
             data: { deletedAt: new Date() },
         });
@@ -118,8 +125,9 @@ export class CustomerService {
 
     // Get document completion status
     async getDocumentStatus(id: string, tenantId: string) {
-        const customer = await this.prisma.customer.findFirst({
-            where: { id, tenantId },
+        const scoped = this.prisma.forTenant(tenantId);
+        const customer = await scoped.customer.findFirst({
+            where: { id },
         });
 
         if (!customer) return null;
@@ -137,8 +145,9 @@ export class CustomerService {
 
     // Generate PDF
     async generatePdf(id: string, tenantId: string): Promise<Buffer> {
-        const customer = await this.prisma.customer.findFirst({
-            where: { id, tenantId },
+        const scoped = this.prisma.forTenant(tenantId);
+        const customer = await scoped.customer.findFirst({
+            where: { id },
             include: { tenant: true },
         });
 
