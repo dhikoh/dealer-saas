@@ -41,6 +41,7 @@ import { PlanModule } from './plan/plan.module';
 import { CmsModule } from './cms/cms.module';
 import { PaymentMethodModule } from './payment-method/payment-method.module';
 import { FinanceModule } from './finance/finance.module';
+import { IntegrityModule } from './integrity/integrity.module';
 
 @Module({
   imports: [
@@ -95,6 +96,7 @@ import { FinanceModule } from './finance/finance.module';
     FinanceModule,
     ScheduleModule.forRoot(), // Cron job support
     CleanupModule, // Auto-delete inactive tenants
+    IntegrityModule, // Integrity diagnostics (ghost data detection)
   ],
   controllers: [AppController],
   providers: [
