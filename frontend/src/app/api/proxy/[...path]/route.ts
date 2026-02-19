@@ -2,10 +2,10 @@ import { NextRequest, NextResponse } from 'next/server';
 
 const BACKEND_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
 
-async function proxy(request: NextRequest, { params }: { params: { path: string[] } }) {
+async function proxy(request: NextRequest, { params }: { params: Promise<{ path: string[] }> }) {
     // Await params if necessary (Next.js future proofing), currently direct access works in most 13/14 ver
     // But strictly typing it:
-    const { path } = params;
+    const { path } = await params;
 
     // Construct target URL
     const pathJoined = path.join('/');
