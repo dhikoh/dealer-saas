@@ -29,8 +29,19 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     const pathname = usePathname();
 
     const refreshUser = useCallback(async () => {
-        // REMOVED: Optimistic check from localStorage or document.cookie
-        // Authentication state is determined ONLY by calling GET /auth/me
+        // Skip auth check on public routes — landing page and auth page don't need it
+        // This prevents the unnecessary 401 error in the console
+        const isPublicRoute = typeof window !== 'undefined' && (
+            window.location.pathname === '/' ||
+            window.location.pathname.startsWith('/auth')
+        );
+
+        if (isPublicRoute) {
+            setUser(null);
+            setIsAuthenticated(false);
+            setLoading(false);
+            return;
+        }
 
         try {
             const res = await fetchApi('/auth/me', {
@@ -65,8 +76,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             setIsAuthenticated(false);
             setLoading(false);
         }
-    }, [loading]); // Only depend on loading state to prevent infinite loops if we change it? No.
-    // Actually, we want to run this ONCE on mount.
+    }, []);
 
     useEffect(() => {
         refreshUser();
@@ -83,7 +93,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         }, 5000);
 
         return () => clearTimeout(timer);
-    }, []);
+    }, [refreshUser]);
 
     // Re-check when pathname changes?
     // Maybe not necessary if middleware handles token, but useful if session expires mid-navigation.
