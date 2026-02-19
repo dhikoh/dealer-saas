@@ -78,6 +78,7 @@ export default function BillingPage() {
     const [billingPeriods, setBillingPeriods] = useState<BillingPeriod[]>([]);
     const [showPeriodModal, setShowPeriodModal] = useState(false);
     const [pendingPlanId, setPendingPlanId] = useState<string | null>(null);
+    const [pendingRenew, setPendingRenew] = useState(false); // true = renew flow, false = upgrade flow
     const [selectedMonths, setSelectedMonths] = useState(1);
 
     const getLabel = (key: string) => {
@@ -129,6 +130,10 @@ export default function BillingPage() {
             invoiceCreated: { id: 'Invoice telah dibuat. Silakan lakukan pembayaran.', en: 'Invoice created. Please make payment.' },
             systemError: { id: 'Terjadi kesalahan sistem', en: 'System error occurred' },
             loadError: { id: 'Gagal memuat data billing', en: 'Failed to load billing data' },
+            renewPlan: { id: 'Perpanjang Langganan', en: 'Renew Subscription' },
+            renewTitle: { id: 'Pilih Durasi Perpanjangan', en: 'Select Renewal Period' },
+            renewDesc: { id: 'Perpanjang langganan Anda, durasi akan ditambahkan ke sisa waktu aktif', en: 'Renew your subscription, duration will be added to remaining active time' },
+            renewCreated: { id: 'Invoice perpanjangan telah dibuat. Silakan lakukan pembayaran.', en: 'Renewal invoice created. Please make payment.' },
         };
         return labels[key]?.[language === 'id' ? 'id' : 'en'] || labels[key]?.['en'] || key;
     };
@@ -189,6 +194,7 @@ export default function BillingPage() {
         // Show period selector if we have multiple periods
         if (billingPeriods.length > 1) {
             setPendingPlanId(planId);
+            setPendingRenew(false);
             setSelectedMonths(1);
             setShowPeriodModal(true);
             return;
@@ -222,6 +228,7 @@ export default function BillingPage() {
             setSelectedPlan(null);
             setShowPeriodModal(false);
             setPendingPlanId(null);
+            setPendingRenew(false);
         }
     };
 
@@ -233,6 +240,51 @@ export default function BillingPage() {
     const handlePaymentSuccess = () => {
         fetchData();
         toast.success(getLabel('uploadSuccess'));
+    };
+
+    const handleRenew = () => {
+        // Check for active invoices first
+        const activeInvoice = invoices.find(inv => inv.status === 'PENDING' || inv.status === 'VERIFYING');
+        if (activeInvoice) {
+            toast.error(
+                language === 'id'
+                    ? `Anda masih memiliki invoice aktif (#${activeInvoice.invoiceNumber}). Tunggu verifikasi atau hubungi admin.`
+                    : `You still have an active invoice (#${activeInvoice.invoiceNumber}). Wait for verification or contact admin.`
+            );
+            return;
+        }
+
+        // Show period selector for renew
+        setPendingPlanId(profile?.planTier || null);
+        setPendingRenew(true);
+        setSelectedMonths(1);
+        setShowPeriodModal(true);
+    };
+
+    const doRenew = async (months: number) => {
+        setUpgrading(true);
+        try {
+            const res = await fetchApi('/tenant/renew', {
+                method: 'POST',
+                body: JSON.stringify({ months }),
+            });
+
+            if (res.ok) {
+                const data = await res.json();
+                toast.success(`Invoice ${data.invoice.invoiceNumber}: ${getLabel('renewCreated')}`);
+                fetchData();
+            } else {
+                const error = await res.json();
+                toast.error(error.message || t.error);
+            }
+        } catch (err) {
+            toast.error(getLabel('systemError'));
+        } finally {
+            setUpgrading(false);
+            setShowPeriodModal(false);
+            setPendingPlanId(null);
+            setPendingRenew(false);
+        }
     };
 
     const getPlanIcon = (planId: string) => {
@@ -318,6 +370,16 @@ export default function BillingPage() {
                             {profile?.monthlyBill ? fmt(profile.monthlyBill) : getLabel('free')}
                         </p>
                         <p className="text-xs text-gray-400">{getLabel('exclVAT')}</p>
+                        {profile?.planTier && profile.planTier !== 'DEMO' && profile.subscriptionStatus !== 'TRIAL' && (
+                            <button
+                                onClick={handleRenew}
+                                disabled={upgrading}
+                                className="mt-3 inline-flex items-center gap-1.5 px-4 py-2 rounded-lg bg-emerald-50 text-emerald-700 hover:bg-emerald-100 font-medium text-sm transition-colors border border-emerald-200 disabled:opacity-50"
+                            >
+                                <Calendar className="w-4 h-4" />
+                                {getLabel('renewPlan')}
+                            </button>
+                        )}
                     </div>
                 </div>
 
@@ -525,8 +587,8 @@ export default function BillingPage() {
                                         key={p.months}
                                         onClick={() => setSelectedMonths(p.months)}
                                         className={`w-full p-4 rounded-xl border-2 transition-all text-left flex items-center justify-between ${selectedMonths === p.months
-                                                ? 'border-indigo-500 bg-indigo-50 ring-2 ring-indigo-200'
-                                                : 'border-slate-200 hover:border-indigo-300 bg-white'
+                                            ? 'border-indigo-500 bg-indigo-50 ring-2 ring-indigo-200'
+                                            : 'border-slate-200 hover:border-indigo-300 bg-white'
                                             }`}
                                     >
                                         <div>
@@ -550,14 +612,14 @@ export default function BillingPage() {
 
                         <div className="flex gap-3 mt-6">
                             <button
-                                onClick={() => { setShowPeriodModal(false); setPendingPlanId(null); }}
+                                onClick={() => { setShowPeriodModal(false); setPendingPlanId(null); setPendingRenew(false); }}
                                 className="flex-1 py-2.5 rounded-lg border border-slate-300 text-slate-600 font-medium hover:bg-slate-50 transition-colors"
                                 disabled={upgrading}
                             >
                                 {getLabel('cancel')}
                             </button>
                             <button
-                                onClick={() => doUpgrade(pendingPlanId, selectedMonths)}
+                                onClick={() => pendingRenew ? doRenew(selectedMonths) : doUpgrade(pendingPlanId!, selectedMonths)}
                                 disabled={upgrading}
                                 className="flex-1 py-2.5 rounded-lg bg-indigo-600 text-white font-medium hover:bg-indigo-700 transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
                             >

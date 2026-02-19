@@ -144,6 +144,11 @@ export class TenantService {
     return this.billingService.upgradePlan(tenantId, targetPlan, months);
   }
 
+  // Renew subscription — DELEGATES to BillingService (Single Source of Truth)
+  async renewSubscription(tenantId: string, months: number = 1) {
+    return this.billingService.renewSubscription(tenantId, months);
+  }
+
   // Upload payment proof — DELEGATES to BillingService
   async uploadPaymentProof(tenantId: string, invoiceId: string, proofUrl: string) {
     return this.billingService.uploadPaymentProof(invoiceId, tenantId, proofUrl);

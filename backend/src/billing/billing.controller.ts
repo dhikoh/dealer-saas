@@ -169,4 +169,12 @@ export class BillingController {
     ) {
         return this.billingService.upgradePlan(tenantId, planId, months || 1);
     }
+
+    @Post('renew')
+    async renewSubscription(
+        @Body('months') months: number,
+        @ActiveTenant() tenantId: string,
+    ) {
+        return this.billingService.renewSubscription(tenantId, months || 1);
+    }
 }

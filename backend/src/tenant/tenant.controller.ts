@@ -42,6 +42,15 @@ export class TenantController {
     return this.tenantService.requestUpgrade(tenantId, planTier, months || 1);
   }
 
+  // Renew current plan subscription (top-up duration without changing tier)
+  @Post('renew')
+  async requestRenew(
+    @ActiveTenant() tenantId: string,
+    @Body('months') months?: number
+  ) {
+    return this.tenantService.renewSubscription(tenantId, months || 1);
+  }
+
   // NOTE: Payment proof upload is handled via POST /billing/my-invoices/:id/upload-proof (Multer/FormData)
   // The tenant controller does NOT handle file uploads; see BillingController.
 

@@ -56,7 +56,16 @@ export class BillingService {
     async checkSubscriptionStatus(tenantId: string) {
         const tenant = await this.prisma.tenant.findUnique({
             where: { id: tenantId },
-            include: { plan: true },
+            include: {
+                plan: true,
+                _count: {
+                    select: {
+                        users: true,
+                        vehicles: true,
+                        customers: true,
+                    },
+                },
+            },
         });
 
         if (!tenant) throw new BadRequestException('Tenant not found');
@@ -90,6 +99,18 @@ export class BillingService {
             ? this.formatDbPlan(tenant.plan)
             : getPlanById(tenant.planTier);
 
+        // Resolve limits from DB Plan or hardcoded config
+        const planConfig = getPlanById(tenant.planTier);
+        const limits = tenant.plan ? {
+            maxUsers: tenant.plan.maxUsers,
+            maxVehicles: tenant.plan.maxVehicles,
+            maxCustomers: (tenant.plan as any).maxCustomers ?? 200,
+        } : (planConfig ? {
+            maxUsers: planConfig.features.maxUsers,
+            maxVehicles: planConfig.features.maxVehicles,
+            maxCustomers: planConfig.features.maxCustomers,
+        } : null);
+
         return {
             planTier: tenant.planTier,
             planDetails,
@@ -99,6 +120,13 @@ export class BillingService {
             subscriptionEndsAt: tenant.subscriptionEndsAt,
             autoRenew: tenant.autoRenew,
             monthlyBill: Number(tenant.monthlyBill || 0),
+            // Usage & Limits for frontend billing page
+            usage: {
+                users: tenant._count.users,
+                vehicles: tenant._count.vehicles,
+                customers: tenant._count.customers,
+            },
+            limits,
         };
     }
 
@@ -326,14 +354,42 @@ export class BillingService {
             // Calculate subscription duration based on months purchased
             const now = new Date();
             const durationMs = months * 30 * 24 * 60 * 60 * 1000;
-            const subscriptionEndsAt = new Date(now.getTime() + durationMs);
+
+            // CRITICAL: Determine if this is a top-up (same plan) or upgrade (different plan)
+            const currentPlanTier = invoice.tenant?.planTier;
+            const isSamePlan = !toPlan || toPlan === currentPlanTier;
+
+            let subscriptionEndsAt: Date;
+            if (isSamePlan && invoice.tenant?.subscriptionEndsAt) {
+                // TOP-UP: Extend from current end date (or now if already expired)
+                const currentEnd = new Date(invoice.tenant.subscriptionEndsAt);
+                const baseDate = currentEnd > now ? currentEnd : now;
+                subscriptionEndsAt = new Date(baseDate.getTime() + durationMs);
+                this.logger.log(`Top-up: extending from ${baseDate.toISOString()} by ${months} month(s)`);
+            } else {
+                // UPGRADE: Reset duration from now (old remaining time is forfeited)
+                subscriptionEndsAt = new Date(now.getTime() + durationMs);
+                this.logger.log(`Upgrade: resetting duration from now for ${months} month(s)`);
+            }
+
+            // Resolve planId FK from Plan table when upgrading
+            let planIdUpdate: { planId?: string } = {};
+            if (toPlan) {
+                const dbPlan = await this.prisma.plan.findFirst({
+                    where: { slug: { equals: toPlan, mode: 'insensitive' } },
+                });
+                if (dbPlan) {
+                    planIdUpdate = { planId: dbPlan.id };
+                }
+            }
 
             // 1. Update Plan + Subscription Dates
             await this.prisma.tenant.update({
                 where: { id: invoice.tenantId },
                 data: {
                     ...(toPlan ? { planTier: toPlan } : {}),
-                    subscriptionStartedAt: now,
+                    ...planIdUpdate,
+                    subscriptionStartedAt: isSamePlan ? undefined : now, // Only reset start date on upgrade
                     subscriptionEndsAt,
                     nextBillingDate: subscriptionEndsAt, // Critical: cron reads this
                     scheduledDeletionAt: null,
@@ -595,6 +651,98 @@ export class BillingService {
     }
 
     // ==================== TENANT-FACING ====================
+
+    /**
+     * Renew current plan subscription (top-up duration without changing tier).
+     * Creates an invoice for the current plan price × months.
+     */
+    async renewSubscription(tenantId: string, months: number = 1) {
+        const tenant = await this.prisma.tenant.findUnique({
+            where: { id: tenantId },
+            include: { plan: true },
+        });
+        if (!tenant) throw new BadRequestException('Tenant not found');
+
+        if (tenant.planTier === 'DEMO') {
+            throw new BadRequestException('Plan Demo tidak perlu diperpanjang. Silakan upgrade ke plan berbayar.');
+        }
+
+        // === DUPLICATE INVOICE GUARD ===
+        const activeInvoice = await this.prisma.systemInvoice.findFirst({
+            where: {
+                tenantId,
+                status: { in: ['PENDING', 'VERIFYING'] },
+            },
+        });
+        if (activeInvoice) {
+            throw new BadRequestException(
+                `Anda masih memiliki invoice aktif (#${activeInvoice.invoiceNumber}). Tunggu verifikasi atau hubungi admin untuk membatalkan.`
+            );
+        }
+
+        // === GET PLAN PRICE (DB first, fallback to config) ===
+        const planPrice = tenant.plan ? Number(tenant.plan.price) : (getPlanById(tenant.planTier)?.price ?? 0);
+        const planName = tenant.plan ? tenant.plan.name : (getPlanById(tenant.planTier)?.name ?? tenant.planTier);
+
+        if (planPrice <= 0) {
+            throw new BadRequestException('Harga paket tidak valid untuk perpanjangan');
+        }
+
+        // === BILLING PERIOD DISCOUNT ===
+        const periods = await this.getBillingPeriods();
+        const selectedPeriod = periods.find((p: any) => p.months === months);
+        const discountPercent = selectedPeriod?.discountPercent ?? 0;
+        const totalBeforeDiscount = planPrice * months;
+        const discountAmount = Math.round(totalBeforeDiscount * discountPercent / 100);
+        const totalAfterDiscount = totalBeforeDiscount - discountAmount;
+
+        const now = new Date();
+        const dueDate = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000); // 7 days to pay
+
+        // === GENERATE INVOICE ===
+        const invoiceNumber = await this.generateInvoiceNumber();
+        const invoice = await this.prisma.systemInvoice.create({
+            data: {
+                tenantId,
+                invoiceNumber,
+                amount: totalAfterDiscount,
+                status: 'PENDING',
+                dueDate,
+                items: JSON.stringify({
+                    type: 'RENEW',
+                    fromPlan: tenant.planTier,
+                    toPlan: tenant.planTier, // Same plan — triggers extend logic in verifyPayment
+                    months,
+                    monthlyPrice: planPrice,
+                    discountPercent,
+                    totalBeforeDiscount,
+                    discountAmount,
+                    totalAfterDiscount,
+                    description: months > 1
+                        ? `Perpanjangan ${planName} (${months} bulan, diskon ${discountPercent}%)`
+                        : `Perpanjangan ${planName}`,
+                }),
+            },
+        });
+
+        return {
+            success: true,
+            invoice: {
+                id: invoice.id,
+                invoiceNumber: invoice.invoiceNumber,
+                amount: totalAfterDiscount,
+                dueDate: invoice.dueDate,
+                plan: planName,
+                months,
+                discountPercent,
+                totalBeforeDiscount,
+                discountAmount,
+            },
+            message: months > 1
+                ? `Invoice perpanjangan ${planName} (${months} bulan, diskon ${discountPercent}%) telah dibuat.`
+                : `Invoice perpanjangan ${planName} telah dibuat. Silakan lakukan pembayaran.`,
+        };
+    }
 
     async getMyInvoices(tenantId: string) {
         return this.prisma.systemInvoice.findMany({
