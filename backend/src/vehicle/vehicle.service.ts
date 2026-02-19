@@ -1,7 +1,8 @@
 import { Injectable, BadRequestException, NotFoundException, ForbiddenException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { NotificationService } from '../notification/notification.service';
-import { getPlanById } from '../config/plan-tiers.config';
+import { FeatureLimitService } from '../billing/feature-limit.service';
+import { Feature } from '../billing/features.enum';
 import { Prisma } from '@prisma/client';
 import { sanitizeInput } from '../common/helpers/tenant-security.helper';
 
@@ -10,6 +11,7 @@ export class VehicleService {
     constructor(
         private prisma: PrismaService,
         private notificationService: NotificationService,
+        private featureLimitService: FeatureLimitService,
     ) { }
 
     // ==================== VEHICLE CRUD ====================
@@ -55,35 +57,8 @@ export class VehicleService {
     }
 
     async create(tenantId: string, data: Omit<Prisma.VehicleUncheckedCreateInput, 'tenantId'> & { stnkExpiry?: string | Date; taxExpiry?: string | Date; purchaseDate?: string | Date }) {
-        // Check plan limit
-        // ... (plan limit logic same as before) ...
-        const tenant = await this.prisma.tenant.findUnique({
-            where: { id: tenantId },
-            include: {
-                _count: { select: { vehicles: true } },
-                plan: true
-            },
-        });
-
-        if (tenant) {
-            let limit = 0;
-            let planName = '';
-
-            if (tenant.plan) {
-                limit = tenant.plan.maxVehicles;
-                planName = tenant.plan.name;
-            } else {
-                const legacyPlan = getPlanById(tenant.planTier);
-                limit = legacyPlan?.features.maxVehicles ?? 0;
-                planName = legacyPlan?.name || 'Unknown';
-            }
-
-            if (limit !== -1 && tenant._count.vehicles >= limit) {
-                throw new BadRequestException(
-                    `Batas kendaraan tercapai (${limit} unit pada paket ${planName}). Upgrade plan untuk menambah lebih banyak.`
-                );
-            }
-        }
+        // FEATURE GATE: Centralized limit check (DB-only, fail-closed)
+        await this.featureLimitService.assertCanCreate(tenantId, Feature.VEHICLES);
 
         // SECURITY: Strip protected fields at RUNTIME (TypeScript Omit is compile-time only)
         const sanitized = sanitizeInput(data);

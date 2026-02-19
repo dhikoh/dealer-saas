@@ -49,10 +49,12 @@ async function main() {
             where: { slug: plan.slug },
             create: plan,
             update: {
-                // Only update limit columns — do not overwrite name or price if admin changed them
+                // Only update limit columns
                 maxVehicles: plan.maxVehicles,
                 maxUsers: plan.maxUsers,
                 maxBranches: plan.maxBranches,
+                // eslint-disable-next-line @typescript-eslint/ban-ts-comment
+                // @ts-ignore — maxCustomers column added in migration 20260219090000; client regenerated in Docker
                 maxCustomers: plan.maxCustomers,
                 maxGroupMembers: plan.maxGroupMembers,
                 canCreateGroup: plan.canCreateGroup,
