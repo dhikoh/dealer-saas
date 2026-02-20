@@ -83,7 +83,7 @@ export default function ProfilePage() {
     const handleUpdateProfile = async () => {
         setSaving(true);
         try {
-            const res = await fetchApi('/auth/profile', {
+            const res = await fetchApi('/auth/me', {
                 method: 'PUT',
                 headers: {
                     'Content-Type': 'application/json',

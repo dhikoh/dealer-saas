@@ -14,9 +14,6 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
                     const cookies = request?.cookies;
                     const token = cookies?.auth_token;
 
-                    console.log("Incoming cookies:", cookies);
-                    console.log("Extracted token:", token?.substring(0, 20));
-
                     return token;
                 },
                 ExtractJwt.fromAuthHeaderAsBearerToken(),
@@ -31,7 +28,6 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
     }
 
     async validate(payload: any) {
-        console.log("Decoded payload:", payload);
         return {
             userId: payload.sub,
             email: payload.email,

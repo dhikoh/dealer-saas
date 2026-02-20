@@ -80,7 +80,7 @@ function GeneralProfileTab({ user, refreshUser }: { user: any; refreshUser: () =
     const handleSave = async () => {
         setLoading(true);
         try {
-            const res = await fetchApi('/auth/profile', {
+            const res = await fetchApi('/auth/me', {
                 method: 'PUT',
                 body: JSON.stringify(sanitizePayload({ name: form.name, phone: form.phone })),
             });

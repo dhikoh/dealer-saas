@@ -61,7 +61,7 @@ export default function DealerGroupPage() {
         setError(null);
         try {
             // 1. Fetch Profile (to check Plan)
-            const resProfile = await fetchApi('/auth/profile');
+            const resProfile = await fetchApi('/auth/me');
             const profileData = await resProfile.json();
             setProfile(profileData);
 
