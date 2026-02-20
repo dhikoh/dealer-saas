@@ -62,4 +62,4 @@ HEALTHCHECK --interval=30s --timeout=5s --start-period=30s --retries=3 \
 
 # Use dumb-init for proper signal handling, run migration then start
 ENTRYPOINT ["dumb-init", "--"]
-CMD ["sh", "-c", "npx prisma db push --skip-generate && node dist/src/main.js"]
+CMD ["sh", "-c", "npx prisma migrate deploy && node dist/src/main.js"]

@@ -150,10 +150,11 @@ export class PdfService {
         const doc = new PDFDocument({ margin: 50 });
 
         // Set response headers
+        const dateStr = new Date().toISOString().split('T')[0];
         res.setHeader('Content-Type', 'application/pdf');
         res.setHeader(
             'Content-Disposition',
-            `attachment; filename=Vehicle_Internal_${vehicle.licensePlate || vehicle.id}.pdf`,
+            `attachment; filename=Vehicle_Internal_${vehicle.licensePlate || vehicle.id}_${dateStr}.pdf`,
         );
 
         doc.pipe(res);
@@ -314,10 +315,11 @@ export class PdfService {
         const doc = new PDFDocument({ margin: 50 });
 
         // Set response headers
+        const dateStr = new Date().toISOString().split('T')[0];
         res.setHeader('Content-Type', 'application/pdf');
         res.setHeader(
             'Content-Disposition',
-            `attachment; filename=Vehicle_Info_${vehicle.licensePlate || vehicle.id}.pdf`,
+            `attachment; filename=Vehicle_Info_${vehicle.licensePlate || vehicle.id}_${dateStr}.pdf`,
         );
 
         doc.pipe(res);
@@ -428,10 +430,11 @@ export class PdfService {
 
         const doc = new PDFDocument({ margin: 50 });
 
+        const dateStr = new Date().toISOString().split('T')[0];
         res.setHeader('Content-Type', 'application/pdf');
         res.setHeader(
             'Content-Disposition',
-            `attachment; filename=Invoice_${transactionId.slice(0, 8)}.pdf`,
+            `attachment; filename=Invoice_${transaction.invoiceNumber || transactionId.slice(0, 8)}_${dateStr}.pdf`,
         );
 
         doc.pipe(res);
@@ -573,10 +576,11 @@ export class PdfService {
 
         const doc = new PDFDocument({ margin: 50 });
 
+        const dateStr = new Date().toISOString().split('T')[0];
         res.setHeader('Content-Type', 'application/pdf');
         res.setHeader(
             'Content-Disposition',
-            `attachment; filename=SPK_${transactionId.slice(0, 8)}.pdf`,
+            `attachment; filename=SPK_${transaction.invoiceNumber || transactionId.slice(0, 8)}_${dateStr}.pdf`,
         );
 
         doc.pipe(res);
@@ -1118,10 +1122,11 @@ export class PdfService {
 
         const doc = new PDFDocument({ margin: 50 });
 
+        const dateStr = new Date().toISOString().split('T')[0];
         res.setHeader('Content-Type', 'application/pdf');
         res.setHeader(
             'Content-Disposition',
-            `attachment; filename=Kwitansi_${transactionId.slice(0, 8)}.pdf`,
+            `attachment; filename=Kwitansi_${transaction.invoiceNumber || transactionId.slice(0, 8)}_${dateStr}.pdf`,
         );
 
         doc.pipe(res);

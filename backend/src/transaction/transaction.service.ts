@@ -20,22 +20,14 @@ export class TransactionService {
      */
     private async generateInvoiceNumber(tenantId: string, type: string): Promise<string> {
         const now = new Date();
-        const yearMonth = `${now.getFullYear()}${String(now.getMonth() + 1).padStart(2, '0')} `;
+        const yearMonth = `${now.getFullYear()}${String(now.getMonth() + 1).padStart(2, '0')}`;
         const prefix = type === 'SALE' ? 'INV' : 'PUR';
 
-        // Count existing transactions this month for this tenant
-        const count = await this.prisma.transaction.count({
-            where: {
-                tenantId,
-                date: {
-                    gte: new Date(now.getFullYear(), now.getMonth(), 1),
-                    lt: new Date(now.getFullYear(), now.getMonth() + 1, 1),
-                },
-            },
-        });
+        // PRODUCTION HARDENING: Use entropy instead of count() to prevent invoice collisions
+        const timeSuffix = Date.now().toString().slice(-5);
+        const randomSuffix = Math.floor(100 + Math.random() * 900); // 3 digit
 
-        const seq = String(count + 1).padStart(3, '0');
-        return `${prefix} -${yearMonth} -${seq} `;
+        return `${prefix}-${yearMonth}-${timeSuffix}${randomSuffix}`;
     }
 
     async findAll(tenantId: string, filters?: { type?: string; status?: string; startDate?: Date; endDate?: Date }) {
@@ -154,6 +146,16 @@ export class TransactionService {
 
         // Use Interactive Transaction to ensure atomicity
         const result = await this.prisma.$transaction(async (tx) => {
+            // CONCURRENCY FIX: Re-check vehicle availability INSIDE the interactive transaction
+            // to prevent Race Conditions (Double Booking)
+            const lockedVehicle = await tx.vehicle.findFirst({
+                where: { id: data.vehicleId, tenantId, status: 'AVAILABLE' }
+            });
+
+            if (!lockedVehicle) {
+                throw new BadRequestException('Transaksi gagal: Kendaraan sudah terjual atau tidak tersedia saat dicheckout.');
+            }
+
             // Determine Statuses based on Payment Type
             let paymentStatus = 'UNPAID';
             let transactionStatus = 'PENDING';

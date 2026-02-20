@@ -128,7 +128,8 @@ export default function ReportsPage() {
             const url = window.URL.createObjectURL(blob);
             const link = document.createElement('a');
             link.href = url;
-            link.download = `Sales_Report_${period}_Months.pdf`;
+            const dateStr = new Date().toISOString().split('T')[0];
+            link.download = `Sales_Report_${period}_Months_${dateStr}.pdf`;
             document.body.appendChild(link);
             link.click();
             window.URL.revokeObjectURL(url);
@@ -150,7 +151,8 @@ export default function ReportsPage() {
             const url = window.URL.createObjectURL(blob);
             const link = document.createElement('a');
             link.href = url;
-            link.download = `Sales_Report_${period}_Months.csv`;
+            const dateStr = new Date().toISOString().split('T')[0];
+            link.download = `Sales_Report_${period}_Months_${dateStr}.csv`;
             document.body.appendChild(link);
             link.click();
             window.URL.revokeObjectURL(url);
