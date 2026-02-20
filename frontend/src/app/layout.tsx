@@ -3,7 +3,7 @@ import { Poppins } from "next/font/google";
 import "./globals.css";
 import { Toaster } from "sonner";
 import ErrorBoundary from "@/components/ErrorBoundary";
-
+import { headers } from "next/headers";
 
 const poppins = Poppins({
   weight: ['300', '400', '600', '700'],
@@ -18,12 +18,16 @@ export const metadata: Metadata = {
 };
 
 import { AuthProvider } from "@/context/AuthContext";
+import { MobileProvider } from "@/context/MobileContext";
 
-export default function RootLayout({
+export default async function RootLayout({
   children,
 }: Readonly<{
   children: React.ReactNode;
 }>) {
+  const headersList = await headers();
+  const userAgent = headersList.get('user-agent') ?? '';
+
   return (
     <html lang="en">
       <body
@@ -31,7 +35,9 @@ export default function RootLayout({
         suppressHydrationWarning
       >
         <AuthProvider>
-          {children}
+          <MobileProvider userAgentStr={userAgent}>
+            {children}
+          </MobileProvider>
           <Toaster position="top-center" richColors />
         </AuthProvider>
       </body>

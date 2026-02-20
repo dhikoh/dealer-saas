@@ -5,11 +5,13 @@ import { useRouter, usePathname } from 'next/navigation';
 import Link from 'next/link';
 import {
     LayoutDashboard, Users, CreditCard, FileText, Settings, Bell,
-    LogOut, Check, CheckCheck, X,
+    LogOut, CheckCheck, X,
     ShieldCheck, Activity, Globe, Building2
 } from 'lucide-react';
-import { API_URL, fetchApi } from '@/lib/api';
+import { fetchApi } from '@/lib/api';
 import { useAuthProtection } from '@/hooks/useAuthProtection';
+import { useMobileContext } from '@/context/MobileContext';
+import MobileAppShell from '@/components/mobile/MobileAppShell';
 
 interface Notification {
     id: string;
@@ -39,6 +41,9 @@ export default function SuperadminLayout({ children }: { children: React.ReactNo
     const [sidebarHovered, setSidebarHovered] = useState(false);
     const isExpanded = sidebarHovered;
 
+    // ✅ All hooks MUST be called unconditionally at the top level
+    const { isMobileView } = useMobileContext();
+
     // Notifications
     const [notifications, setNotifications] = useState<Notification[]>([]);
     const [unreadCount, setUnreadCount] = useState(0);
@@ -67,7 +72,7 @@ export default function SuperadminLayout({ children }: { children: React.ReactNo
     useEffect(() => {
         if (mounted) {
             fetchNotifications();
-            const interval = setInterval(fetchNotifications, 30000); // Poll every 30s
+            const interval = setInterval(fetchNotifications, 30000);
             return () => clearInterval(interval);
         }
     }, [mounted, fetchNotifications]);
@@ -85,9 +90,7 @@ export default function SuperadminLayout({ children }: { children: React.ReactNo
 
     const markAsRead = async (id: string) => {
         try {
-            await fetchApi(`/notifications/${id}/read`, {
-                method: 'PATCH',
-            });
+            await fetchApi(`/notifications/${id}/read`, { method: 'PATCH' });
             setNotifications(prev => prev.map(n => n.id === id ? { ...n, isRead: true } : n));
             setUnreadCount(prev => Math.max(0, prev - 1));
         } catch { /* ignore */ }
@@ -95,9 +98,7 @@ export default function SuperadminLayout({ children }: { children: React.ReactNo
 
     const markAllRead = async () => {
         try {
-            await fetchApi('/notifications/mark-all-read', {
-                method: 'POST',
-            });
+            await fetchApi('/notifications/mark-all-read', { method: 'POST' });
             setNotifications(prev => prev.map(n => ({ ...n, isRead: true })));
             setUnreadCount(0);
         } catch { /* ignore */ }
@@ -132,6 +133,7 @@ export default function SuperadminLayout({ children }: { children: React.ReactNo
         return `${Math.floor(diff / 86400)}d lalu`;
     };
 
+    // ─── LOADING STATE ────────────────────────────────────────────────────────
     if (!mounted) {
         return (
             <div className="min-h-screen bg-slate-100 flex items-center justify-center">
@@ -143,6 +145,12 @@ export default function SuperadminLayout({ children }: { children: React.ReactNo
         );
     }
 
+    // ─── MOBILE VIEW: Render Neumorphic Shell ─────────────────────────────────
+    if (isMobileView) {
+        return <MobileAppShell user={user ?? {}} onLogout={handleLogout} />;
+    }
+
+    // ─── DESKTOP VIEW: Full sidebar layout ───────────────────────────────────
     return (
         <div className="flex min-h-screen bg-slate-100">
             {/* SIDEBAR */}

@@ -1,14 +1,14 @@
 'use client';
 
-import React, { useEffect, useState } from 'react';
+import React, { useEffect } from 'react';
 import { useRouter, usePathname } from 'next/navigation';
-// import Sidebar from '@/components/Sidebar'; // Replaced by BottomNav
 import BottomNav from '@/components/BottomNav';
 import Header from '@/components/Header';
 import { Toaster } from 'sonner';
 import { BranchProvider } from '@/context/BranchContext';
-
 import { useAuthProtection } from '@/hooks/useAuthProtection';
+import { useMobileContext } from '@/context/MobileContext';
+import MobileAppShell from '@/components/mobile/MobileAppShell';
 import { fetchApi } from '@/lib/api';
 
 export default function DashboardLayout({
@@ -16,8 +16,9 @@ export default function DashboardLayout({
 }: {
     children: React.ReactNode;
 }) {
-    // Phase 4: Use centralized auth protection
+    // ✅ All hooks at the top level unconditionally
     const { loading, isAuthenticated, user } = useAuthProtection();
+    const { isMobileView } = useMobileContext();
     const router = useRouter();
     const pathname = usePathname();
 
@@ -28,22 +29,36 @@ export default function DashboardLayout({
     }, [loading, isAuthenticated, router]);
 
     // H4: Check subscription status — redirect to suspended page if needed
-    // H4: Check subscription status — redirect to suspended page if needed
     useEffect(() => {
         if (loading || !isAuthenticated || !user) return;
-        // Don't check on the suspended page itself to avoid redirect loops
         if (pathname === '/app/suspended') return;
-        // SUPERADMIN doesn't have subscription
         if (user.role === 'SUPERADMIN') return;
 
-        // OPTIMIZATION: Check directly from user object (filled by getProfile)
-        // instead of making a redundant API call to /tenant/profile
-        const tenant = user.tenant as any; // Type assertion since User has [key: string]: any
+        const tenant = user.tenant as any;
         if (tenant?.subscriptionStatus === 'SUSPENDED' || tenant?.subscriptionStatus === 'CANCELLED') {
             router.push('/app/suspended');
         }
     }, [loading, isAuthenticated, user, pathname, router]);
 
+    const handleLogout = async () => {
+        try {
+            const refreshToken = localStorage.getItem('refresh_token');
+            if (refreshToken) {
+                await fetchApi('/auth/logout', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ refresh_token: refreshToken })
+                });
+            }
+        } catch { /* ignore */ }
+        localStorage.removeItem('access_token');
+        localStorage.removeItem('refresh_token');
+        localStorage.removeItem('user_info');
+        document.cookie = 'auth_token=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;';
+        router.push('/auth');
+    };
+
+    // Loading state
     if (loading) {
         return (
             <div className="min-h-screen bg-[#ecf0f3] flex items-center justify-center">
@@ -55,20 +70,17 @@ export default function DashboardLayout({
         );
     }
 
-    // Optional: Extra check for user verification/onboarding if needed, 
-    // though useAuthProtection handles basic auth.
-    // If we need specific redirections for onboarding, we can add them here.
     if (user && !user.onboardingCompleted && user.role !== 'SUPERADMIN') {
-        // This check was present in original code
-        // We might want to handle it here or let the page handle it.
-        // For now, let's keep it simple or redirect.
         router.push('/onboarding');
         return null;
     }
 
-    // Check verification?
-    // if (user && !user.isVerified) { ... }
+    // ─── MOBILE VIEW: Render Neumorphic Shell ─────────────────────────────────
+    if (isMobileView) {
+        return <MobileAppShell user={user ?? {}} onLogout={handleLogout} />;
+    }
 
+    // ─── DESKTOP VIEW: Full layout with Header + BottomNav ────────────────────
     return (
         <BranchProvider>
             <div className="flex min-h-screen bg-[#ecf0f3] font-poppins text-gray-700 relative">
@@ -85,8 +97,6 @@ export default function DashboardLayout({
                         {children}
                     </main>
                 </div>
-
-                {/* TOASTER REMOVED - Already in RootLayout */}
             </div>
         </BranchProvider>
     );
