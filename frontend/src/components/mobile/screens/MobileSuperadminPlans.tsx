@@ -11,11 +11,7 @@ interface Plan {
     price: number;
     yearlyDiscount: number;
     description: string;
-    maxVehicles: number;
-    maxUsers: number;
-    maxCustomers: number;
-    maxBranches: number;
-    features?: { name: string; enabled: boolean }[];
+    features?: any;
 }
 
 const fmt = (n: number) => new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', minimumFractionDigits: 0 }).format(n);
@@ -46,10 +42,12 @@ export default function MobileSuperadminPlans() {
                 price: Number(editing.price),
                 yearlyDiscount: Number(editing.yearlyDiscount),
                 description: editing.description,
-                maxVehicles: Number(editing.maxVehicles),
-                maxUsers: Number(editing.maxUsers),
-                maxCustomers: Number(editing.maxCustomers),
-                maxBranches: Number(editing.maxBranches),
+                features: {
+                    maxVehicles: Number((editing as any).maxVehicles),
+                    maxUsers: Number((editing as any).maxUsers),
+                    maxCustomers: Number((editing as any).maxCustomers),
+                    maxBranches: Number((editing as any).maxBranches),
+                }
             };
             const res = await fetchApi(`/superadmin/plans/${editing.id}`, { method: 'PATCH', body: JSON.stringify(body) });
             if (res.ok) {
@@ -88,7 +86,13 @@ export default function MobileSuperadminPlans() {
                             </div>
                             <p className="text-white/80 text-xl font-black mt-1">{fmt(plan.price)}<span className="text-xs font-medium">/bulan</span></p>
                         </div>
-                        <button onClick={() => setEditing({ ...plan })}
+                        <button onClick={() => setEditing({
+                            ...plan,
+                            maxVehicles: plan.features?.maxVehicles ?? 0,
+                            maxUsers: plan.features?.maxUsers ?? 0,
+                            maxCustomers: plan.features?.maxCustomers ?? 0,
+                            maxBranches: plan.features?.maxBranches ?? 0,
+                        } as any)}
                             className="w-9 h-9 rounded-xl bg-white/20 flex items-center justify-center text-white">
                             <Edit2 className="w-4 h-4" />
                         </button>
@@ -98,10 +102,10 @@ export default function MobileSuperadminPlans() {
                         <p className="text-sm text-gray-600 mb-3">{plan.description}</p>
                         <div className="grid grid-cols-2 gap-2">
                             {[
-                                { label: 'Max Kendaraan', value: plan.maxVehicles === -1 ? '∞' : plan.maxVehicles },
-                                { label: 'Max Users', value: plan.maxUsers === -1 ? '∞' : plan.maxUsers },
-                                { label: 'Max Pelanggan', value: plan.maxCustomers === -1 ? '∞' : plan.maxCustomers },
-                                { label: 'Max Cabang', value: plan.maxBranches === -1 ? '∞' : plan.maxBranches },
+                                { label: 'Max Kendaraan', value: plan.features?.maxVehicles === -1 ? '∞' : (plan.features?.maxVehicles ?? 0) },
+                                { label: 'Max Users', value: plan.features?.maxUsers === -1 ? '∞' : (plan.features?.maxUsers ?? 0) },
+                                { label: 'Max Pelanggan', value: plan.features?.maxCustomers === -1 ? '∞' : (plan.features?.maxCustomers ?? 0) },
+                                { label: 'Max Cabang', value: plan.features?.maxBranches === -1 ? '∞' : (plan.features?.maxBranches ?? 0) },
                             ].map(item => (
                                 <div key={item.label} className="bg-white/50 rounded-xl p-2 text-center">
                                     <p className="text-xs text-gray-400">{item.label}</p>

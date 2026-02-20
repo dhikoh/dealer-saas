@@ -1,0 +1,1 @@
+docker exec uskokgkokcogw8ww8w4s88ss psql -U postgres -d postgres -c "DELETE FROM _prisma_migrations WHERE migration_name LIKE '%max_customers%';"

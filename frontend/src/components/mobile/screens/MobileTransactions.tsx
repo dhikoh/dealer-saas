@@ -104,21 +104,28 @@ export default function MobileTransactions() {
         if (!finalPrice) { toast.error('Masukkan harga'); return; }
         setSaving(true);
         try {
+            let apiPaymentType = 'CASH';
+            let apiPaymentMethod: string | undefined = undefined;
+            if (paymentType === 'TRANSFER') { apiPaymentType = 'CASH'; apiPaymentMethod = 'TRANSFER'; }
+            if (paymentType === 'KREDIT') apiPaymentType = 'CREDIT';
+            if (paymentType === 'LEASING') apiPaymentType = 'CREDIT';
+
             const body: any = {
                 type: txType,
                 vehicleId: selectedVehicle.id,
                 customerId: selectedCustomer?.id,
                 finalPrice: Number(finalPrice),
-                paymentType,
+                paymentType: apiPaymentType,
+                paymentMethod: apiPaymentMethod,
                 notes,
             };
-            if (paymentType === 'KREDIT' || paymentType === 'LEASING') {
-                body.credit = {
+            if (apiPaymentType === 'CREDIT') {
+                body.creditData = {
                     downPayment: Number(dp) || 0,
                     interestRate: Number(interestRate),
                     tenorMonths: Number(tenor),
                     leasingCompany: leasingCompany || undefined,
-                    creditType: paymentType,
+                    creditType: paymentType === 'LEASING' ? 'LEASING' : 'DEALER_CREDIT',
                 };
             }
             const res = await fetchApi('/transactions', { method: 'POST', body: JSON.stringify(body) });
@@ -145,7 +152,13 @@ export default function MobileTransactions() {
             if (res.ok) {
                 const blob = await res.blob();
                 const url = URL.createObjectURL(blob);
-                window.open(url, '_blank');
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = `${type}_${txId}.pdf`;
+                document.body.appendChild(a);
+                a.click();
+                document.body.removeChild(a);
+                URL.revokeObjectURL(url);
             } else {
                 toast.error('Gagal membuka dokumen');
             }

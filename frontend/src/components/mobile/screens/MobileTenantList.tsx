@@ -11,9 +11,9 @@ interface Tenant {
     id: string;
     name: string;
     subscriptionStatus: string;
-    plan?: { id: string; name: string };
+    planDetails?: { id: string; name: string };
     owner?: { name: string; email: string };
-    _count?: { vehicles: number; transactions: number; users: number };
+    usage?: { vehicles: number; transactions: number; users: number };
     createdAt: string;
 }
 
@@ -166,7 +166,7 @@ export default function MobileTenantList() {
                         </div>
                         <div className="flex-1 min-w-0">
                             <h4 className={`font-black text-sm truncate ${theme.textMain}`}>{t.name}</h4>
-                            <p className={`text-xs font-medium truncate mt-0.5 ${theme.textMuted}`}>{t.owner?.name ?? '-'} • {t.plan?.name ?? 'No Plan'}</p>
+                            <p className={`text-xs font-medium truncate mt-0.5 ${theme.textMuted}`}>{t.owner?.name ?? '-'} • {t.planDetails?.name ?? 'No Plan'}</p>
                         </div>
                         <span className={`px-2 py-0.5 rounded-full text-xs font-bold flex-shrink-0 ${statusBg[t.subscriptionStatus] ?? 'bg-gray-100 text-gray-500'}`}>
                             {statusLabel[t.subscriptionStatus] ?? t.subscriptionStatus}
@@ -190,11 +190,11 @@ export default function MobileTenantList() {
                         </div>
                         <div className={`p-4 rounded-2xl space-y-2 ${theme.bgFrame} border ${theme.name === 'dark-neu' ? 'border-gray-700' : 'border-white'}`}>
                             {[
-                                { label: 'Plan', value: selected.plan?.name ?? '-' },
+                                { label: 'Plan', value: selected.planDetails?.name ?? '-' },
                                 { label: 'Status', value: statusLabel[selected.subscriptionStatus] ?? selected.subscriptionStatus },
-                                { label: 'Kendaraan', value: selected._count?.vehicles ?? 0 },
-                                { label: 'Transaksi', value: selected._count?.transactions ?? 0 },
-                                { label: 'Users', value: selected._count?.users ?? 0 },
+                                { label: 'Kendaraan', value: selected.usage?.vehicles ?? 0 },
+                                { label: 'Transaksi', value: selected.usage?.transactions ?? 0 },
+                                { label: 'Users', value: selected.usage?.users ?? 0 },
                             ].map((item, idx, arr) => (
                                 <div key={item.label}>
                                     <div className="flex justify-between items-center py-1">
@@ -219,7 +219,7 @@ export default function MobileTenantList() {
                                     <XCircle className="w-4 h-4" /> Tangguhkan
                                 </button>
                             )}
-                            <button onClick={() => { setSelectedPlanId(selected.plan?.id || ''); setShowUpgrade(true); }}
+                            <button onClick={() => { setSelectedPlanId(selected.planDetails?.id || ''); setShowUpgrade(true); }}
                                 className="py-2.5 rounded-xl bg-purple-500 text-white text-sm font-bold flex items-center justify-center gap-1.5">
                                 <Star className="w-4 h-4" /> Ubah Plan
                             </button>

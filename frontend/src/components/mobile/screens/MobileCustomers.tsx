@@ -13,10 +13,10 @@ interface Customer {
     email?: string;
     phone?: string;
     address?: string;
-    identityNumber?: string;
+    ktpNumber?: string;
 }
 
-const INITIAL_FORM = { name: '', email: '', phone: '', address: '', identityNumber: '' };
+const INITIAL_FORM = { name: '', email: '', phone: '', address: '', ktpNumber: '' };
 
 export default function MobileCustomers() {
     const { theme } = useMobileContext();
@@ -54,7 +54,7 @@ export default function MobileCustomers() {
     useEffect(() => {
         if (!search) { setFiltered(customers); return; }
         const q = search.toLowerCase();
-        setFiltered(customers.filter(c => `${c.name} ${c.phone ?? ''} ${c.email ?? ''} ${c.identityNumber ?? ''}`.toLowerCase().includes(q)));
+        setFiltered(customers.filter(c => `${c.name} ${c.phone ?? ''} ${c.email ?? ''} ${c.ktpNumber ?? ''}`.toLowerCase().includes(q)));
     }, [search, customers]);
 
     const openAdd = () => {
@@ -64,7 +64,7 @@ export default function MobileCustomers() {
     };
 
     const openEdit = (c: Customer) => {
-        setForm({ name: c.name, email: c.email || '', phone: c.phone || '', address: c.address || '', identityNumber: c.identityNumber || '' });
+        setForm({ name: c.name, email: c.email || '', phone: c.phone || '', address: c.address || '', ktpNumber: c.ktpNumber || '' });
         setEditingId(c.id);
         setSelected(null);
         setShowForm(true);
@@ -202,7 +202,7 @@ export default function MobileCustomers() {
                             {[
                                 { label: 'No. HP', value: selected.phone || '-' },
                                 { label: 'Alamat', value: selected.address || '-' },
-                                { label: 'No. KTP', value: selected.identityNumber || '-' },
+                                { label: 'No. KTP', value: selected.ktpNumber || '-' },
                             ].map((item, idx, arr) => (
                                 <div key={item.label}>
                                     <div className="flex justify-between items-start gap-2">
@@ -238,7 +238,7 @@ export default function MobileCustomers() {
                                 { label: 'Nama Lengkap *', key: 'name', placeholder: 'Budi Santoso', type: 'text' },
                                 { label: 'No. HP', key: 'phone', placeholder: '08123456789', type: 'tel' },
                                 { label: 'Email', key: 'email', placeholder: 'budi@email.com', type: 'email' },
-                                { label: 'No. KTP', key: 'identityNumber', placeholder: '317XXXXXXXXXXXXX', type: 'text' },
+                                { label: 'No. KTP', key: 'ktpNumber', placeholder: '317XXXXXXXXXXXXX', type: 'text' },
                                 { label: 'Alamat', key: 'address', placeholder: 'Jl. Contoh No. 123', type: 'text' },
                             ].map(({ label, key, placeholder, type }) => (
                                 <div key={key}>
