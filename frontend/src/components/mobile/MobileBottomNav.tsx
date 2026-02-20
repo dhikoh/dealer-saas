@@ -7,7 +7,8 @@ import { useMobileContext } from '@/context/MobileContext';
 export type MobileTab =
     | 'home' | 'vehicles' | 'credit' | 'profile' | 'more'
     | 'customers' | 'transactions' | 'reports' | 'finance' | 'leasing' | 'settings'
-    | 'subscriptions' | 'invoices' | 'plans' | 'users' | 'cms' | 'approvals' | 'activity';
+    | 'subscriptions' | 'invoices' | 'plans' | 'users' | 'cms' | 'approvals' | 'activity'
+    | 'payment-methods' | 'branches';
 
 
 interface Props {

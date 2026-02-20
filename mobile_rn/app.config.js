@@ -39,7 +39,7 @@ module.exports = ({ config }) => ({
         ],
     },
 
-    plugins: ['expo-router', 'expo-secure-store'],
+    plugins: ['expo-router', 'expo-secure-store', 'react-native-webview'],
 
     // CRITICAL FIX: API URL via EAS environment variable — never hardcoded
     // Set via: eas secret:create --scope project --name API_URL --value https://your-backend.com

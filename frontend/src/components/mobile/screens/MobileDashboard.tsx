@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useEffect, useState } from 'react';
-import { Car, CheckCircle, TrendingUp, Users, FileText, Calculator, AlertCircle } from 'lucide-react';
+import { Car, CheckCircle, TrendingUp, Users, FileText, Calculator, AlertCircle, Bell, CreditCard, Crown } from 'lucide-react';
 import { useMobileContext } from '@/context/MobileContext';
 import { fetchApi } from '@/lib/api';
 import type { MobileTab } from '@/components/mobile/MobileBottomNav';
@@ -25,6 +25,22 @@ interface RecentTransaction {
     date: string;
 }
 
+interface Reminder {
+    id: string;
+    type: 'TAX' | 'CREDIT' | 'SUBSCRIPTION';
+    title: string;
+    message: string;
+    dueDate?: string;
+    daysUntilDue?: number;
+    isOverdue?: boolean;
+}
+
+interface TenantProfile {
+    subscriptionStatus: string;
+    trialEndsAt?: string | null;
+    plan?: { name: string };
+}
+
 interface Props {
     user: { name?: string;[key: string]: unknown };
     onTabChange: (tab: MobileTab) => void;
@@ -34,6 +50,8 @@ export default function MobileDashboard({ user, onTabChange }: Props) {
     const { theme } = useMobileContext();
     const [stats, setStats] = useState<DashboardStats | null>(null);
     const [recent, setRecent] = useState<RecentTransaction[]>([]);
+    const [reminders, setReminders] = useState<Reminder[]>([]);
+    const [tenantProfile, setTenantProfile] = useState<TenantProfile | null>(null);
     const [loading, setLoading] = useState(true);
 
     const displayName = (user?.name as string) || 'User';
@@ -42,9 +60,11 @@ export default function MobileDashboard({ user, onTabChange }: Props) {
     useEffect(() => {
         const loadData = async () => {
             try {
-                const [statsRes, txRes] = await Promise.all([
+                const [statsRes, txRes, remindersRes, profileRes] = await Promise.all([
                     fetchApi('/vehicles/stats'),
                     fetchApi('/transactions?limit=5&page=1'),
+                    fetchApi('/reminders'),
+                    fetchApi('/tenant/profile'),
                 ]);
                 if (statsRes.ok) {
                     const s = await statsRes.json();
@@ -58,6 +78,13 @@ export default function MobileDashboard({ user, onTabChange }: Props) {
                 if (txRes.ok) {
                     const t = await txRes.json();
                     setRecent(t.data ?? t ?? []);
+                }
+                if (remindersRes.ok) {
+                    const r = await remindersRes.json();
+                    setReminders(r?.reminders ?? r ?? []);
+                }
+                if (profileRes.ok) {
+                    setTenantProfile(await profileRes.json());
                 }
             } catch {
                 // silently fail, show empty state
@@ -127,14 +154,68 @@ export default function MobileDashboard({ user, onTabChange }: Props) {
                 )}
             </div>
 
+            {/* Reminder Alerts */}
+            {!loading && reminders.length > 0 && (
+                <div className="px-6 mt-6">
+                    <div className="flex items-center gap-2 mb-3">
+                        <Bell className="h-4 w-4 text-amber-500" />
+                        <h3 className={`text-[11px] font-black uppercase tracking-widest ${theme.textMuted}`}>Pengingat</h3>
+                        <span className="ml-auto bg-red-500 text-white text-[10px] font-black rounded-full w-5 h-5 flex items-center justify-center">{reminders.length}</span>
+                    </div>
+                    <div className="space-y-2">
+                        {reminders.slice(0, 3).map(r => (
+                            <div key={r.id} className={`p-3 rounded-xl flex items-start gap-3 ${r.isOverdue ? 'bg-red-50 border border-red-200' : 'bg-amber-50 border border-amber-200'}`}>
+                                <div className={`w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0 ${r.type === 'CREDIT' ? 'bg-red-100' : 'bg-amber-100'}`}>
+                                    {r.type === 'CREDIT' ? <CreditCard className="w-4 h-4 text-red-600" /> : <AlertCircle className="w-4 h-4 text-amber-600" />}
+                                </div>
+                                <div className="flex-1 min-w-0">
+                                    <p className={`text-xs font-bold ${r.isOverdue ? 'text-red-700' : 'text-amber-700'}`}>{r.title}</p>
+                                    <p className="text-[10px] text-gray-500 truncate">{r.message}</p>
+                                </div>
+                                {r.daysUntilDue !== undefined && (
+                                    <span className={`text-[10px] font-bold flex-shrink-0 ${r.isOverdue ? 'text-red-600' : 'text-amber-600'}`}>
+                                        {r.isOverdue ? 'Lewat' : `${r.daysUntilDue}h`}
+                                    </span>
+                                )}
+                            </div>
+                        ))}
+                    </div>
+                </div>
+            )}
+
+            {/* Subscription Widget */}
+            {!loading && tenantProfile && (tenantProfile.subscriptionStatus === 'TRIAL' || tenantProfile.subscriptionStatus === 'SUSPENDED') && (
+                <div className="px-6 mt-4">
+                    <div className={`rounded-2xl p-4 flex items-center gap-3 ${tenantProfile.subscriptionStatus === 'TRIAL' ? 'bg-purple-50 border border-purple-200' : 'bg-red-50 border border-red-200'}`}
+                        onClick={() => onTabChange('subscriptions')}>
+                        <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${tenantProfile.subscriptionStatus === 'TRIAL' ? 'bg-purple-100' : 'bg-red-100'}`}>
+                            <Crown className={`w-5 h-5 ${tenantProfile.subscriptionStatus === 'TRIAL' ? 'text-purple-600' : 'text-red-600'}`} />
+                        </div>
+                        <div className="flex-1 min-w-0">
+                            <p className={`text-sm font-bold ${tenantProfile.subscriptionStatus === 'TRIAL' ? 'text-purple-700' : 'text-red-700'}`}>
+                                {tenantProfile.subscriptionStatus === 'TRIAL' ? `Trial: ${tenantProfile.plan?.name ?? 'Demo'}` : 'Akun Ditangguhkan'}
+                            </p>
+                            <p className="text-xs text-gray-500">
+                                {tenantProfile.subscriptionStatus === 'TRIAL'
+                                    ? (tenantProfile.trialEndsAt ? `Berakhir: ${new Date(tenantProfile.trialEndsAt).toLocaleDateString('id-ID')}` : 'Upgrade untuk akses penuh')
+                                    : 'Hubungi admin untuk mengaktifkan'}
+                            </p>
+                        </div>
+                        <span className={`text-xs font-bold px-3 py-1 rounded-full ${tenantProfile.subscriptionStatus === 'TRIAL' ? 'bg-purple-600 text-white' : 'bg-red-600 text-white'}`}>
+                            {tenantProfile.subscriptionStatus === 'TRIAL' ? 'Upgrade' : 'Info'}
+                        </span>
+                    </div>
+                </div>
+            )}
+
             {/* Quick Actions */}
-            <div className="px-6 mt-8">
+            <div className="px-6 mt-6">
                 <h3 className={`text-[11px] font-black uppercase tracking-widest mb-4 pl-1 ${theme.textMuted}`}>Aksi Cepat</h3>
                 <div className="flex gap-4 overflow-x-auto hide-scrollbar snap-x pb-2">
                     {[
                         { icon: <Car className="h-6 w-6" />, label: 'Stok', tab: 'vehicles' as MobileTab },
                         { icon: <FileText className="h-6 w-6" />, label: 'Transaksi', tab: 'transactions' as MobileTab },
-                        { icon: <Calculator className="h-6 w-6" />, label: 'Kredit', tab: 'credit' as MobileTab },
+                        { icon: <CreditCard className="h-6 w-6" />, label: 'Kredit', tab: 'credit' as MobileTab },
                         { icon: <Users className="h-6 w-6" />, label: 'Klien', tab: 'customers' as MobileTab },
                     ].map(a => (
                         <div key={a.label} className="snap-start flex flex-col items-center gap-3 active:scale-95 transition-transform shrink-0">
