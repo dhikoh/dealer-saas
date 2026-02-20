@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useEffect, useState } from 'react';
-import { Download, Eye, CheckCircle, XCircle, FileText, AlertCircle, Plus, X } from 'lucide-react';
+import { Download, Eye, CheckCircle, XCircle, FileText, AlertCircle, Plus, X, Upload } from 'lucide-react';
 import { fetchApi } from '@/lib/api';
 import ConfirmDialog from '@/components/ui/ConfirmDialog';
 
@@ -133,6 +133,27 @@ export default function InvoicesPage() {
         }
     };
 
+    const handleExportCsv = async () => {
+        setToast({ message: 'Menyiapkan CSV...', type: 'success' });
+        try {
+            const res = await fetchApi('/export/admin/invoices');
+            if (!res.ok) throw new Error('Gagal mengekspor data');
+
+            const blob = await res.blob();
+            const url = window.URL.createObjectURL(blob);
+            const link = document.createElement('a');
+            link.href = url;
+            link.download = `Invoices_OTOHUB_${new Date().toISOString().split('T')[0]}.csv`;
+            document.body.appendChild(link);
+            link.click();
+            window.URL.revokeObjectURL(url);
+            document.body.removeChild(link);
+            setToast({ message: 'CSV berhasil diunduh', type: 'success' });
+        } catch (e) {
+            setToast({ message: 'Gagal mengunduh CSV', type: 'error' });
+        }
+    };
+
     const handleTenantSelect = (tenantId: string) => {
         const tenant = tenants.find(t => t.id === tenantId);
         setCreateForm(prev => ({
@@ -215,6 +236,12 @@ export default function InvoicesPage() {
                             <option value="PAID">Lunas</option>
                             <option value="OVERDUE">Jatuh Tempo</option>
                         </select>
+                        <button
+                            onClick={handleExportCsv}
+                            className="px-4 py-2 bg-white text-slate-700 border border-slate-300 rounded-lg text-sm font-medium hover:bg-slate-50 flex items-center gap-2 transition-colors"
+                        >
+                            <Download className="w-4 h-4" /> Export CSV
+                        </button>
                         <button
                             onClick={() => setShowCreate(true)}
                             className="bg-indigo-600 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-indigo-700 transition-colors flex items-center gap-2"

@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useEffect, useState } from 'react';
-import { BarChart3, TrendingUp, TrendingDown, Car, DollarSign, Users, Package, Download, Calendar, RefreshCw } from 'lucide-react';
+import { BarChart3, TrendingUp, TrendingDown, Car, DollarSign, Users, Package, Download, Calendar, RefreshCw, FileText } from 'lucide-react';
 import { toast } from 'sonner';
 import { useLanguage } from '@/hooks/useLanguage';
 import { useCurrency } from '@/hooks/useCurrency';
@@ -118,6 +118,50 @@ export default function ReportsPage() {
         }
     };
 
+    const handleExportPdf = async () => {
+        const toastId = toast.loading('Mempersiapkan PDF...');
+        try {
+            const response = await fetchApi(`/pdf/reports/sales?months=${period}`);
+            if (!response.ok) throw new Error('Export gagal');
+
+            const blob = await response.blob();
+            const url = window.URL.createObjectURL(blob);
+            const link = document.createElement('a');
+            link.href = url;
+            link.download = `Sales_Report_${period}_Months.pdf`;
+            document.body.appendChild(link);
+            link.click();
+            window.URL.revokeObjectURL(url);
+            document.body.removeChild(link);
+            toast.success('PDF berhasil diunduh', { id: toastId });
+        } catch (error) {
+            console.error('Export error:', error);
+            toast.error('Gagal mengunduh PDF', { id: toastId });
+        }
+    };
+
+    const handleExportSalesCsv = async () => {
+        const toastId = toast.loading('Mempersiapkan CSV...');
+        try {
+            const response = await fetchApi(`/export/sales-csv?months=${period}`);
+            if (!response.ok) throw new Error('Export gagal');
+
+            const blob = await response.blob();
+            const url = window.URL.createObjectURL(blob);
+            const link = document.createElement('a');
+            link.href = url;
+            link.download = `Sales_Report_${period}_Months.csv`;
+            document.body.appendChild(link);
+            link.click();
+            window.URL.revokeObjectURL(url);
+            document.body.removeChild(link);
+            toast.success('CSV berhasil diunduh', { id: toastId });
+        } catch (error) {
+            console.error('Export error:', error);
+            toast.error('Gagal mengunduh CSV', { id: toastId });
+        }
+    };
+
     const maxRevenue = monthlySales.length > 0 ? Math.max(...monthlySales.map(m => m.revenue)) : 1;
     const maxCount = monthlySales.length > 0 ? Math.max(...monthlySales.map(m => m.count)) : 1;
 
@@ -157,6 +201,20 @@ export default function ReportsPage() {
                         title="Refresh data"
                     >
                         <RefreshCw className="w-4 h-4" />
+                    </button>
+                    <button
+                        onClick={handleExportPdf}
+                        className="flex items-center gap-2 bg-[#ecf0f3] text-rose-600 px-4 py-2.5 rounded-xl font-medium shadow-[3px_3px_6px_#cbced1,-3px_-3px_6px_#ffffff] hover:text-rose-700 transition-colors"
+                        title="Export Sales Report (PDF)"
+                    >
+                        <FileText className="w-4 h-4" /> PDF Report
+                    </button>
+                    <button
+                        onClick={handleExportSalesCsv}
+                        className="flex items-center gap-2 bg-[#ecf0f3] text-indigo-600 px-4 py-2.5 rounded-xl font-medium shadow-[3px_3px_6px_#cbced1,-3px_-3px_6px_#ffffff] hover:text-indigo-700 transition-colors"
+                        title="Export Sales Report (CSV)"
+                    >
+                        <Download className="w-4 h-4" /> Sales CSV
                     </button>
                     <ExportDropdown
                         t={t}

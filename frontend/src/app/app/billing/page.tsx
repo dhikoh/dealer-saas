@@ -496,7 +496,7 @@ export default function BillingPage() {
                                             <td className="px-4 py-3 text-slate-600">{new Date(inv.date).toLocaleDateString(language === 'id' ? 'id-ID' : 'en-US')}</td>
                                             <td className="px-4 py-3 font-medium text-slate-900">{fmt(inv.amount)}</td>
                                             <td className="px-4 py-3"><StatusBadge status={inv.status} /></td>
-                                            <td className="px-4 py-3 text-right">
+                                            <td className="px-4 py-3 text-right flex justify-end gap-2 items-center">
                                                 {inv.status === 'PENDING' && (
                                                     <button
                                                         onClick={() => handlePayClick(inv)}
@@ -518,6 +518,31 @@ export default function BillingPage() {
                                                         <Upload className="w-3 h-3" /> Re-Upload
                                                     </button>
                                                 )}
+                                                <button
+                                                    onClick={async () => {
+                                                        const toastId = toast.loading('Mengunduh PDF...');
+                                                        try {
+                                                            const res = await fetchApi(`/pdf/invoice/${inv.id}`);
+                                                            if (!res.ok) throw new Error('Gagal');
+                                                            const blob = await res.blob();
+                                                            const url = window.URL.createObjectURL(blob);
+                                                            const a = document.createElement('a');
+                                                            a.href = url;
+                                                            a.download = `Invoice_${inv.invoiceNumber}.pdf`;
+                                                            document.body.appendChild(a);
+                                                            a.click();
+                                                            window.URL.revokeObjectURL(url);
+                                                            document.body.removeChild(a);
+                                                            toast.success('PDF berhasil diunduh', { id: toastId });
+                                                        } catch (e) {
+                                                            toast.error('Gagal mendownload invoice', { id: toastId });
+                                                        }
+                                                    }}
+                                                    className="inline-flex items-center gap-1 text-emerald-600 hover:text-emerald-800 font-medium text-xs bg-emerald-50 px-3 py-1.5 rounded-lg transition-colors border border-emerald-100"
+                                                    title="Download PDF"
+                                                >
+                                                    <FileText className="w-3 h-3" /> PDF
+                                                </button>
                                             </td>
                                         </tr>
                                     ))}

@@ -1,0 +1,968 @@
+import React, { useState } from 'react';
+import { 
+  Car, Users, FileText, TrendingUp, CheckCircle, 
+  AlertCircle, ChevronRight, LogOut, Home, Search, 
+  Calculator, User, Eye, EyeOff, Lock, Mail, Plus, 
+  CreditCard, Menu, X, LayoutDashboard, ClipboardList, 
+  HandCoins, Settings, ChevronDown, ChevronUp,
+  Moon, Sun, MapPin, Info
+} from 'lucide-react';
+
+// --- MOCK DATA ---
+const mockVehicles = [
+  { id: '1', brand: 'Honda', model: 'Beat', variant: 'CBS', year: 2024, color: 'Hitam', price: 18500000, condition: 'baru', status: 'available', stock: 'STK001', image: 'https://images.unsplash.com/photo-1558981403-c5f9899a28bc?auto=format&fit=crop&w=800&q=80' },
+  { id: '2', brand: 'Yamaha', model: 'NMAX', variant: 'Connected', year: 2024, color: 'Putih', price: 32500000, condition: 'baru', status: 'available', stock: 'STK002', image: null },
+  { id: '3', brand: 'Honda', model: 'Vario 125', variant: 'CBS-ISS', year: 2022, color: 'Merah', price: 19000000, condition: 'bekas', status: 'reserved', stock: 'STK003', image: null },
+  { id: '4', brand: 'Yamaha', model: 'Aerox 155', variant: 'Standard', year: 2023, color: 'Biru', price: 25000000, condition: 'bekas', status: 'available', stock: 'STK004', image: null },
+];
+
+const mockDrafts = [
+  { id: '1', customer: 'Budi Santoso', vehicle: 'Honda Beat 2024', status: 'quoted', amount: 18500000, date: '12 Okt 2024', phone: '081234567890', notes: 'Rencana DP 5 Juta, tenor 24 bulan.' },
+  { id: '2', customer: 'Siti Rahayu', vehicle: 'Yamaha NMAX 2024', status: 'submitted', amount: 32500000, date: '14 Okt 2024', phone: '089876543210', notes: 'Pengajuan via BCA Finance.' },
+];
+
+const mobileNavItems = [
+  { id: 'home', label: "Dashboard", icon: <LayoutDashboard /> },
+  {
+    id: 'vehicles_group', label: "Kendaraan", icon: <Car />,
+    children: [
+      { id: 'vehicles', label: "Daftar Kendaraan" },
+      { id: 'vehicles_new', label: "Tambah Kendaraan" },
+      { id: 'vehicles_master', label: "Master Data" }
+    ]
+  },
+  { id: 'customers', label: "Customer", icon: <Users /> },
+  {
+    id: 'sales_group', label: "Penjualan", icon: <ClipboardList />,
+    children: [
+      { id: 'sales_draft', label: "Draft Penjualan" },
+      { id: 'sales_transactions', label: "Transaksi" },
+      { id: 'credit', label: "Simulasi Kredit" }
+    ]
+  },
+  { id: 'leasing', label: "Leasing", icon: <CreditCard /> },
+  { id: 'finance', label: "Keuangan", icon: <HandCoins /> },
+  { id: 'settings', label: "Pengaturan", icon: <Settings /> }
+];
+
+const formatRupiah = (number) => {
+  return new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', minimumFractionDigits: 0 }).format(number);
+};
+
+// --- NEUMORPHIC THEME ENGINE ---
+const getTheme = (mode) => {
+  if (mode === 'dark-neu') {
+    return {
+      name: 'dark-neu',
+      bgApp: 'bg-black',
+      bgFrame: 'bg-[#2A2D32]',
+      bgCard: 'bg-[#2A2D32] shadow-[6px_6px_14px_#1c1e22,-6px_-6px_14px_#383c42] rounded-3xl',
+      bgInput: 'bg-[#2A2D32] shadow-[inset_4px_4px_8px_#1c1e22,inset_-4px_-4px_8px_#383c42] text-gray-200 placeholder-gray-500',
+      bgHeader: 'bg-[#2A2D32]',
+      textMain: 'text-gray-100',
+      textMuted: 'text-gray-400',
+      textHighlight: 'text-blue-400',
+      iconContainer: 'bg-[#2A2D32] shadow-[4px_4px_8px_#1c1e22,-4px_-4px_8px_#383c42] text-blue-400',
+      bottomNav: 'bg-[#2A2D32]/80 backdrop-blur-3xl shadow-[0_-10px_30px_rgba(28,30,34,0.8)]',
+      fab: 'bg-[#2A2D32] text-blue-400 shadow-[6px_6px_12px_#1c1e22,-6px_-6px_12px_#383c42]',
+      btnPrimary: 'bg-[#2A2D32] text-blue-400 font-bold shadow-[6px_6px_12px_#1c1e22,-6px_-6px_12px_#383c42] rounded-2xl active:shadow-[inset_4px_4px_8px_#1c1e22,inset_-4px_-4px_8px_#383c42] transition-all',
+      btnSecondary: 'bg-[#2A2D32] text-gray-300 font-bold shadow-[4px_4px_8px_#1c1e22,-4px_-4px_8px_#383c42] rounded-xl active:shadow-[inset_4px_4px_8px_#1c1e22,inset_-4px_-4px_8px_#383c42] transition-all',
+      navActiveBg: 'shadow-[inset_4px_4px_8px_#1c1e22,inset_-4px_-4px_8px_#383c42] text-blue-400',
+      drawerBg: 'bg-[#2A2D32]',
+      drawerItem: 'shadow-[4px_4px_10px_#1c1e22,-4px_-4px_10px_#383c42] text-gray-300',
+      divider: 'border-gray-600/30',
+      imagePlaceholder: 'bg-[#2A2D32] shadow-[inset_4px_4px_8px_#1c1e22,inset_-4px_-4px_8px_#383c42]'
+    };
+  }
+  // light-neu
+  return {
+    name: 'light-neu',
+    bgApp: 'bg-gray-300',
+    bgFrame: 'bg-[#E0E5EC]',
+    bgCard: 'bg-[#E0E5EC] shadow-[6px_6px_14px_#a3b1c6,-6px_-6px_14px_#ffffff] rounded-3xl',
+    bgInput: 'bg-[#E0E5EC] shadow-[inset_4px_4px_8px_#a3b1c6,inset_-4px_-4px_8px_#ffffff] text-slate-700 placeholder-slate-400',
+    bgHeader: 'bg-[#E0E5EC]',
+    textMain: 'text-slate-800',
+    textMuted: 'text-slate-500',
+    textHighlight: 'text-blue-600',
+    iconContainer: 'bg-[#E0E5EC] shadow-[4px_4px_8px_#a3b1c6,-4px_-4px_8px_#ffffff] text-blue-600',
+    bottomNav: 'bg-[#E0E5EC]/80 backdrop-blur-3xl shadow-[0_-10px_30px_rgba(163,177,198,0.4)]',
+    fab: 'bg-[#E0E5EC] text-blue-600 shadow-[6px_6px_12px_#a3b1c6,-6px_-6px_12px_#ffffff]',
+    btnPrimary: 'bg-[#E0E5EC] text-blue-600 font-bold shadow-[6px_6px_12px_#a3b1c6,-6px_-6px_12px_#ffffff] rounded-2xl active:shadow-[inset_4px_4px_8px_#a3b1c6,inset_-4px_-4px_8px_#ffffff] transition-all',
+    btnSecondary: 'bg-[#E0E5EC] text-slate-600 font-bold shadow-[4px_4px_8px_#a3b1c6,-4px_-4px_8px_#ffffff] rounded-xl active:shadow-[inset_4px_4px_8px_#a3b1c6,inset_-4px_-4px_8px_#ffffff] transition-all',
+    navActiveBg: 'shadow-[inset_4px_4px_8px_#a3b1c6,inset_-4px_-4px_8px_#ffffff] text-blue-600',
+    drawerBg: 'bg-[#E0E5EC]',
+    drawerItem: 'shadow-[4px_4px_10px_#a3b1c6,-4px_-4px_10px_#ffffff] text-slate-600',
+    divider: 'border-white/40',
+    imagePlaceholder: 'bg-[#E0E5EC] shadow-[inset_4px_4px_8px_#a3b1c6,inset_-4px_-4px_8px_#ffffff]'
+  };
+};
+
+export default function App() {
+  const [isLoggedIn, setIsLoggedIn] = useState(false);
+  const [activeTab, setActiveTab] = useState('home');
+  const [isDrawerOpen, setIsDrawerOpen] = useState(false);
+  const [themeMode, setThemeMode] = useState('light-neu');
+
+  const theme = getTheme(themeMode);
+
+  if (!isLoggedIn) {
+    return (
+      <>
+        <NativeStyles />
+        <LoginScreen onLogin={() => setIsLoggedIn(true)} theme={theme} />
+      </>
+    );
+  }
+
+  return (
+    <div className={`flex items-center justify-center min-h-[100dvh] ${theme.bgApp} p-0 sm:p-4 font-sans transition-colors duration-500`}>
+      <NativeStyles />
+
+      {/* Mobile Device Frame */}
+      <div className={`w-full h-[100dvh] sm:max-w-[400px] sm:h-[850px] ${theme.bgFrame} sm:rounded-[40px] overflow-hidden shadow-2xl relative sm:border-[14px] border-gray-900 flex flex-col transition-colors duration-500`}>
+        
+        {/* Status Bar */}
+        <div className={`h-8 w-full ${theme.bgHeader} flex justify-between items-center px-6 text-[12px] font-bold z-50 pt-2 transition-colors ${theme.textMain}`}>
+          <span>11:26</span>
+          <div className="flex items-center gap-1.5">
+            <div className={`w-3.5 h-3.5 rounded-full flex items-center justify-center`}><div className="w-2 h-2 rounded-full bg-current"></div></div>
+            <div className={`w-3 h-3 rounded-full bg-current`}></div>
+            <div className={`w-4 h-2.5 rounded-[3px] border-2 border-current bg-current`}></div>
+          </div>
+        </div>
+
+        {/* Drawer Menu Overlay */}
+        <DrawerMenu 
+          isOpen={isDrawerOpen} 
+          onClose={() => setIsDrawerOpen(false)} 
+          activeTab={activeTab}
+          onChangeTab={(tab) => {
+            setActiveTab(tab);
+            setIsDrawerOpen(false);
+          }}
+          theme={theme}
+        />
+
+        {/* Main Content Area */}
+        <div className="flex-1 overflow-y-auto hide-scrollbar pb-[calc(8rem+env(safe-area-inset-bottom,20px))] smooth-scroll">
+          {activeTab === 'home' && <DashboardScreen onTabChange={setActiveTab} onOpenMenu={() => setIsDrawerOpen(true)} theme={theme} />}
+          {activeTab === 'vehicles' && <VehiclesScreen onTabChange={setActiveTab} onOpenMenu={() => setIsDrawerOpen(true)} theme={theme} />}
+          {activeTab === 'credit' && <CreditSimulationScreen onOpenMenu={() => setIsDrawerOpen(true)} theme={theme} />}
+          {activeTab === 'profile' && <ProfileScreen onLogout={() => setIsLoggedIn(false)} onOpenMenu={() => setIsDrawerOpen(true)} theme={theme} currentThemeMode={themeMode} setThemeMode={setThemeMode} />}
+          
+          {!['home', 'vehicles', 'credit', 'profile'].includes(activeTab) && (
+            <PlaceholderScreen tabId={activeTab} onOpenMenu={() => setIsDrawerOpen(true)} theme={theme} />
+          )}
+        </div>
+
+        {/* Floating Bottom Navigation */}
+        <FloatingBottomNav activeTab={activeTab} onChange={setActiveTab} theme={theme} />
+        
+        {/* Home Indicator */}
+        <div className={`absolute bottom-[env(safe-area-inset-bottom,8px)] left-1/2 -translate-x-1/2 w-[130px] h-[5px] ${theme.name === 'dark-neu' ? 'bg-gray-600' : 'bg-gray-300'} rounded-full z-50 sm:bottom-2`}></div>
+      </div>
+    </div>
+  );
+}
+
+// Komponen untuk menampung global style perbaikan scroll & animasi
+function NativeStyles() {
+  return (
+    <style>{`
+      .hide-scrollbar::-webkit-scrollbar { display: none; }
+      .hide-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+      .smooth-scroll { -webkit-overflow-scrolling: touch; }
+      .no-select { user-select: none; -webkit-user-select: none; }
+      
+      @keyframes slideUpModal {
+        from { transform: translateY(100%); }
+        to { transform: translateY(0); }
+      }
+      .animate-slide-up-modal {
+        animation: slideUpModal 0.4s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+      }
+      @keyframes fadeIn {
+        from { opacity: 0; }
+        to { opacity: 1; }
+      }
+      .animate-fade-in {
+        animation: fadeIn 0.3s ease-out forwards;
+      }
+    `}</style>
+  );
+}
+
+// ==========================================
+// SCREENS
+// ==========================================
+
+function LoginScreen({ onLogin, theme }) {
+  const [showPassword, setShowPassword] = useState(false);
+
+  return (
+    <div className={`flex items-center justify-center min-h-[100dvh] ${theme.bgApp} p-0 sm:p-4 font-sans no-select`}>
+      <div className={`w-full h-[100dvh] sm:max-w-[400px] sm:h-[850px] ${theme.bgFrame} sm:rounded-[40px] overflow-hidden shadow-2xl relative sm:border-[14px] border-gray-900 flex flex-col smooth-scroll overflow-y-auto hide-scrollbar`}>
+        
+        <div className="pt-20 pb-6 px-8 flex flex-col items-center">
+          <div className={`w-28 h-28 rounded-full flex items-center justify-center mb-8 ${theme.iconContainer}`}>
+             <Car className="h-12 w-12" />
+          </div>
+          <h1 className={`text-4xl font-black tracking-tight ${theme.textMain}`}>DealerSaaS</h1>
+          <p className={`text-sm font-semibold mt-3 text-center leading-relaxed ${theme.textMuted}`}>Kelola penjualan dan stok kendaraan<br/>dalam satu genggaman.</p>
+        </div>
+
+        <div className="flex-1 px-8 pt-4 pb-8 flex flex-col">
+          <div className="space-y-6">
+            <div>
+              <div className="relative">
+                <Mail className={`absolute left-6 top-1/2 -translate-y-1/2 h-5 w-5 ${theme.textMuted}`} />
+                <input 
+                  type="email" 
+                  defaultValue="sales@demo-dealer.com"
+                  placeholder="Alamat Email"
+                  className={`w-full pl-14 pr-6 py-4 rounded-2xl text-sm font-bold transition-all outline-none ${theme.bgInput}`}
+                />
+              </div>
+            </div>
+
+            <div>
+              <div className="relative">
+                <Lock className={`absolute left-6 top-1/2 -translate-y-1/2 h-5 w-5 ${theme.textMuted}`} />
+                <input 
+                  type={showPassword ? "text" : "password"} 
+                  defaultValue="sales123"
+                  placeholder="Password"
+                  className={`w-full pl-14 pr-14 py-4 rounded-2xl text-sm font-bold transition-all outline-none ${theme.bgInput}`}
+                />
+                <button 
+                  onClick={() => setShowPassword(!showPassword)}
+                  className={`absolute right-6 top-1/2 -translate-y-1/2 ${theme.textMuted}`}
+                >
+                  {showPassword ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
+                </button>
+              </div>
+            </div>
+          </div>
+
+          <button className={`text-right text-sm font-black mt-6 mb-12 ${theme.textHighlight}`}>
+            Lupa Password?
+          </button>
+
+          <div className="mt-auto pb-6">
+            <button 
+              onClick={onLogin}
+              className={`w-full py-5 text-lg uppercase tracking-wider ${theme.btnPrimary}`}
+            >
+              Masuk
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function DashboardScreen({ onTabChange, onOpenMenu, theme }) {
+  const [selectedDraft, setSelectedDraft] = useState(null);
+
+  return (
+    <div className="pb-6 no-select">
+      <div className={`${theme.bgHeader} pt-6 pb-4 px-6 flex justify-between items-center sticky top-0 z-20`}>
+        <div className="flex items-center gap-4">
+          <button onClick={onOpenMenu} className={`w-12 h-12 rounded-full flex items-center justify-center active:scale-90 transition-all ${theme.iconContainer}`}>
+            <Menu className="h-5 w-5" />
+          </button>
+          <div>
+            <p className={`text-[10px] font-black uppercase tracking-widest ${theme.textMuted}`}>Selamat Datang,</p>
+            <h2 className={`text-xl font-black ${theme.textMain}`}>Andi Sales</h2>
+          </div>
+        </div>
+        <div className={`w-12 h-12 rounded-full flex items-center justify-center font-black text-lg ${theme.iconContainer}`}>
+          A
+        </div>
+      </div>
+
+      <div className="px-6 mt-4">
+        <div className="grid grid-cols-2 gap-4">
+          <div className={`p-5 flex flex-col justify-between items-center text-center ${theme.bgCard}`}>
+            <div className={`w-12 h-12 rounded-full flex items-center justify-center mb-3 ${theme.iconContainer}`}>
+              <Car className="h-5 w-5" />
+            </div>
+            <h3 className={`text-3xl font-black tracking-tight ${theme.textMain}`}>24</h3>
+            <p className={`text-[10px] font-black uppercase tracking-widest mt-1 ${theme.textMuted}`}>Stok Tersedia</p>
+          </div>
+          <div className={`p-5 flex flex-col justify-between items-center text-center ${theme.bgCard}`}>
+            <div className={`w-12 h-12 rounded-full flex items-center justify-center mb-3 ${theme.iconContainer}`}>
+              <CheckCircle className="h-5 w-5" />
+            </div>
+            <h3 className={`text-3xl font-black tracking-tight ${theme.textMain}`}>8</h3>
+            <p className={`text-[10px] font-black uppercase tracking-widest mt-1 ${theme.textMuted}`}>Terjual Bln Ini</p>
+          </div>
+        </div>
+      </div>
+
+      <div className="px-6 mt-8">
+        <h3 className={`text-[11px] font-black uppercase tracking-widest mb-4 pl-1 ${theme.textMuted}`}>Aksi Cepat</h3>
+        <div className="flex gap-4 overflow-x-auto hide-scrollbar snap-x pb-4">
+          <div className="snap-start"><ActionBtn icon={<Car />} label="Stok" onClick={() => onTabChange('vehicles')} theme={theme} /></div>
+          <div className="snap-start"><ActionBtn icon={<FileText />} label="Draft" theme={theme} /></div>
+          <div className="snap-start"><ActionBtn icon={<Calculator />} label="Kredit" onClick={() => onTabChange('credit')} theme={theme} /></div>
+          <div className="snap-start"><ActionBtn icon={<Users />} label="Klien" theme={theme} /></div>
+        </div>
+      </div>
+
+      <div className="px-6 mt-6">
+        <div className="flex justify-between items-end mb-4 pl-1 pr-1">
+          <h3 className={`text-[11px] font-black uppercase tracking-widest ${theme.textMuted}`}>Draft Terbaru</h3>
+          <button className={`text-[11px] font-black uppercase tracking-widest ${theme.textHighlight}`}>Lihat Semua</button>
+        </div>
+        
+        <div className="space-y-4">
+          {mockDrafts.map(draft => (
+            <div 
+              key={draft.id} 
+              onClick={() => setSelectedDraft(draft)}
+              className={`p-4 flex items-center gap-4 active:scale-[0.97] transition-transform cursor-pointer ${theme.bgCard}`}
+            >
+              <div className={`w-12 h-12 rounded-full flex items-center justify-center flex-shrink-0 ${theme.iconContainer}`}>
+                <FileText className="h-5 w-5" />
+              </div>
+              <div className="flex-1 min-w-0">
+                <h4 className={`font-black text-sm truncate ${theme.textMain}`}>{draft.customer}</h4>
+                <p className={`text-xs font-bold truncate mt-1 ${theme.textMuted}`}>{draft.vehicle}</p>
+              </div>
+              <div className="text-right flex-shrink-0">
+                <p className={`text-sm font-black ${theme.textHighlight}`}>{formatRupiah(draft.amount).replace(/,00$/, '')}</p>
+                <div className={`inline-block px-3 py-1 mt-1.5 rounded-lg text-[9px] font-black uppercase tracking-widest ${theme.btnSecondary}`}>
+                  {draft.status === 'quoted' ? 'Pending' : 'Diajukan'}
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* Draft Detail Modal */}
+      <BottomModal isOpen={!!selectedDraft} onClose={() => setSelectedDraft(null)} theme={theme} title="Detail Draft Penjualan">
+        {selectedDraft && (
+          <div className="space-y-6">
+            <div className={`p-5 rounded-3xl flex items-center gap-5 ${theme.iconContainer}`}>
+              <div className={`w-14 h-14 rounded-full flex items-center justify-center flex-shrink-0 ${theme.bgFrame} ${theme.textHighlight}`}>
+                <User className="h-6 w-6" />
+              </div>
+              <div>
+                <h3 className={`font-black text-xl ${theme.textMain}`}>{selectedDraft.customer}</h3>
+                <p className={`text-xs font-bold mt-1 ${theme.textMuted}`}>{selectedDraft.phone}</p>
+              </div>
+            </div>
+
+            <div className={`p-6 rounded-3xl space-y-4 ${theme.bgFrame} border ${theme.name === 'dark-neu' ? 'border-gray-700' : 'border-white'}`}>
+              <div className="flex justify-between items-center">
+                <span className={`text-[10px] font-black uppercase tracking-widest ${theme.textMuted}`}>Kendaraan</span>
+                <span className={`text-sm font-black ${theme.textMain}`}>{selectedDraft.vehicle}</span>
+              </div>
+              <div className={`border-t ${theme.divider}`}></div>
+              <div className="flex justify-between items-center">
+                <span className={`text-[10px] font-black uppercase tracking-widest ${theme.textMuted}`}>Nominal</span>
+                <span className={`text-base font-black ${theme.textHighlight}`}>{formatRupiah(selectedDraft.amount).replace(/,00$/, '')}</span>
+              </div>
+              <div className={`border-t ${theme.divider}`}></div>
+              <div className="flex justify-between items-center">
+                <span className={`text-[10px] font-black uppercase tracking-widest ${theme.textMuted}`}>Tanggal</span>
+                <span className={`text-xs font-bold ${theme.textMain}`}>{selectedDraft.date}</span>
+              </div>
+              <div className={`border-t ${theme.divider}`}></div>
+              <div className="flex justify-between items-center">
+                <span className={`text-[10px] font-black uppercase tracking-widest ${theme.textMuted}`}>Status</span>
+                <span className={`px-3 py-1 rounded-md text-[10px] font-black uppercase tracking-widest ${theme.btnSecondary}`}>
+                  {selectedDraft.status === 'quoted' ? 'Pending' : 'Diajukan'}
+                </span>
+              </div>
+            </div>
+
+            <div className="px-2">
+               <p className={`text-[10px] font-black uppercase tracking-widest mb-2 ${theme.textMuted}`}>Catatan Tambahan</p>
+               <p className={`text-sm font-bold leading-relaxed ${theme.textMain}`}>{selectedDraft.notes}</p>
+            </div>
+
+            <button 
+              onClick={() => setSelectedDraft(null)} 
+              className={`w-full py-5 text-sm uppercase tracking-widest ${theme.btnPrimary} mt-4`}
+            >
+              Lanjutkan Transaksi
+            </button>
+          </div>
+        )}
+      </BottomModal>
+    </div>
+  );
+}
+
+function VehiclesScreen({ onTabChange, onOpenMenu, theme }) {
+  const [selectedVehicle, setSelectedVehicle] = useState(null);
+
+  const handleSimulateCredit = () => {
+    // Navigasi ke kalkulator kredit (hanya simulasi flow tab)
+    setSelectedVehicle(null);
+    onTabChange('credit');
+  };
+
+  return (
+    <div className={`min-h-full ${theme.bgFrame} flex flex-col no-select`}>
+      <div className={`${theme.bgHeader} pt-6 pb-2 px-6 z-10 sticky top-0`}>
+        <div className="flex items-center gap-4 mb-4">
+          <button onClick={onOpenMenu} className={`w-12 h-12 rounded-full flex items-center justify-center active:scale-90 transition-all ${theme.iconContainer}`}>
+            <Menu className="h-5 w-5" />
+          </button>
+          <h2 className={`text-2xl font-black tracking-tight ${theme.textMain}`}>Inventaris</h2>
+        </div>
+        
+        <div className="relative">
+          <Search className={`absolute left-5 top-1/2 -translate-y-1/2 h-5 w-5 ${theme.textMuted}`} />
+          <input 
+            type="text" 
+            placeholder="Cari merek, model..." 
+            className={`w-full pl-12 pr-6 py-4 rounded-2xl text-sm font-bold transition-all outline-none ${theme.bgInput}`}
+          />
+        </div>
+        
+        <div className="flex gap-3 mt-5 overflow-x-auto hide-scrollbar snap-x pb-4">
+          <div className="snap-start"><Badge active theme={theme}>Semua</Badge></div>
+          <div className="snap-start"><Badge theme={theme}>Baru</Badge></div>
+          <div className="snap-start"><Badge theme={theme}>Bekas</Badge></div>
+          <div className="snap-start"><Badge theme={theme}>Tersedia</Badge></div>
+        </div>
+      </div>
+
+      <div className="p-6 pt-0 space-y-5">
+        {mockVehicles.map(v => (
+          <div 
+            key={v.id} 
+            onClick={() => setSelectedVehicle(v)}
+            className={`p-4 flex gap-4 flex-col active:scale-[0.97] transition-transform cursor-pointer ${theme.bgCard}`}
+          >
+            <div className="flex gap-4 items-center">
+              <div className={`w-28 h-20 rounded-2xl flex items-center justify-center flex-shrink-0 overflow-hidden ${theme.imagePlaceholder}`}>
+                {v.image ? (
+                  <img src={v.image} alt={v.model} className="w-full h-full object-cover" />
+                ) : (
+                  <Car className="h-8 w-8 opacity-40" />
+                )}
+              </div>
+              
+              <div className="flex-1">
+                <h3 className={`font-black text-lg leading-tight ${theme.textMain}`}>{v.brand} {v.model}</h3>
+                <p className={`text-xs font-bold mt-1.5 ${theme.textMuted}`}>{v.variant} • {v.year}</p>
+                <p className={`text-[10px] mt-1 font-mono uppercase ${theme.textMuted}`}>{v.stock}</p>
+              </div>
+            </div>
+            
+            <div className={`pt-3 mt-1 border-t ${theme.divider} flex justify-between items-center`}>
+              <p className={`font-black text-lg ${theme.textHighlight}`}>{formatRupiah(v.price).replace(/,00$/, '')}</p>
+              <div className={`px-4 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-widest ${theme.btnSecondary}`}>
+                {v.status === 'available' ? 'Tersedia' : 'Dipesan'}
+              </div>
+            </div>
+          </div>
+        ))}
+      </div>
+
+      {/* Vehicle Detail Modal */}
+      <BottomModal isOpen={!!selectedVehicle} onClose={() => setSelectedVehicle(null)} theme={theme} title="Detail Kendaraan">
+        {selectedVehicle && (
+          <div className="space-y-6">
+            {/* Header / Main Image Area */}
+            <div className={`w-full h-48 rounded-[32px] overflow-hidden flex items-center justify-center ${theme.imagePlaceholder}`}>
+              {selectedVehicle.image ? (
+                  <img src={selectedVehicle.image} alt={selectedVehicle.model} className="w-full h-full object-cover" />
+                ) : (
+                  <Car className="h-20 w-20 opacity-30" />
+              )}
+            </div>
+
+            <div className="px-2">
+              <div className="flex justify-between items-start">
+                <div>
+                  <p className={`text-[11px] font-black uppercase tracking-widest mb-1 ${theme.textMuted}`}>{selectedVehicle.brand}</p>
+                  <h2 className={`text-3xl font-black tracking-tight ${theme.textMain}`}>{selectedVehicle.model}</h2>
+                </div>
+                <div className={`px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest ${theme.btnSecondary}`}>
+                  {selectedVehicle.condition === 'baru' ? 'Baru' : 'Bekas'}
+                </div>
+              </div>
+              <h3 className={`text-2xl font-black mt-4 ${theme.textHighlight}`}>{formatRupiah(selectedVehicle.price).replace(/,00$/, '')}</h3>
+            </div>
+
+            {/* Spesifikasi Grid */}
+            <div className="px-2">
+              <p className={`text-[10px] font-black uppercase tracking-widest mb-4 ${theme.textMuted}`}>Spesifikasi & Info</p>
+              <div className="grid grid-cols-2 gap-4">
+                <SpecItem label="Varian" value={selectedVehicle.variant} theme={theme} />
+                <SpecItem label="Tahun" value={selectedVehicle.year} theme={theme} />
+                <SpecItem label="Warna" value={selectedVehicle.color} theme={theme} />
+                <SpecItem label="ID Stok" value={selectedVehicle.stock} theme={theme} />
+              </div>
+            </div>
+
+            <div className={`p-5 rounded-[24px] flex gap-4 items-center ${selectedVehicle.status === 'available' ? theme.iconContainer : theme.bgCard}`}>
+              <Info className={`h-6 w-6 ${selectedVehicle.status === 'available' ? 'text-blue-500' : theme.textMuted}`} />
+              <div>
+                <p className={`text-[11px] font-black uppercase tracking-widest ${theme.textMuted}`}>Status Kendaraan</p>
+                <p className={`text-sm font-black ${theme.textMain}`}>{selectedVehicle.status === 'available' ? 'Tersedia di Showroom' : 'Sedang Dipesan / Reserved'}</p>
+              </div>
+            </div>
+
+            <button 
+              onClick={handleSimulateCredit}
+              className={`w-full py-5 text-sm uppercase tracking-widest mt-2 flex items-center justify-center gap-2 ${theme.btnPrimary}`}
+            >
+              <Calculator className="h-5 w-5" />
+              Simulasikan Kredit
+            </button>
+          </div>
+        )}
+      </BottomModal>
+    </div>
+  );
+}
+
+function CreditSimulationScreen({ onOpenMenu, theme }) {
+  const [price, setPrice] = useState('25000000'); 
+  const [dp, setDp] = useState('5000000');
+  const [tenor, setTenor] = useState('24');
+  const [rate, setRate] = useState('15');
+  const [result, setResult] = useState(null);
+
+  const calculate = () => {
+    const p = parseFloat(price) || 0;
+    const d = parseFloat(dp) || 0;
+    const t = parseInt(tenor) || 12;
+    const r = parseFloat(rate) || 0;
+
+    const principal = p - d;
+    const totalInterest = (principal * (r / 100) * t) / 12;
+    const totalCredit = principal + totalInterest;
+    const monthly = Math.round(totalCredit / t);
+
+    setResult({ monthly, principal, totalInterest, totalCredit });
+  };
+
+  return (
+    <div className={`min-h-full ${theme.bgFrame} no-select`}>
+      <div className={`${theme.bgHeader} pt-6 pb-2 px-6 z-10 sticky top-0`}>
+        <div className="flex items-center justify-between mb-4">
+          <button onClick={onOpenMenu} className={`w-12 h-12 rounded-full flex items-center justify-center active:scale-90 transition-all ${theme.iconContainer}`}>
+            <X className="h-5 w-5" />
+          </button>
+          <h2 className={`text-xl font-black ${theme.textMain}`}>Kalkulator</h2>
+          <div className="w-12"></div>
+        </div>
+      </div>
+
+      <div className="p-6 space-y-6">
+        
+        <div className="text-center py-2">
+          <p className={`text-[11px] font-black uppercase tracking-widest mb-2 ${theme.textMuted}`}>Harga Kendaraan</p>
+          <h1 className={`text-4xl font-black tracking-tighter ${theme.textMain}`}>
+            <span className="text-xl align-top mr-1">Rp</span>
+            {(parseFloat(price) || 0).toLocaleString('id-ID')}
+          </h1>
+        </div>
+
+        <div className="space-y-4">
+          <div>
+            <label className={`text-[10px] font-black uppercase tracking-widest mb-2 block pl-2 ${theme.textMuted}`}>Otr Price (Ubah)</label>
+            <input 
+              type="number" 
+              value={price}
+              onChange={(e) => setPrice(e.target.value)}
+              className={`w-full px-5 py-4 rounded-2xl text-sm font-black transition-all outline-none ${theme.bgInput}`}
+            />
+          </div>
+
+          <div>
+            <label className={`text-[10px] font-black uppercase tracking-widest mb-2 block pl-2 ${theme.textMuted}`}>Uang Muka (Rp)</label>
+            <input 
+              type="number" 
+              value={dp}
+              onChange={(e) => setDp(e.target.value)}
+              className={`w-full px-5 py-4 rounded-2xl text-sm font-black transition-all outline-none ${theme.bgInput}`}
+            />
+          </div>
+
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label className={`text-[10px] font-black uppercase tracking-widest mb-2 block pl-2 ${theme.textMuted}`}>Tenor</label>
+              <div className="relative">
+                <select 
+                  value={tenor}
+                  onChange={(e) => setTenor(e.target.value)}
+                  className={`w-full px-5 py-4 rounded-2xl text-sm font-black transition-all appearance-none outline-none ${theme.bgInput}`}
+                >
+                  <option value="12">12 Bulan</option>
+                  <option value="24">24 Bulan</option>
+                  <option value="36">36 Bulan</option>
+                  <option value="48">48 Bulan</option>
+                </select>
+                <ChevronDown className={`absolute right-4 top-1/2 -translate-y-1/2 h-5 w-5 pointer-events-none ${theme.textMuted}`} />
+              </div>
+            </div>
+            <div>
+              <label className={`text-[10px] font-black uppercase tracking-widest mb-2 block pl-2 ${theme.textMuted}`}>Bunga (%)</label>
+              <input 
+                type="number" 
+                value={rate}
+                onChange={(e) => setRate(e.target.value)}
+                className={`w-full px-5 py-4 rounded-2xl text-sm font-black transition-all outline-none text-center ${theme.bgInput}`}
+              />
+            </div>
+          </div>
+        </div>
+
+        <button 
+          onClick={calculate}
+          className={`w-full py-4 text-sm uppercase tracking-widest mt-2 ${theme.btnPrimary}`}
+        >
+          Hitung Cicilan
+        </button>
+
+        {result && (
+          <div className={`mt-6 p-6 flex flex-col items-center ${theme.bgCard} animate-slide-up`}>
+            <p className={`text-[11px] font-black uppercase tracking-widest mb-2 ${theme.textMuted}`}>Angsuran Per Bulan</p>
+            <h3 className={`text-3xl font-black tracking-tighter ${theme.textHighlight}`}>
+              {formatRupiah(result.monthly).replace(/,00$/, '')}
+            </h3>
+            
+            <div className={`w-full space-y-4 pt-6 mt-6 border-t ${theme.divider}`}>
+              <div className="flex justify-between items-center">
+                <span className={`text-xs font-black uppercase tracking-wider ${theme.textMuted}`}>Pokok Hutang</span>
+                <span className={`font-black text-sm ${theme.textMain}`}>{formatRupiah(result.principal).replace(/,00$/, '')}</span>
+              </div>
+              <div className="flex justify-between items-center">
+                <span className={`text-xs font-black uppercase tracking-wider ${theme.textMuted}`}>Total Bunga</span>
+                <span className={`font-black text-sm ${theme.textMain}`}>{formatRupiah(result.totalInterest).replace(/,00$/, '')}</span>
+              </div>
+            </div>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function ProfileScreen({ onLogout, onOpenMenu, theme, currentThemeMode, setThemeMode }) {
+  return (
+    <div className={`min-h-full ${theme.bgFrame} no-select`}>
+      <div className={`${theme.bgHeader} pt-6 pb-2 px-6 flex justify-between items-center sticky top-0`}>
+        <button onClick={onOpenMenu} className={`w-12 h-12 rounded-full flex items-center justify-center active:scale-90 transition-all ${theme.iconContainer}`}>
+          <Menu className="h-5 w-5" />
+        </button>
+        <h2 className={`text-xl font-black ${theme.textMain}`}>Profil</h2>
+        <div className="w-12"></div>
+      </div>
+
+      <div className="px-6 py-6 flex flex-col items-center text-center">
+        <div className={`w-28 h-28 rounded-full mb-6 flex items-center justify-center font-black text-5xl ${theme.iconContainer}`}>
+          A
+        </div>
+        <h2 className={`text-2xl font-black tracking-tight ${theme.textMain}`}>Andi Sales</h2>
+        <p className={`text-sm font-bold mt-1 ${theme.textMuted}`}>sales@demo-dealer.com</p>
+        
+        <div className={`mt-4 px-5 py-2 rounded-lg text-[10px] font-black uppercase tracking-widest ${theme.btnSecondary}`}>
+          Demo Dealership
+        </div>
+      </div>
+
+      <div className="px-6 mt-2 space-y-6">
+        
+        {/* Theme Section */}
+        <div>
+          <h3 className={`text-[11px] font-black uppercase tracking-widest mb-4 pl-2 ${theme.textMuted}`}>Tampilan Tema</h3>
+          <div className="grid grid-cols-2 gap-4">
+            <ThemeBtn active={currentThemeMode === 'light-neu'} onClick={() => setThemeMode('light-neu')} icon={<Sun />} label="Light Mode" theme={theme} />
+            <ThemeBtn active={currentThemeMode === 'dark-neu'} onClick={() => setThemeMode('dark-neu')} icon={<Moon />} label="Dark Mode" theme={theme} />
+          </div>
+        </div>
+
+        {/* Menu List */}
+        <div>
+          <h3 className={`text-[11px] font-black uppercase tracking-widest mb-4 pl-2 mt-6 ${theme.textMuted}`}>Pengaturan Akun</h3>
+          <div className={`${theme.bgCard} p-2`}>
+            <ProfileMenu icon={<User />} label="Data Pribadi" theme={theme} />
+            <ProfileMenu icon={<TrendingUp />} label="Target Penjualan" theme={theme} />
+            <ProfileMenu icon={<CreditCard />} label="Komisi Saya" badge="Rp 2.5Jt" theme={theme} isLast />
+          </div>
+        </div>
+
+        <button 
+          onClick={onLogout}
+          className={`w-full py-4 mt-2 text-sm uppercase tracking-widest font-black rounded-2xl flex items-center justify-center gap-3 ${theme.bgCard} text-red-500 shadow-[4px_4px_8px_rgba(239,68,68,0.1),-4px_-4px_8px_rgba(255,255,255,0.05)] active:shadow-[inset_4px_4px_8px_rgba(239,68,68,0.1),inset_-4px_-4px_8px_rgba(255,255,255,0.05)] transition-all`}
+        >
+          <LogOut className="h-5 w-5" />
+          Keluar
+        </button>
+      </div>
+    </div>
+  );
+}
+
+// ==========================================
+// REUSABLE COMPONENTS & MODALS
+// ==========================================
+
+// Global Bottom Modal Component (Neumorphic)
+function BottomModal({ isOpen, onClose, theme, title, children }) {
+  if (!isOpen) return null;
+
+  return (
+    <>
+      {/* Backdrop */}
+      <div 
+        className="absolute inset-0 bg-black/50 z-[80] backdrop-blur-sm transition-opacity animate-fade-in"
+        onClick={onClose}
+      />
+      
+      {/* Modal Container */}
+      <div className={`absolute bottom-0 left-0 right-0 max-h-[90%] flex flex-col z-[90] ${theme.bgCard} rounded-t-[40px] rounded-b-none shadow-[0_-20px_50px_rgba(0,0,0,0.5)] animate-slide-up-modal`}>
+        
+        {/* Grab Handle */}
+        <div className="w-full flex justify-center pt-4 pb-2">
+          <div className={`w-12 h-1.5 rounded-full ${theme.name === 'dark-neu' ? 'bg-gray-600' : 'bg-gray-300'}`}></div>
+        </div>
+
+        {/* Modal Header */}
+        <div className="px-6 pb-4 flex justify-between items-center border-b border-transparent">
+          <h2 className={`text-xl font-black tracking-tight ${theme.textMain}`}>{title}</h2>
+          <button onClick={onClose} className={`w-10 h-10 rounded-full flex items-center justify-center active:scale-90 ${theme.iconContainer}`}>
+            <X className="h-4 w-4" />
+          </button>
+        </div>
+
+        {/* Modal Body - Scrollable */}
+        <div className="overflow-y-auto hide-scrollbar smooth-scroll p-6 pt-2 pb-[calc(2rem+env(safe-area-inset-bottom,20px))]">
+          {children}
+        </div>
+      </div>
+    </>
+  );
+}
+
+// Komponen Pembantu Spesifikasi Kendaraan
+function SpecItem({ label, value, theme }) {
+  return (
+    <div className={`p-4 rounded-2xl ${theme.bgFrame} border ${theme.name === 'dark-neu' ? 'border-gray-700' : 'border-white'}`}>
+      <p className={`text-[9px] font-black uppercase tracking-widest mb-1 ${theme.textMuted}`}>{label}</p>
+      <p className={`text-xs font-black truncate ${theme.textMain}`}>{value}</p>
+    </div>
+  );
+}
+
+function PlaceholderScreen({ tabId, onOpenMenu, theme }) {
+  const title = tabId.split('_').map(word => word.charAt(0).toUpperCase() + word.slice(1)).join(' ');
+  return (
+    <div className={`min-h-full ${theme.bgFrame} flex flex-col no-select`}>
+      <div className={`${theme.bgHeader} pt-6 pb-2 px-6 flex justify-between items-center sticky top-0`}>
+        <button onClick={onOpenMenu} className={`w-12 h-12 rounded-full flex items-center justify-center active:scale-90 transition-all ${theme.iconContainer}`}>
+          <Menu className="h-5 w-5" />
+        </button>
+        <h2 className={`text-xl font-black ${theme.textMain}`}>{title}</h2>
+        <div className="w-12"></div>
+      </div>
+      <div className="flex-1 flex flex-col items-center justify-center p-8 text-center">
+        <div className={`w-28 h-28 rounded-full flex items-center justify-center mb-6 ${theme.iconContainer}`}>
+          <AlertCircle className="h-10 w-10 opacity-50" />
+        </div>
+        <h3 className={`text-xl font-black tracking-tight mb-3 ${theme.textMain}`}>Segera Hadir</h3>
+        <p className={`text-sm font-bold leading-relaxed ${theme.textMuted}`}>Modul ini sedang dioptimalkan untuk pengalaman mobile Neumorphic.</p>
+      </div>
+    </div>
+  );
+}
+
+function DrawerMenu({ isOpen, onClose, activeTab, onChangeTab, theme }) {
+  const [expandedGroups, setExpandedGroups] = useState(['vehicles_group', 'sales_group']);
+
+  const toggleGroup = (id) => {
+    setExpandedGroups(prev => prev.includes(id) ? prev.filter(item => item !== id) : [...prev, id]);
+  };
+
+  return (
+    <>
+      {isOpen && (
+        <div className="absolute inset-0 bg-black/50 z-[60] backdrop-blur-sm transition-opacity" onClick={onClose} />
+      )}
+
+      {/* Drawer dengan shadow menonjol (extruded) dan radius kanan */}
+      <div className={`absolute top-0 bottom-0 left-0 w-[85%] max-w-[320px] ${theme.drawerBg} z-[70] shadow-[20px_0_50px_rgba(0,0,0,0.3)] transition-transform duration-300 ease-in-out flex flex-col ${isOpen ? 'translate-x-0' : '-translate-x-full'} rounded-r-[40px] border-r border-white/5`}>
+        
+        {/* Profile Header in Drawer */}
+        <div className="p-6 pt-10 pb-6">
+          <div className="flex justify-between items-start mb-6">
+            <div className={`w-16 h-16 rounded-full flex items-center justify-center ${theme.iconContainer}`}>
+              <User className="h-7 w-7" />
+            </div>
+            <button onClick={onClose} className={`w-10 h-10 rounded-full flex items-center justify-center active:scale-90 ${theme.iconContainer}`}>
+              <X className="h-4 w-4" />
+            </button>
+          </div>
+          <h2 className={`font-black text-2xl tracking-tight ${theme.textMain}`}>Andi Sales</h2>
+          <div className="flex items-center gap-2 mt-2">
+             <MapPin className={`h-3.5 w-3.5 ${theme.textHighlight}`} />
+             <p className={`text-[10px] font-black uppercase tracking-widest ${theme.textHighlight}`}>Dealer Premium</p>
+          </div>
+        </div>
+
+        {/* Menu Items */}
+        <div className="flex-1 overflow-y-auto px-5 space-y-3 hide-scrollbar pb-10 smooth-scroll">
+          {mobileNavItems.map(item => {
+            const hasChildren = item.children && item.children.length > 0;
+            const isGroupExpanded = expandedGroups.includes(item.id);
+            const isActive = activeTab === item.id || (hasChildren && item.children.some(child => child.id === activeTab));
+
+            return (
+              <div key={item.id} className="mb-2">
+                <button
+                  onClick={() => hasChildren ? toggleGroup(item.id) : onChangeTab(item.id)}
+                  className={`w-full flex items-center justify-between px-5 py-4 rounded-2xl transition-all ${
+                    isActive && !hasChildren ? theme.navActiveBg : theme.drawerItem
+                  }`}
+                >
+                  <div className="flex items-center gap-4">
+                    {React.cloneElement(item.icon, { 
+                      className: `h-5 w-5 ${isActive && !hasChildren ? theme.textHighlight : theme.textMuted}` 
+                    })}
+                    <span className={`text-sm font-black ${isActive && !hasChildren ? theme.textHighlight : theme.textMain}`}>
+                      {item.label}
+                    </span>
+                  </div>
+                  {hasChildren && (
+                    <div className={`w-6 h-6 rounded-full flex items-center justify-center ${theme.iconContainer} shadow-none bg-transparent`}>
+                      {isGroupExpanded ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
+                    </div>
+                  )}
+                </button>
+
+                {hasChildren && isGroupExpanded && (
+                  <div className={`ml-6 pl-5 border-l-2 mt-3 mb-3 space-y-2 ${theme.divider}`}>
+                    {item.children.map(child => {
+                      const isChildActive = activeTab === child.id;
+                      return (
+                        <button
+                          key={child.id}
+                          onClick={() => onChangeTab(child.id)}
+                          className={`w-full text-left py-2 text-sm transition-all ${
+                            isChildActive 
+                              ? `font-black ${theme.textHighlight}` 
+                              : `font-bold ${theme.textMuted} hover:${theme.textMain}`
+                          }`}
+                        >
+                          {child.label}
+                        </button>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+            );
+          })}
+        </div>
+      </div>
+    </>
+  );
+}
+
+// --- Neumorphic Bottom Navigation ---
+function FloatingBottomNav({ activeTab, onChange, theme }) {
+  const navItems = [
+    { id: 'home', icon: <Home />, label: 'Home' },
+    { id: 'vehicles', icon: <Car />, label: 'Stok' },
+    { id: 'fab', icon: <Plus />, isFab: true },
+    { id: 'credit', icon: <Calculator />, label: 'Kredit' },
+    { id: 'profile', icon: <User />, label: 'Profil' },
+  ];
+
+  return (
+    <div className={`absolute bottom-[calc(1.25rem+env(safe-area-inset-bottom,0px))] left-1/2 -translate-x-1/2 w-[90%] rounded-[32px] px-2 py-2 flex justify-between items-center z-40 ${theme.bottomNav}`}>
+      {navItems.map(item => {
+        if (item.isFab) {
+          return (
+            <button 
+              key="fab"
+              className={`w-14 h-14 rounded-full flex items-center justify-center transition-transform active:scale-90 mx-1 ${theme.fab}`}
+            >
+              <Plus className="h-6 w-6 stroke-[2.5px]" />
+            </button>
+          );
+        }
+
+        const isActive = activeTab === item.id;
+        return (
+          <button 
+            key={item.id}
+            onClick={() => onChange(item.id)}
+            className={`flex flex-col items-center justify-center w-12 h-12 rounded-full transition-all ${
+              isActive ? theme.navActiveBg : `${theme.textMuted} hover:scale-105`
+            }`}
+          >
+            {React.cloneElement(item.icon, { 
+              className: `h-5 w-5 ${isActive ? 'stroke-[2.5px]' : 'stroke-2'}` 
+            })}
+          </button>
+        );
+      })}
+    </div>
+  );
+}
+
+function ActionBtn({ icon, label, theme, onClick }) {
+  return (
+    <div className="flex-1 shrink-0 snap-start flex flex-col items-center gap-3 active:scale-95 transition-transform group">
+      <button onClick={onClick} className={`w-14 h-14 rounded-2xl flex items-center justify-center ${theme.iconContainer}`}>
+        {React.cloneElement(icon, { className: 'h-6 w-6' })}
+      </button>
+      <span className={`text-[10px] font-black uppercase tracking-widest ${theme.textMain}`}>{label}</span>
+    </div>
+  );
+}
+
+function Badge({ children, active, theme }) {
+  return (
+    <button className={`px-5 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-widest whitespace-nowrap transition-all shrink-0 ${
+      active ? theme.btnPrimary : theme.btnSecondary
+    }`}>
+      {children}
+    </button>
+  );
+}
+
+function ThemeBtn({ active, onClick, icon, label, theme }) {
+  return (
+    <button 
+      onClick={onClick}
+      className={`flex flex-col items-center justify-center gap-3 py-5 rounded-2xl transition-all ${
+        active ? theme.btnPrimary : theme.drawerItem 
+      }`}
+    >
+      {React.cloneElement(icon, { className: "h-6 w-6" })}
+      <span className="text-[10px] font-black uppercase tracking-widest">{label}</span>
+    </button>
+  );
+}
+
+function ProfileMenu({ icon, label, badge, theme, isLast }) {
+  return (
+    <button className={`w-full flex items-center justify-between p-4 transition-colors ${!isLast ? `border-b ${theme.divider}` : ''}`}>
+      <div className="flex items-center gap-4">
+        <div className={`w-10 h-10 rounded-full flex items-center justify-center ${theme.iconContainer}`}>
+          {React.cloneElement(icon, { className: "h-4 w-4" })}
+        </div>
+        <span className={`font-black text-sm ${theme.textMain}`}>{label}</span>
+      </div>
+      <div className="flex items-center gap-3">
+        {badge && <span className={`text-[9px] font-black px-3 py-1.5 rounded-lg uppercase tracking-widest ${theme.btnSecondary}`}>{badge}</span>}
+        <ChevronRight className={`h-4 w-4 ${theme.textMuted}`} />
+      </div>
+    </button>
+  );
+}

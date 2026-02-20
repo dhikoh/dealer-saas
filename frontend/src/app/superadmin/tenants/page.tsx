@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useEffect, useState, useCallback } from 'react';
-import { Search, MoreHorizontal, Eye, Power, PowerOff, ArrowUpCircle, Pencil, Trash2, X, Building2, Users, Car, ShoppingCart, Plus, CheckCircle, Calendar } from 'lucide-react';
+import { Search, MoreHorizontal, Eye, Power, PowerOff, ArrowUpCircle, Pencil, Trash2, X, Building2, Users, Car, ShoppingCart, Plus, CheckCircle, Calendar, Download } from 'lucide-react';
 import { fetchApi } from '@/lib/api';
 import { sanitizePayload } from '@/lib/utils';
 import ConfirmDialog from '@/components/ui/ConfirmDialog';
@@ -114,6 +114,28 @@ export default function TenantsPage() {
 
     const showToast = (message: string, type: 'success' | 'error') => {
         setToast({ message, type });
+    };
+
+    const handleExportCsv = async () => {
+        const toastId = 'export-tenants';
+        setToast({ message: 'Menyiapkan CSV...', type: 'success' }); // use success as info for now
+        try {
+            const res = await fetchApi('/export/admin/tenants');
+            if (!res.ok) throw new Error('Gagal mengekspor data');
+
+            const blob = await res.blob();
+            const url = window.URL.createObjectURL(blob);
+            const link = document.createElement('a');
+            link.href = url;
+            link.download = `Tenants_OTOHUB_${new Date().toISOString().split('T')[0]}.csv`;
+            document.body.appendChild(link);
+            link.click();
+            window.URL.revokeObjectURL(url);
+            document.body.removeChild(link);
+            setToast({ message: 'CSV berhasil diunduh', type: 'success' });
+        } catch (e) {
+            setToast({ message: 'Gagal mengunduh CSV', type: 'error' });
+        }
     };
 
     // --- ACTIONS ---
@@ -315,6 +337,12 @@ export default function TenantsPage() {
                             <option value="SUSPENDED">Suspended</option>
                             <option value="EXPIRED">Expired</option>
                         </select>
+                        <button
+                            onClick={handleExportCsv}
+                            className="px-4 py-2 bg-white text-slate-700 border border-slate-300 rounded-lg text-sm font-medium hover:bg-slate-50 flex items-center gap-2 transition-colors"
+                        >
+                            <Download className="w-4 h-4" /> Export CSV
+                        </button>
                         <button
                             onClick={() => setShowCreateModal(true)}
                             className="px-4 py-2 bg-indigo-600 text-white rounded-lg text-sm font-medium hover:bg-indigo-700 flex items-center gap-2"
