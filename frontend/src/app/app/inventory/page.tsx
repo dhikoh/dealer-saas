@@ -239,6 +239,14 @@ export default function InventoryPage() {
 
     // ...
 
+    useEffect(() => {
+        if (pageTab === 'INVENTORY') {
+            fetchVehicles();
+        } else if (pageTab === 'GROUP') {
+            fetchGroupVehicles();
+        }
+    }, [pageTab]);
+
     const fetchGroupVehicles = async () => {
         setGroupLoading(true);
 
