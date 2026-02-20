@@ -105,7 +105,6 @@ export default function AuthPage() {
 
     const handleSubmit = async (e: React.FormEvent, type: FormType) => {
         e.preventDefault();
-        console.log(`[DEBUG] handleSubmit called for type: ${type}`);
         const form = e.target as HTMLFormElement;
 
         setErrors({});
@@ -113,22 +112,18 @@ export default function AuthPage() {
 
         // ==================== LOGIN HANDLER ====================
         if (type === 'login') {
-            console.log("[DEBUG] LOGIN HANDLER EXECUTING");
 
             try {
                 const emailInput = form.elements.namedItem('login_email') as HTMLInputElement;
                 const passInput = form.elements.namedItem('login_password') as HTMLInputElement;
 
                 if (!emailInput || !passInput) {
-                    console.error("[DEBUG] CRITICAL: Login inputs not found in form DOM");
                     toast.error("Form Error: Inputs missing");
                     return;
                 }
 
                 const email = emailInput.value.trim().toLowerCase();
                 const password = passInput.value;
-
-                console.log("[DEBUG] Inputs retrieved:", { email, hasPassword: !!password });
 
                 // 1. Validate Login
                 let hasError = false;
@@ -144,14 +139,12 @@ export default function AuthPage() {
                 }
 
                 if (hasError) {
-                    console.warn("[DEBUG] Validation failed");
                     return;
                 }
 
                 // 2. Execute Login
                 setIsLoading(true);
                 const endpoint = `${API_URL}/auth/login`;
-                console.log("LOGIN FETCH START", endpoint);
 
                 const res = await fetch(endpoint, {
                     method: 'POST',
@@ -160,15 +153,7 @@ export default function AuthPage() {
                     credentials: 'include',
                 });
 
-                console.log("LOGIN RESPONSE STATUS:", res.status);
-
-                if (!res.ok) {
-                    console.warn("LOGIN REQUEST FAILED");
-                    throw new Error(t.authErrLoginFailed);
-                }
-
                 const data = await res.json();
-                console.log("LOGIN SUCCESS payload received");
 
                 // Store tokens
                 localStorage.setItem('user_info', JSON.stringify(data.user));
@@ -185,7 +170,6 @@ export default function AuthPage() {
                 await refreshUser();
 
                 setTimeout(() => {
-                    console.log("[DEBUG] Redirecting after login...");
                     router.refresh();
                     const params = new URLSearchParams(window.location.search);
                     const redirectUrl = params.get('redirect');
@@ -203,7 +187,6 @@ export default function AuthPage() {
                 }, 1000);
 
             } catch (err: any) {
-                console.error("[DEBUG] LOGIN EXCEPTION:", err);
                 toast.error(err.message || 'Login Failed');
                 setApiError(err.message || 'Login Failed');
             } finally {

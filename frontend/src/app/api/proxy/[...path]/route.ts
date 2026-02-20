@@ -12,8 +12,6 @@ async function proxy(request: NextRequest, { params }: { params: Promise<{ path:
     const queryString = request.nextUrl.search;
     const targetUrl = `${BACKEND_URL}/${pathJoined}${queryString}`;
 
-    console.log(`[Proxy] ${request.method} -> ${targetUrl}`);
-
     // Forward Headers
     const headers = new Headers(request.headers);
 
@@ -38,8 +36,6 @@ async function proxy(request: NextRequest, { params }: { params: Promise<{ path:
             duplex: 'half',
         });
 
-        console.log(`[Proxy] <- ${backendResponse.status} ${backendResponse.statusText}`);
-
         // Forward Response Headers
         const responseHeaders = new Headers(backendResponse.headers);
 
@@ -51,9 +47,6 @@ async function proxy(request: NextRequest, { params }: { params: Promise<{ path:
         // Next.js NextResponse will send it to the browser.
         // We log it just to be sure.
         const setCookie = responseHeaders.get('set-cookie');
-        if (setCookie) {
-            console.log(`[Proxy] Backend returned Set-Cookie: present`);
-        }
 
         return new NextResponse(backendResponse.body, {
             status: backendResponse.status,

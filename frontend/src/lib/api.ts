@@ -109,10 +109,6 @@ export async function fetchApi(
         credentials: 'include',
     };
 
-    if (typeof window !== 'undefined' && (url.includes('/auth') || url.includes('/app'))) {
-        console.log(`[API] Fetching ${url}`);
-    }
-
     const res = await fetch(url, fetchOptions);
 
     if (res.status === 401 && typeof window !== 'undefined') {

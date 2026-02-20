@@ -44,7 +44,6 @@ export function middleware(request: NextRequest) {
 
     // 2. CHECK FOR TOKEN & VALIDATE IF PRESENT
     if (token) {
-        console.log(`[Middleware] Token found for path: ${pathname}`);
         try {
             const parts = token.split('.');
             if (parts.length === 3) {
@@ -54,20 +53,17 @@ export function middleware(request: NextRequest) {
                     // Check expiration
                     if (parsed.exp && Date.now() < parsed.exp * 1000) {
                         payload = parsed;
-                    } else {
-                        console.log('[Middleware] Token expired');
+                        // Token expired
                     }
                 }
             }
         } catch (e) {
-            console.log('[Middleware] Invalid token:', e);
+            // Invalid token
         }
     }
 
     // 3. IF TOKEN INVALID/EXPIRED
     if (!payload && token) {
-        console.log('[Middleware] Token present but invalid/expired/unparseable');
-
         // If we are ALREADY on an auth page, just let it pass (prevent redirect loop)
         // The page itself (e.g. login) will handle the state or show "you are logged out"
         if (pathname.startsWith('/auth')) {
@@ -96,7 +92,6 @@ export function middleware(request: NextRequest) {
             return NextResponse.next();
         }
 
-        console.log('[Middleware] Authenticated user on auth page. Redirecting...');
         if (payload.role === 'SUPERADMIN') {
             return NextResponse.redirect(new URL('/superadmin', request.url));
         } else if (!payload.onboardingCompleted) {
