@@ -14,6 +14,8 @@ interface Tenant {
     planDetails?: { id: string; name: string };
     owner?: { name: string; email: string };
     usage?: { vehicles: number; transactions: number; users: number };
+    trialEndsAt?: string | null;
+    subscriptionEndsAt?: string | null;
     createdAt: string;
 }
 
@@ -205,6 +207,22 @@ export default function MobileTenantList() {
                                 </div>
                             ))}
                         </div>
+
+                        {/* Subscription Countdown */}
+                        {(() => {
+                            const endDate = selected.subscriptionStatus === 'TRIAL' ? selected.trialEndsAt : selected.subscriptionEndsAt;
+                            if (!endDate) return null;
+                            const diff = new Date(endDate).getTime() - new Date().getTime();
+                            const days = Math.ceil(diff / (1000 * 60 * 60 * 24));
+                            const color = days <= 0 ? 'bg-rose-50 border-rose-200 text-rose-700' : days <= 7 ? 'bg-amber-50 border-amber-200 text-amber-700' : 'bg-emerald-50 border-emerald-200 text-emerald-700';
+                            return (
+                                <div className={`p-3 rounded-lg border text-sm font-bold flex items-center gap-2 ${color} ${theme.name === 'dark-neu' && days > 0 ? 'bg-opacity-10 border-opacity-20' : ''}`}>
+                                    <Clock className="w-4 h-4" />
+                                    {days <= 0 ? 'Langganan telah expired' : `${days} hari tersisa (${selected.subscriptionStatus === 'TRIAL' ? 'Trial' : 'Subscription'})`}
+                                </div>
+                            );
+                        })()}
+
                         {/* Action buttons */}
                         <div className="grid grid-cols-2 gap-2">
                             {selected.subscriptionStatus !== 'ACTIVE' && (
