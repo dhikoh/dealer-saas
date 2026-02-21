@@ -72,6 +72,8 @@ export default function MobileCustomers() {
 
     const handleSave = async () => {
         if (!form.name) { toast.error('Nama wajib diisi'); return; }
+        if (!form.phone) { toast.error('Nomor HP wajib diisi'); return; }
+        if (!form.ktpNumber || form.ktpNumber.length !== 16) { toast.error('KTP wajib 16 digit'); return; }
         setSaving(true);
         try {
             const res = await fetchApi(editingId ? `/customers/${editingId}` : '/customers', {
@@ -110,10 +112,7 @@ export default function MobileCustomers() {
         setBlChecking(true);
         setBlResult(null);
         try {
-            const res = await fetchApi('/blacklist/check', {
-                method: 'POST',
-                body: JSON.stringify({ identityNumber: blKtp }),
-            });
+            const res = await fetchApi(`/blacklist/check/${blKtp}`);
             if (res.ok) {
                 const data = await res.json();
                 setBlResult(data);

@@ -28,7 +28,7 @@ interface Vehicle {
 }
 
 const INITIAL_FORM = {
-    make: '', model: '', variant: '', year: new Date().getFullYear(), color: '',
+    category: 'CAR', make: '', model: '', variant: '', year: new Date().getFullYear(), color: '',
     licensePlate: '', frameNumber: '', condition: 'BEKAS',
     purchasePrice: '', price: '', status: 'AVAILABLE', notes: '',
 };
@@ -84,6 +84,7 @@ export default function MobileVehicleList() {
 
     const openEdit = (v: Vehicle) => {
         setForm({
+            category: 'CAR', // Defaulting to CAR for now as category might not be returned in simple GET
             make: v.make || v.brand || '', model: v.model, variant: v.variant || '',
             year: v.year, color: v.color, licensePlate: v.licensePlate || '',
             frameNumber: v.frameNumber || '', condition: v.condition || 'BEKAS',
@@ -103,6 +104,7 @@ export default function MobileVehicleList() {
         setSaving(true);
         try {
             const body = {
+                category: form.category,
                 make: form.make, model: form.model, variant: form.variant,
                 year: Number(form.year), color: form.color,
                 licensePlate: form.licensePlate, frameNumber: form.frameNumber,
@@ -148,8 +150,8 @@ export default function MobileVehicleList() {
         setUploadingImg(true);
         try {
             const fd = new FormData();
-            fd.append('file', file);
-            const res = await fetchApi(`/vehicles/${vehicleId}/images`, { method: 'POST', body: fd });
+            fd.append('image', file);
+            const res = await fetchApi(`/upload/vehicle/${vehicleId}`, { method: 'POST', body: fd });
             if (res.ok) { toast.success('Foto diupload'); fetchVehicles(); }
             else toast.error('Gagal upload foto');
         } catch { toast.error('Gagal upload foto'); }
@@ -295,6 +297,17 @@ export default function MobileVehicleList() {
                             <button onClick={() => setShowForm(false)}><X className="w-5 h-5 text-gray-400" /></button>
                         </div>
                         <div className="space-y-3">
+                            <div>
+                                <label className="block text-sm font-medium text-gray-600 mb-1">Kategori *</label>
+                                <select value={form.category} onChange={e => setForm({ ...form, category: e.target.value })}
+                                    className="w-full px-4 py-2.5 rounded-xl bg-[#ecf0f3] shadow-[3px_3px_6px_#cbced1,-3px_-3px_6px_#ffffff] focus:outline-none focus:ring-2 focus:ring-[#00bfa5] text-gray-800 text-sm">
+                                    <option value="CAR">Mobil (CAR)</option>
+                                    <option value="MOTORCYCLE">Motor (MOTORCYCLE)</option>
+                                    <option value="TRUCK">Truk (TRUCK)</option>
+                                    <option value="BUS">Bus (BUS)</option>
+                                    <option value="OTHER">Lainnya (OTHER)</option>
+                                </select>
+                            </div>
                             {[
                                 { label: 'Merek *', key: 'make', placeholder: 'Toyota, Honda, Suzuki...' },
                                 { label: 'Model *', key: 'model', placeholder: 'Avanza, Jazz, Ertiga...' },
