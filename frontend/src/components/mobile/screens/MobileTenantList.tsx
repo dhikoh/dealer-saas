@@ -235,16 +235,16 @@ export default function MobileTenantList() {
             {/* Upgrade Plan Modal */}
             {showUpgrade && selected && (
                 <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4">
-                    <div className="bg-[#ecf0f3] rounded-2xl p-6 w-full max-w-sm">
-                        <h3 className="font-bold text-gray-800 mb-3">Ubah Plan: {selected.name}</h3>
+                    <div className={`${theme.bgFrame} rounded-2xl p-6 w-full max-w-sm border ${theme.name === 'dark-neu' ? 'border-gray-700' : 'border-white'}`}>
+                        <h3 className={`font-bold ${theme.textMain} mb-3`}>Ubah Plan: {selected.name}</h3>
                         <select value={selectedPlanId} onChange={e => setSelectedPlanId(e.target.value)}
-                            className="w-full px-4 py-3 rounded-xl bg-[#ecf0f3] shadow-[3px_3px_6px_#cbced1,-3px_-3px_6px_#ffffff] focus:outline-none text-gray-800 mb-4">
+                            className={`w-full px-4 py-3 rounded-xl outline-none mb-4 ${theme.bgInput}`}>
                             <option value="">Pilih Plan...</option>
                             {plans.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
                         </select>
                         <div className="flex gap-3">
-                            <button onClick={() => setShowUpgrade(false)} className="flex-1 py-3 rounded-xl bg-[#ecf0f3] text-gray-600 font-medium shadow-[3px_3px_6px_#cbced1,-3px_-3px_6px_#ffffff]">Batal</button>
-                            <button onClick={doUpgradePlan} disabled={processing || !selectedPlanId} className="flex-1 py-3 rounded-xl bg-purple-500 text-white font-bold disabled:opacity-50">Simpan</button>
+                            <button onClick={() => setShowUpgrade(false)} className={`flex-1 py-3 rounded-xl ${theme.btnSecondary}`}>Batal</button>
+                            <button onClick={doUpgradePlan} disabled={processing || !selectedPlanId} className={`flex-1 py-3 rounded-xl ${theme.btnPrimary} font-bold disabled:opacity-50`}>Simpan</button>
                         </div>
                     </div>
                 </div>
@@ -253,15 +253,15 @@ export default function MobileTenantList() {
             {/* Delete Confirm */}
             {showDeleteConfirm && selected && (
                 <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4">
-                    <div className="bg-[#ecf0f3] rounded-2xl p-6 w-full max-w-sm text-center">
+                    <div className={`${theme.bgFrame} rounded-2xl p-6 w-full max-w-sm text-center border ${theme.name === 'dark-neu' ? 'border-gray-700' : 'border-white'}`}>
                         <div className="w-14 h-14 rounded-full bg-red-100 flex items-center justify-center mx-auto mb-3">
                             <Trash2 className="w-6 h-6 text-red-500" />
                         </div>
-                        <h3 className="font-bold text-gray-800 mb-1">Hapus Tenant?</h3>
-                        <p className="text-sm text-gray-500 mb-1">{selected.name}</p>
+                        <h3 className={`font-bold ${theme.textMain} mb-1`}>Hapus Tenant?</h3>
+                        <p className={`text-sm ${theme.textMuted} mb-1`}>{selected.name}</p>
                         <p className="text-xs text-red-500 mb-4">Semua data akan dihapus permanen. Tindakan ini tidak bisa dibatalkan.</p>
                         <div className="flex gap-3">
-                            <button onClick={() => setShowDeleteConfirm(false)} className="flex-1 py-3 rounded-xl bg-[#ecf0f3] text-gray-600 font-medium shadow-[3px_3px_6px_#cbced1,-3px_-3px_6px_#ffffff]">Batal</button>
+                            <button onClick={() => setShowDeleteConfirm(false)} className={`flex-1 py-3 rounded-xl ${theme.btnSecondary}`}>Batal</button>
                             <button onClick={doDelete} disabled={processing} className="flex-1 py-3 rounded-xl bg-red-500 text-white font-bold disabled:opacity-50">
                                 {processing ? 'Menghapus...' : 'Hapus'}
                             </button>

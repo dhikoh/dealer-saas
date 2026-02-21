@@ -4,6 +4,7 @@ import React, { useEffect, useState } from 'react';
 import { CreditCard, Plus, Edit2, Trash2, X, Check, ToggleLeft, ToggleRight } from 'lucide-react';
 import { fetchApi } from '@/lib/api';
 import { toast } from 'sonner';
+import { useMobileContext } from '@/context/MobileContext';
 
 interface PaymentMethod {
     id: string;
@@ -18,6 +19,7 @@ interface PaymentMethod {
 const INITIAL_FORM = { name: '', provider: '', accountNumber: '', accountName: '', instructions: '' };
 
 export default function MobileSuperadminPaymentMethods() {
+    const { theme } = useMobileContext();
     const [methods, setMethods] = useState<PaymentMethod[]>([]);
     const [loading, setLoading] = useState(true);
     const [showForm, setShowForm] = useState(false);
@@ -97,14 +99,14 @@ export default function MobileSuperadminPaymentMethods() {
                         <p className="text-sm">Belum ada metode pembayaran</p>
                     </div>
                 ) : methods.map(m => (
-                    <div key={m.id} className={`bg-[#ecf0f3] rounded-2xl p-4 shadow-[4px_4px_8px_#cbced1,-4px_-4px_8px_#ffffff] ${!m.isActive ? 'opacity-60' : ''}`}>
+                    <div key={m.id} className={`${theme.bgCard} p-4 ${!m.isActive ? 'opacity-60' : ''}`}>
                         <div className="flex items-start justify-between mb-2">
                             <div className="flex items-center gap-3">
                                 <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-[#00bfa5] to-emerald-400 flex items-center justify-center">
                                     <CreditCard className="w-5 h-5 text-white" />
                                 </div>
                                 <div>
-                                    <h3 className="font-bold text-gray-800">{m.name}</h3>
+                                    <h3 className={`font-bold ${theme.textMain}`}>{m.name}</h3>
                                     <p className="text-xs text-gray-500">{m.provider}</p>
                                 </div>
                             </div>
@@ -117,7 +119,7 @@ export default function MobileSuperadminPaymentMethods() {
                         </div>
                         {m.instructions && <p className="text-xs text-gray-400 mb-2 italic">{m.instructions}</p>}
                         <div className="flex gap-2">
-                            <button onClick={() => openEdit(m)} className="flex-1 py-2 rounded-xl bg-[#ecf0f3] shadow-[2px_2px_4px_#cbced1,-2px_-2px_4px_#ffffff] text-gray-600 text-xs font-bold flex items-center justify-center gap-1">
+                            <button onClick={() => openEdit(m)} className={`flex-1 py-2 rounded-xl ${theme.btnSecondary} text-xs flex items-center justify-center gap-1`}>
                                 <Edit2 className="w-3.5 h-3.5" /> Edit
                             </button>
                             <button onClick={() => setDeleteTarget(m)} className="flex-1 py-2 rounded-xl bg-red-100 text-red-500 text-xs font-bold flex items-center justify-center gap-1">
@@ -130,10 +132,10 @@ export default function MobileSuperadminPaymentMethods() {
 
             {showForm && (
                 <div className="fixed inset-0 bg-black/60 z-50 flex items-end">
-                    <div className="bg-[#ecf0f3] rounded-t-3xl w-full max-w-lg mx-auto p-6 max-h-[90vh] overflow-y-auto">
+                    <div className={`${theme.bgFrame} rounded-t-3xl w-full max-w-lg mx-auto p-6 max-h-[90vh] overflow-y-auto`}>
                         <div className="flex justify-between items-center mb-4">
-                            <h3 className="text-lg font-bold text-gray-800">{editingId ? 'Edit' : 'Tambah'} Metode Pembayaran</h3>
-                            <button onClick={() => setShowForm(false)}><X className="w-5 h-5 text-gray-400" /></button>
+                            <h3 className={`text-lg font-bold ${theme.textMain}`}>{editingId ? 'Edit' : 'Tambah'} Metode Pembayaran</h3>
+                            <button onClick={() => setShowForm(false)}><X className={`w-5 h-5 ${theme.textMuted}`} /></button>
                         </div>
                         <div className="space-y-3">
                             {[
@@ -144,16 +146,16 @@ export default function MobileSuperadminPaymentMethods() {
                                 { label: 'Instruksi Transfer', key: 'instructions', placeholder: 'Transfer ke nomor...' },
                             ].map(({ label, key, placeholder }) => (
                                 <div key={key}>
-                                    <label className="block text-sm font-medium text-gray-600 mb-1">{label}</label>
+                                    <label className={`block text-sm font-medium ${theme.textMuted} mb-1`}>{label}</label>
                                     <input type="text" value={(form as any)[key]} onChange={e => setForm({ ...form, [key]: e.target.value })}
                                         placeholder={placeholder}
-                                        className="w-full px-4 py-2.5 rounded-xl bg-[#ecf0f3] shadow-[inset_3px_3px_6px_#cbced1,inset_-3px_-3px_6px_#ffffff] focus:outline-none focus:ring-2 focus:ring-[#00bfa5] text-gray-800 text-sm" />
+                                        className={`w-full px-4 py-2.5 rounded-xl outline-none ${theme.bgInput}`} />
                                 </div>
                             ))}
                         </div>
                         <div className="flex gap-3 mt-5">
-                            <button onClick={() => setShowForm(false)} className="flex-1 py-3 rounded-xl bg-[#ecf0f3] text-gray-600 font-medium shadow-[3px_3px_6px_#cbced1,-3px_-3px_6px_#ffffff]">Batal</button>
-                            <button onClick={handleSave} disabled={saving} className="flex-1 py-3 rounded-xl bg-[#00bfa5] text-white font-bold disabled:opacity-50">
+                            <button onClick={() => setShowForm(false)} className={`flex-1 py-3 rounded-xl ${theme.btnSecondary}`}>Batal</button>
+                            <button onClick={handleSave} disabled={saving} className={`flex-1 py-3 rounded-xl ${theme.btnPrimary} font-bold disabled:opacity-50`}>
                                 {saving ? 'Menyimpan...' : 'Simpan'}
                             </button>
                         </div>
@@ -163,14 +165,14 @@ export default function MobileSuperadminPaymentMethods() {
 
             {deleteTarget && (
                 <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4">
-                    <div className="bg-[#ecf0f3] rounded-2xl p-6 w-full max-w-sm text-center">
+                    <div className={`${theme.bgFrame} rounded-2xl p-6 w-full max-w-sm text-center border ${theme.name === 'dark-neu' ? 'border-gray-700' : 'border-white'}`}>
                         <div className="w-14 h-14 rounded-full bg-red-100 flex items-center justify-center mx-auto mb-3">
                             <Trash2 className="w-6 h-6 text-red-500" />
                         </div>
-                        <h3 className="font-bold text-gray-800">Hapus Metode?</h3>
-                        <p className="text-sm text-gray-500 mt-1 mb-4">{deleteTarget.name} akan dihapus permanen.</p>
+                        <h3 className={`font-bold ${theme.textMain}`}>Hapus Metode?</h3>
+                        <p className={`text-sm ${theme.textMuted} mt-1 mb-4`}>{deleteTarget.name} akan dihapus permanen.</p>
                         <div className="flex gap-3">
-                            <button onClick={() => setDeleteTarget(null)} className="flex-1 py-3 rounded-xl bg-[#ecf0f3] text-gray-600 font-medium shadow-[3px_3px_6px_#cbced1,-3px_-3px_6px_#ffffff]">Batal</button>
+                            <button onClick={() => setDeleteTarget(null)} className={`flex-1 py-3 rounded-xl ${theme.btnSecondary}`}>Batal</button>
                             <button onClick={handleDelete} className="flex-1 py-3 rounded-xl bg-red-500 text-white font-bold">Hapus</button>
                         </div>
                     </div>

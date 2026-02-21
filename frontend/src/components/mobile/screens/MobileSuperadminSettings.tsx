@@ -4,6 +4,7 @@ import React, { useEffect, useState } from 'react';
 import { Settings, Shield, Users, Globe, CreditCard, Save, X, Plus, Trash2 } from 'lucide-react';
 import { fetchApi } from '@/lib/api';
 import { toast } from 'sonner';
+import { useMobileContext } from '@/context/MobileContext';
 
 const TABS = [
     { id: 'general', label: 'Umum', icon: Globe },
@@ -16,6 +17,7 @@ interface SuperadminStaff { id: string; name: string; email: string; role: strin
 interface BillingIntegration { provider: string; apiKey?: string; webhookUrl?: string; enabled: boolean; }
 
 export default function MobileSuperadminSettings() {
+    const { theme } = useMobileContext();
     const [activeTab, setActiveTab] = useState('general');
     const [saving, setSaving] = useState(false);
 
@@ -138,17 +140,17 @@ export default function MobileSuperadminSettings() {
     return (
         <div className="p-4 space-y-4 pb-24">
             <div>
-                <h1 className="text-xl font-bold text-gray-800">Pengaturan Platform</h1>
-                <p className="text-sm text-gray-500">Konfigurasi global sistem OTOHUB</p>
+                <h1 className={`text-xl font-bold ${theme.textMain}`}>Pengaturan Platform</h1>
+                <p className={`text-sm ${theme.textMuted}`}>Konfigurasi global sistem OTOHUB</p>
             </div>
 
             {/* Tab bar */}
-            <div className="grid grid-cols-4 gap-1.5 bg-[#ecf0f3] rounded-xl p-1 shadow-[inset_3px_3px_6px_#cbced1,inset_-3px_-3px_6px_#ffffff]">
+            <div className={`grid grid-cols-4 gap-1.5 rounded-xl p-1 bg-black/5`}>
                 {TABS.map(t => {
                     const Icon = t.icon;
                     return (
                         <button key={t.id} onClick={() => setActiveTab(t.id)}
-                            className={`py-2 rounded-lg text-[10px] font-bold flex flex-col items-center gap-1 transition-all ${activeTab === t.id ? 'bg-[#ecf0f3] shadow-[3px_3px_6px_#cbced1,-3px_-3px_6px_#ffffff] text-[#00bfa5]' : 'text-gray-400'}`}>
+                            className={`py-2 rounded-lg text-[10px] font-bold flex flex-col items-center gap-1 transition-all ${activeTab === t.id ? theme.btnSecondary + ' text-[#00bfa5]' : theme.textMuted}`}>
                             <Icon className="w-4 h-4" />
                             {t.label}
                         </button>
@@ -158,30 +160,30 @@ export default function MobileSuperadminSettings() {
 
             {/* General Tab */}
             {activeTab === 'general' && (
-                <div className="bg-[#ecf0f3] rounded-2xl p-5 shadow-[5px_5px_10px_#cbced1,-5px_-5px_10px_#ffffff] space-y-4">
-                    <h2 className="font-bold text-gray-800">Informasi Platform</h2>
+                <div className={`${theme.bgCard} p-5 space-y-4`}>
+                    <h2 className={`font-bold ${theme.textMain}`}>Informasi Platform</h2>
                     {[
                         { label: 'Nama Platform', key: 'platformName', type: 'text' },
                         { label: 'Email Support', key: 'supportEmail', type: 'email' },
                         { label: 'Telepon Support', key: 'supportPhone', type: 'tel' },
                     ].map(({ label, key, type }) => (
                         <div key={key}>
-                            <label className="block text-sm font-medium text-gray-600 mb-1">{label}</label>
+                            <label className={`block text-sm font-medium ${theme.textMuted} mb-1`}>{label}</label>
                             <input type={type} value={(general as any)[key]} onChange={e => setGeneral({ ...general, [key]: e.target.value })}
-                                className="w-full px-4 py-2.5 rounded-xl bg-[#ecf0f3] shadow-[inset_3px_3px_6px_#cbced1,inset_-3px_-3px_6px_#ffffff] focus:outline-none focus:ring-2 focus:ring-[#00bfa5] text-gray-800 text-sm" />
+                                className={`w-full px-4 py-2.5 rounded-xl outline-none text-sm ${theme.bgInput}`} />
                         </div>
                     ))}
                     <div className="flex items-center justify-between">
                         <div>
-                            <p className="font-medium text-gray-800 text-sm">Mode Maintenance</p>
-                            <p className="text-xs text-gray-500">Nonaktifkan akses tenant sementara</p>
+                            <p className={`font-medium ${theme.textMain} text-sm`}>Mode Maintenance</p>
+                            <p className={`text-xs ${theme.textMuted}`}>Nonaktifkan akses tenant sementara</p>
                         </div>
                         <button onClick={() => setGeneral({ ...general, maintenanceMode: !general.maintenanceMode })}
-                            className={`relative w-12 h-6 rounded-full transition-colors ${general.maintenanceMode ? 'bg-red-500' : 'bg-gray-300'}`}>
+                            className={`relative w-12 h-6 rounded-full transition-colors ${general.maintenanceMode ? 'bg-red-500' : 'bg-gray-400/50'}`}>
                             <span className={`absolute top-1 w-4 h-4 rounded-full bg-white shadow transition-transform ${general.maintenanceMode ? 'translate-x-7' : 'translate-x-1'}`} />
                         </button>
                     </div>
-                    <button onClick={handleSaveGeneral} disabled={saving} className="w-full py-3 rounded-xl bg-[#00bfa5] text-white font-bold flex items-center justify-center gap-2 disabled:opacity-50">
+                    <button onClick={handleSaveGeneral} disabled={saving} className={`w-full py-3 rounded-xl ${theme.btnPrimary} font-bold flex items-center justify-center gap-2 disabled:opacity-50`}>
                         <Save className="w-4 h-4" /> Simpan Pengaturan
                     </button>
                 </div>
@@ -189,31 +191,31 @@ export default function MobileSuperadminSettings() {
 
             {/* Security Tab */}
             {activeTab === 'security' && (
-                <div className="bg-[#ecf0f3] rounded-2xl p-5 shadow-[5px_5px_10px_#cbced1,-5px_-5px_10px_#ffffff] space-y-4">
-                    <h2 className="font-bold text-gray-800">Keamanan & Akses</h2>
+                <div className={`${theme.bgCard} p-5 space-y-4`}>
+                    <h2 className={`font-bold ${theme.textMain}`}>Keamanan & Akses</h2>
                     {[
                         { label: 'Session Timeout (menit)', key: 'sessionTimeoutMinutes', min: 5, max: 1440 },
                         { label: 'Paksa Ganti Password (bulan)', key: 'forcePasswordChangeMonths', min: 1, max: 24 },
                         { label: 'Maks Percobaan Login', key: 'maxLoginAttempts', min: 3, max: 20 },
                     ].map(({ label, key, min, max }) => (
                         <div key={key}>
-                            <label className="block text-sm font-medium text-gray-600 mb-1">{label}</label>
+                            <label className={`block text-sm font-medium ${theme.textMuted} mb-1`}>{label}</label>
                             <input type="number" min={min} max={max} value={(security as any)[key]}
                                 onChange={e => setSecurity({ ...security, [key]: Number(e.target.value) })}
-                                className="w-full px-4 py-2.5 rounded-xl bg-[#ecf0f3] shadow-[inset_3px_3px_6px_#cbced1,inset_-3px_-3px_6px_#ffffff] focus:outline-none focus:ring-2 focus:ring-[#00bfa5] text-gray-800 text-sm" />
+                                className={`w-full px-4 py-2.5 rounded-xl outline-none text-sm ${theme.bgInput}`} />
                         </div>
                     ))}
                     <div className="flex items-center justify-between">
                         <div>
-                            <p className="font-medium text-gray-800 text-sm">Wajib 2FA</p>
-                            <p className="text-xs text-gray-500">Semua superadmin wajib pakai 2FA</p>
+                            <p className={`font-medium ${theme.textMain} text-sm`}>Wajib 2FA</p>
+                            <p className={`text-xs ${theme.textMuted}`}>Semua superadmin wajib pakai 2FA</p>
                         </div>
                         <button onClick={() => setSecurity({ ...security, require2FA: !security.require2FA })}
-                            className={`relative w-12 h-6 rounded-full transition-colors ${security.require2FA ? 'bg-[#00bfa5]' : 'bg-gray-300'}`}>
+                            className={`relative w-12 h-6 rounded-full transition-colors ${security.require2FA ? 'bg-[#00bfa5]' : 'bg-gray-400/50'}`}>
                             <span className={`absolute top-1 w-4 h-4 rounded-full bg-white shadow transition-transform ${security.require2FA ? 'translate-x-7' : 'translate-x-1'}`} />
                         </button>
                     </div>
-                    <button onClick={handleSaveSecurity} disabled={saving} className="w-full py-3 rounded-xl bg-[#00bfa5] text-white font-bold flex items-center justify-center gap-2 disabled:opacity-50">
+                    <button onClick={handleSaveSecurity} disabled={saving} className={`w-full py-3 rounded-xl ${theme.btnPrimary} font-bold flex items-center justify-center gap-2 disabled:opacity-50`}>
                         <Save className="w-4 h-4" /> Simpan Keamanan
                     </button>
                 </div>
@@ -223,47 +225,47 @@ export default function MobileSuperadminSettings() {
             {activeTab === 'staff' && (
                 <div className="space-y-3">
                     <div className="flex justify-between items-center">
-                        <h2 className="font-bold text-gray-800">Tim Superadmin</h2>
-                        <button onClick={() => setShowAddStaff(true)} className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-[#00bfa5] text-white text-xs font-bold shadow-lg">
+                        <h2 className={`font-bold ${theme.textMain}`}>Tim Superadmin</h2>
+                        <button onClick={() => setShowAddStaff(true)} className={`flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-bold ${theme.btnPrimary}`}>
                             <Plus className="w-3.5 h-3.5" /> Invite
                         </button>
                     </div>
                     {staffList.map(s => (
-                        <div key={s.id} className="bg-[#ecf0f3] rounded-xl p-3 shadow-[4px_4px_8px_#cbced1,-4px_-4px_8px_#ffffff] flex items-center gap-3">
+                        <div key={s.id} className={`${theme.bgCard} p-3 flex items-center gap-3`}>
                             <div className="w-9 h-9 rounded-full bg-gradient-to-br from-red-400 to-red-600 flex items-center justify-center text-white font-bold text-sm flex-shrink-0">
                                 {s.name?.charAt(0)?.toUpperCase() || '?'}
                             </div>
                             <div className="flex-1 min-w-0">
-                                <p className="font-bold text-gray-800 text-sm">{s.name}</p>
-                                <p className="text-xs text-gray-500 truncate">{s.email}</p>
+                                <p className={`font-bold text-sm ${theme.textMain}`}>{s.name}</p>
+                                <p className={`text-xs truncate ${theme.textMuted}`}>{s.email}</p>
                             </div>
                             <button onClick={() => handleDeleteStaff(s.id)} className="p-1.5 rounded-lg bg-red-100 text-red-500">
                                 <Trash2 className="w-3.5 h-3.5" />
                             </button>
                         </div>
                     ))}
-                    {staffList.length === 0 && <div className="text-center py-8 text-gray-400 text-sm">Belum ada staff superadmin</div>}
+                    {staffList.length === 0 && <div className={`text-center py-8 text-sm ${theme.textMuted}`}>Belum ada staff superadmin</div>}
 
                     {showAddStaff && (
                         <div className="fixed inset-0 bg-black/60 z-50 flex items-end">
-                            <div className="bg-[#ecf0f3] rounded-t-3xl w-full max-w-lg mx-auto p-6">
+                            <div className={`${theme.bgFrame} rounded-t-3xl w-full max-w-lg mx-auto p-6`}>
                                 <div className="flex justify-between items-center mb-4">
-                                    <h3 className="text-lg font-bold text-gray-800">Invite Superadmin</h3>
-                                    <button onClick={() => setShowAddStaff(false)}><X className="w-5 h-5 text-gray-400" /></button>
+                                    <h3 className={`text-lg font-bold ${theme.textMain}`}>Invite Superadmin</h3>
+                                    <button onClick={() => setShowAddStaff(false)}><X className={`w-5 h-5 ${theme.textMuted}`} /></button>
                                 </div>
                                 <div className="space-y-3">
                                     {[{ label: 'Nama', value: newStaffName, onChange: setNewStaffName, type: 'text' },
                                     { label: 'Email', value: newStaffEmail, onChange: setNewStaffEmail, type: 'email' }].map(({ label, value, onChange, type }) => (
                                         <div key={label}>
-                                            <label className="block text-sm font-medium text-gray-600 mb-1">{label}</label>
+                                            <label className={`block text-sm font-medium ${theme.textMuted} mb-1`}>{label}</label>
                                             <input type={type} value={value} onChange={e => onChange(e.target.value)}
-                                                className="w-full px-4 py-2.5 rounded-xl bg-[#ecf0f3] shadow-[inset_3px_3px_6px_#cbced1,inset_-3px_-3px_6px_#ffffff] focus:outline-none focus:ring-2 focus:ring-[#00bfa5] text-gray-800 text-sm" />
+                                                className={`w-full px-4 py-2.5 rounded-xl outline-none text-sm ${theme.bgInput}`} />
                                         </div>
                                     ))}
                                 </div>
                                 <div className="flex gap-3 mt-4">
-                                    <button onClick={() => setShowAddStaff(false)} className="flex-1 py-3 rounded-xl bg-[#ecf0f3] text-gray-600 font-medium shadow-[3px_3px_6px_#cbced1,-3px_-3px_6px_#ffffff]">Batal</button>
-                                    <button onClick={handleAddStaff} disabled={saving} className="flex-1 py-3 rounded-xl bg-[#00bfa5] text-white font-bold disabled:opacity-50">Invite</button>
+                                    <button onClick={() => setShowAddStaff(false)} className={`flex-1 py-3 rounded-xl ${theme.btnSecondary}`}>Batal</button>
+                                    <button onClick={handleAddStaff} disabled={saving} className={`flex-1 py-3 rounded-xl ${theme.btnPrimary} font-bold disabled:opacity-50`}>Invite</button>
                                 </div>
                             </div>
                         </div>
@@ -274,32 +276,32 @@ export default function MobileSuperadminSettings() {
             {/* Billing Tab */}
             {activeTab === 'billing' && (
                 <div className="space-y-4">
-                    <h2 className="font-bold text-gray-800">Integrasi Payment Gateway</h2>
+                    <h2 className={`font-bold ${theme.textMain}`}>Integrasi Payment Gateway</h2>
                     {billingIntegrations.map(integration => (
-                        <div key={integration.provider} className="bg-[#ecf0f3] rounded-2xl p-4 shadow-[4px_4px_8px_#cbced1,-4px_-4px_8px_#ffffff] space-y-3">
+                        <div key={integration.provider} className={`${theme.bgCard} p-4 space-y-3`}>
                             <div className="flex justify-between items-center">
-                                <h3 className="font-bold text-gray-800">{integration.provider}</h3>
+                                <h3 className={`font-bold ${theme.textMain}`}>{integration.provider}</h3>
                                 <button onClick={() => updateBilling(integration.provider, 'enabled', !integration.enabled)}
-                                    className={`relative w-12 h-6 rounded-full transition-colors ${integration.enabled ? 'bg-[#00bfa5]' : 'bg-gray-300'}`}>
+                                    className={`relative w-12 h-6 rounded-full transition-colors ${integration.enabled ? 'bg-[#00bfa5]' : 'bg-gray-400/50'}`}>
                                     <span className={`absolute top-1 w-4 h-4 rounded-full bg-white shadow transition-transform ${integration.enabled ? 'translate-x-7' : 'translate-x-1'}`} />
                                 </button>
                             </div>
                             {integration.enabled && (
                                 <>
                                     <div>
-                                        <label className="block text-xs font-medium text-gray-500 mb-1">API Key</label>
+                                        <label className={`block text-xs font-medium ${theme.textMuted} mb-1`}>API Key</label>
                                         <input type="password" value={integration.apiKey || ''} placeholder="sk_live_..."
                                             onChange={e => updateBilling(integration.provider, 'apiKey', e.target.value)}
-                                            className="w-full px-3 py-2 rounded-lg bg-[#ecf0f3] shadow-[inset_2px_2px_4px_#cbced1,inset_-2px_-2px_4px_#ffffff] focus:outline-none text-gray-800 text-xs" />
+                                            className={`w-full px-3 py-2 rounded-lg outline-none text-xs ${theme.bgInput}`} />
                                     </div>
                                     <div>
-                                        <label className="block text-xs font-medium text-gray-500 mb-1">Webhook URL</label>
+                                        <label className={`block text-xs font-medium ${theme.textMuted} mb-1`}>Webhook URL</label>
                                         <input type="url" value={integration.webhookUrl || ''} placeholder="https://..."
                                             onChange={e => updateBilling(integration.provider, 'webhookUrl', e.target.value)}
-                                            className="w-full px-3 py-2 rounded-lg bg-[#ecf0f3] shadow-[inset_2px_2px_4px_#cbced1,inset_-2px_-2px_4px_#ffffff] focus:outline-none text-gray-800 text-xs" />
+                                            className={`w-full px-3 py-2 rounded-lg outline-none text-xs ${theme.bgInput}`} />
                                     </div>
                                     <button onClick={() => handleSaveBilling(integration)} disabled={saving}
-                                        className="w-full py-2 rounded-xl bg-[#00bfa5] text-white text-sm font-bold flex items-center justify-center gap-2 disabled:opacity-50">
+                                        className={`w-full py-2 rounded-xl ${theme.btnPrimary} text-sm font-bold flex items-center justify-center gap-2 disabled:opacity-50`}>
                                         <Save className="w-3.5 h-3.5" /> Simpan {integration.provider}
                                     </button>
                                 </>

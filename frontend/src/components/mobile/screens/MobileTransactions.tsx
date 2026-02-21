@@ -31,7 +31,7 @@ const statusColor: Record<string, string> = {
 
 const PAYMENT_TYPES = ['CASH', 'KREDIT', 'LEASING', 'TRANSFER'];
 
-export default function MobileTransactions() {
+export default function MobileTransactions({ currentTenantId }: { currentTenantId?: string }) {
     const { theme } = useMobileContext();
     const [transactions, setTransactions] = useState<Transaction[]>([]);
     const [loading, setLoading] = useState(true);
@@ -297,17 +297,17 @@ export default function MobileTransactions() {
             {/* New Transaction Form */}
             {showForm && (
                 <div className="fixed inset-0 bg-black/60 z-50 flex items-end">
-                    <div className="bg-[#ecf0f3] rounded-t-3xl w-full max-w-lg mx-auto p-6 max-h-[95vh] overflow-y-auto">
+                    <div className={`${theme.bgFrame} rounded-t-3xl w-full max-w-lg mx-auto p-6 max-h-[95vh] overflow-y-auto`}>
                         <div className="flex justify-between items-center mb-4">
-                            <h3 className="text-lg font-bold text-gray-800">Transaksi Baru</h3>
-                            <button onClick={() => setShowForm(false)}><X className="w-5 h-5 text-gray-400" /></button>
+                            <h3 className={`text-lg font-bold ${theme.textMain}`}>Transaksi Baru</h3>
+                            <button onClick={() => setShowForm(false)}><X className={`w-5 h-5 ${theme.textMuted}`} /></button>
                         </div>
 
                         {/* Type Toggle */}
-                        <div className="flex rounded-xl overflow-hidden mb-4 shadow-[3px_3px_6px_#cbced1,-3px_-3px_6px_#ffffff]">
+                        <div className={`flex rounded-xl overflow-hidden mb-4 ${theme.bgInput}`}>
                             {(['SALE', 'PURCHASE'] as const).map(t => (
                                 <button key={t} onClick={() => setTxType(t)}
-                                    className={`flex-1 py-2.5 text-sm font-bold transition-all ${txType === t ? 'bg-[#00bfa5] text-white' : 'bg-[#ecf0f3] text-gray-500'}`}>
+                                    className={`flex-1 py-2.5 text-sm font-bold transition-all ${txType === t ? 'bg-[#00bfa5] text-white' : theme.textMuted}`}>
                                     {t === 'SALE' ? 'Penjualan' : 'Pembelian'}
                                 </button>
                             ))}
@@ -315,24 +315,24 @@ export default function MobileTransactions() {
 
                         {/* Vehicle Picker */}
                         <div className="mb-3">
-                            <label className="block text-sm font-medium text-gray-600 mb-1">Kendaraan *</label>
+                            <label className={`block text-sm font-medium ${theme.textMuted} mb-1`}>Kendaraan *</label>
                             {selectedVehicle ? (
-                                <div className="flex items-center justify-between px-4 py-2.5 rounded-xl bg-[#ecf0f3] shadow-[inset_3px_3px_6px_#cbced1,inset_-3px_-3px_6px_#ffffff]">
-                                    <span className="text-sm text-gray-800 font-medium">{selectedVehicle.make || selectedVehicle.brand} {selectedVehicle.model}</span>
-                                    <button onClick={() => setSelectedVehicle(null)} className="text-gray-400"><X className="w-4 h-4" /></button>
+                                <div className={`flex items-center justify-between px-4 py-2.5 rounded-xl ${theme.bgInput}`}>
+                                    <span className={`text-sm font-medium ${theme.textMain}`}>{selectedVehicle.make || selectedVehicle.brand} {selectedVehicle.model}</span>
+                                    <button onClick={() => setSelectedVehicle(null)} className={theme.textMuted}><X className="w-4 h-4" /></button>
                                 </div>
                             ) : (
                                 <div>
                                     <input type="text" placeholder="Cari kendaraan..." value={vSearch} onChange={e => setVSearch(e.target.value)}
-                                        className="w-full px-4 py-2.5 rounded-xl bg-[#ecf0f3] shadow-[inset_3px_3px_6px_#cbced1,inset_-3px_-3px_6px_#ffffff] focus:outline-none focus:ring-2 focus:ring-[#00bfa5] text-sm text-gray-800 mb-2" />
-                                    <div className="max-h-36 overflow-y-auto space-y-1 rounded-xl bg-white/50 p-2">
+                                        className={`w-full px-4 py-2.5 rounded-xl outline-none text-sm mb-2 ${theme.bgInput}`} />
+                                    <div className={`max-h-36 overflow-y-auto space-y-1 rounded-xl p-2 ${theme.bgInput}`}>
                                         {filteredVehicles.slice(0, 10).map(v => (
                                             <button key={v.id} onClick={() => { setSelectedVehicle(v); setFinalPrice(String(v.price)); }}
-                                                className="w-full text-left px-3 py-2 rounded-lg hover:bg-[#00bfa5]/10 text-sm text-gray-700">
+                                                className={`w-full text-left px-3 py-2 rounded-lg hover:bg-[#00bfa5]/10 text-sm ${theme.textMain}`}>
                                                 {v.make || v.brand} {v.model} — {fmt(v.price)}
                                             </button>
                                         ))}
-                                        {filteredVehicles.length === 0 && <p className="text-center text-gray-400 text-xs py-3">Tidak ada kendaraan tersedia</p>}
+                                        {filteredVehicles.length === 0 && <p className={`text-center text-xs py-3 ${theme.textMuted}`}>Tidak ada kendaraan tersedia</p>}
                                     </div>
                                 </div>
                             )}
@@ -341,24 +341,24 @@ export default function MobileTransactions() {
                         {/* Customer Picker (SALE only) */}
                         {txType === 'SALE' && (
                             <div className="mb-3">
-                                <label className="block text-sm font-medium text-gray-600 mb-1">Pelanggan *</label>
+                                <label className={`block text-sm font-medium ${theme.textMuted} mb-1`}>Pelanggan *</label>
                                 {selectedCustomer ? (
-                                    <div className="flex items-center justify-between px-4 py-2.5 rounded-xl bg-[#ecf0f3] shadow-[inset_3px_3px_6px_#cbced1,inset_-3px_-3px_6px_#ffffff]">
-                                        <span className="text-sm text-gray-800 font-medium">{selectedCustomer.name}</span>
-                                        <button onClick={() => setSelectedCustomer(null)} className="text-gray-400"><X className="w-4 h-4" /></button>
+                                    <div className={`flex items-center justify-between px-4 py-2.5 rounded-xl ${theme.bgInput}`}>
+                                        <span className={`text-sm font-medium ${theme.textMain}`}>{selectedCustomer.name}</span>
+                                        <button onClick={() => setSelectedCustomer(null)} className={theme.textMuted}><X className="w-4 h-4" /></button>
                                     </div>
                                 ) : (
                                     <div>
                                         <input type="text" placeholder="Cari pelanggan..." value={cSearch} onChange={e => setCSearch(e.target.value)}
-                                            className="w-full px-4 py-2.5 rounded-xl bg-[#ecf0f3] shadow-[inset_3px_3px_6px_#cbced1,inset_-3px_-3px_6px_#ffffff] focus:outline-none focus:ring-2 focus:ring-[#00bfa5] text-sm text-gray-800 mb-2" />
-                                        <div className="max-h-32 overflow-y-auto space-y-1 rounded-xl bg-white/50 p-2">
+                                            className={`w-full px-4 py-2.5 rounded-xl outline-none text-sm mb-2 ${theme.bgInput}`} />
+                                        <div className={`max-h-32 overflow-y-auto space-y-1 rounded-xl p-2 ${theme.bgInput}`}>
                                             {filteredCustomers.slice(0, 8).map(c => (
                                                 <button key={c.id} onClick={() => setSelectedCustomer(c)}
-                                                    className="w-full text-left px-3 py-2 rounded-lg hover:bg-[#00bfa5]/10 text-sm text-gray-700">
+                                                    className={`w-full text-left px-3 py-2 rounded-lg hover:bg-[#00bfa5]/10 text-sm ${theme.textMain}`}>
                                                     {c.name} {c.phone ? `(${c.phone})` : ''}
                                                 </button>
                                             ))}
-                                            {filteredCustomers.length === 0 && <p className="text-center text-gray-400 text-xs py-3">Tidak ada pelanggan</p>}
+                                            {filteredCustomers.length === 0 && <p className={`text-center text-xs py-3 ${theme.textMuted}`}>Tidak ada pelanggan</p>}
                                         </div>
                                     </div>
                                 )}
@@ -368,14 +368,14 @@ export default function MobileTransactions() {
                         {/* Price + Payment Type */}
                         <div className="grid grid-cols-2 gap-3 mb-3">
                             <div>
-                                <label className="block text-sm font-medium text-gray-600 mb-1">Harga Final (Rp) *</label>
+                                <label className={`block text-sm font-medium ${theme.textMuted} mb-1`}>Harga Final (Rp) *</label>
                                 <input type="number" value={finalPrice} onChange={e => setFinalPrice(e.target.value)}
-                                    className="w-full px-4 py-2.5 rounded-xl bg-[#ecf0f3] shadow-[inset_3px_3px_6px_#cbced1,inset_-3px_-3px_6px_#ffffff] focus:outline-none focus:ring-2 focus:ring-[#00bfa5] text-sm text-gray-800" />
+                                    className={`w-full px-4 py-2.5 rounded-xl outline-none text-sm ${theme.bgInput}`} />
                             </div>
                             <div>
-                                <label className="block text-sm font-medium text-gray-600 mb-1">Jenis Bayar</label>
+                                <label className={`block text-sm font-medium ${theme.textMuted} mb-1`}>Jenis Bayar</label>
                                 <select value={paymentType} onChange={e => setPaymentType(e.target.value)}
-                                    className="w-full px-3 py-2.5 rounded-xl bg-[#ecf0f3] shadow-[3px_3px_6px_#cbced1,-3px_-3px_6px_#ffffff] focus:outline-none text-sm text-gray-800">
+                                    className={`w-full px-3 py-2.5 rounded-xl outline-none text-sm ${theme.bgInput}`}>
                                     {PAYMENT_TYPES.map(p => <option key={p} value={p}>{p}</option>)}
                                 </select>
                             </div>
@@ -383,31 +383,31 @@ export default function MobileTransactions() {
 
                         {/* Credit Fields */}
                         {(paymentType === 'KREDIT' || paymentType === 'LEASING') && (
-                            <div className="p-3 rounded-xl bg-blue-50 border border-blue-100 mb-3 space-y-2">
-                                <p className="text-xs font-bold text-blue-600 mb-1">Detail Kredit</p>
+                            <div className={`p-3 rounded-xl mb-3 space-y-2 border ${theme.name === 'dark-neu' ? 'border-[#00bfa5]/20 bg-[#00bfa5]/10' : 'bg-blue-50 border-blue-100'}`}>
+                                <p className={`text-xs font-bold mb-1 ${theme.name === 'dark-neu' ? 'text-emerald-400' : 'text-blue-600'}`}>Detail Kredit</p>
                                 <div className="grid grid-cols-3 gap-2">
                                     <div>
-                                        <label className="block text-xs text-gray-500 mb-1">DP (Rp)</label>
+                                        <label className={`block text-xs ${theme.textMuted} mb-1`}>DP (Rp)</label>
                                         <input type="number" value={dp} onChange={e => setDp(e.target.value)}
-                                            className="w-full px-3 py-2 rounded-lg bg-white text-gray-800 text-xs border border-gray-200 focus:outline-none focus:ring-1 focus:ring-[#00bfa5]" />
+                                            className={`w-full px-3 py-2 rounded-lg outline-none text-xs ${theme.bgInput}`} />
                                     </div>
                                     <div>
-                                        <label className="block text-xs text-gray-500 mb-1">Bunga (%/thn)</label>
+                                        <label className={`block text-xs ${theme.textMuted} mb-1`}>Bunga (%/thn)</label>
                                         <input type="number" value={interestRate} onChange={e => setInterestRate(e.target.value)}
-                                            className="w-full px-3 py-2 rounded-lg bg-white text-gray-800 text-xs border border-gray-200 focus:outline-none focus:ring-1 focus:ring-[#00bfa5]" />
+                                            className={`w-full px-3 py-2 rounded-lg outline-none text-xs ${theme.bgInput}`} />
                                     </div>
                                     <div>
-                                        <label className="block text-xs text-gray-500 mb-1">Tenor (bln)</label>
+                                        <label className={`block text-xs ${theme.textMuted} mb-1`}>Tenor (bln)</label>
                                         <input type="number" value={tenor} onChange={e => setTenor(e.target.value)}
-                                            className="w-full px-3 py-2 rounded-lg bg-white text-gray-800 text-xs border border-gray-200 focus:outline-none focus:ring-1 focus:ring-[#00bfa5]" />
+                                            className={`w-full px-3 py-2 rounded-lg outline-none text-xs ${theme.bgInput}`} />
                                     </div>
                                 </div>
                                 {paymentType === 'LEASING' && (
                                     <input type="text" placeholder="Nama Leasing/Finance..." value={leasingCompany} onChange={e => setLeasingCompany(e.target.value)}
-                                        className="w-full px-3 py-2 rounded-lg bg-white text-gray-800 text-xs border border-gray-200 focus:outline-none" />
+                                        className={`w-full px-3 py-2 rounded-lg outline-none text-xs ${theme.bgInput}`} />
                                 )}
                                 {dp && finalPrice && tenor && (
-                                    <div className="text-xs font-bold text-blue-700 bg-blue-100 rounded-lg p-2 text-center">
+                                    <div className={`text-xs font-bold rounded-lg p-2 text-center ${theme.name === 'dark-neu' ? 'bg-[#00bfa5]/20 text-emerald-300' : 'bg-blue-100 text-blue-700'}`}>
                                         Estimasi cicilan: {fmt(monthlyPayment())}/bulan
                                     </div>
                                 )}
@@ -415,15 +415,15 @@ export default function MobileTransactions() {
                         )}
 
                         <div className="mb-3">
-                            <label className="block text-sm font-medium text-gray-600 mb-1">Catatan</label>
+                            <label className={`block text-sm font-medium ${theme.textMuted} mb-1`}>Catatan</label>
                             <textarea value={notes} onChange={e => setNotes(e.target.value)} rows={2} placeholder="Catatan tambahan..."
-                                className="w-full px-4 py-2.5 rounded-xl bg-[#ecf0f3] shadow-[inset_3px_3px_6px_#cbced1,inset_-3px_-3px_6px_#ffffff] focus:outline-none focus:ring-2 focus:ring-[#00bfa5] text-sm text-gray-800 resize-none" />
+                                className={`w-full px-4 py-2.5 rounded-xl outline-none text-sm resize-none ${theme.bgInput}`} />
                         </div>
 
                         <div className="flex gap-3">
-                            <button onClick={() => setShowForm(false)} className="flex-1 py-3 rounded-xl bg-[#ecf0f3] text-gray-600 font-medium shadow-[3px_3px_6px_#cbced1,-3px_-3px_6px_#ffffff]">Batal</button>
-                            <button onClick={handleSave} disabled={saving} className="flex-1 py-3 rounded-xl bg-[#00bfa5] text-white font-bold disabled:opacity-50 flex items-center justify-center gap-2">
-                                {saving ? 'Menyimpan...' : <><Check className="w-4 h-4" /> Buat Transaksi</>}
+                            <button onClick={() => setShowForm(false)} className={`flex-1 py-3 rounded-xl ${theme.btnSecondary}`}>Batal</button>
+                            <button onClick={handleSave} disabled={saving} className={`flex-1 py-3 rounded-xl ${theme.btnPrimary} font-bold disabled:opacity-50 flex items-center justify-center gap-2`}>
+                                {saving ? 'Menyimpan...' : <><Check className="w-4 h-4" /> Transaksi</>}
                             </button>
                         </div>
                     </div>
