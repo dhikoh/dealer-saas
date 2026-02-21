@@ -80,7 +80,7 @@ export default function MobileAppShell({ user, onLogout }: MobileAppShellProps) 
                 case 'activity': return <MobileActivity />;
                 case 'settings': return <MobileSuperadminSettings />;
                 case 'cms': return <MobileSuperadminCMS />;
-                case 'profile': return <MobileProfile user={user} onLogout={onLogout} />;
+                case 'profile': return <MobileProfile user={user} onLogout={onLogout} onTabChange={setActiveTab} />;
                 case 'subscriptions': return <MobileBilling />;
                 default: return <MobilePlaceholder tabId={activeTab} />;
             }
@@ -102,7 +102,7 @@ export default function MobileAppShell({ user, onLogout }: MobileAppShellProps) 
             case 'subscriptions':
             case 'invoices': return <MobileBilling />;
             case 'leasing': return <MobileCreditSimulator />;
-            case 'profile': return <MobileProfile user={user} onLogout={onLogout} />;
+            case 'profile': return <MobileProfile user={user} onLogout={onLogout} onTabChange={setActiveTab} />;
             default: return <MobilePlaceholder tabId={activeTab} />;
         }
     };

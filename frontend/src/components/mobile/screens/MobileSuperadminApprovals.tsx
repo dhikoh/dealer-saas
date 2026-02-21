@@ -41,7 +41,7 @@ export default function MobileSuperadminApprovals() {
     const doAction = async (id: string, action: 'APPROVED' | 'REJECTED') => {
         setProcessing(id);
         try {
-            const res = await fetchApi(`/superadmin/approvals/${id}`, { method: 'PATCH', body: JSON.stringify({ status: action }) });
+            const res = await fetchApi(`/superadmin/approvals/${id}`, { method: 'PATCH', body: JSON.stringify({ approved: action === 'APPROVED' }) });
             if (res.ok) {
                 toast.success(action === 'APPROVED' ? 'Request disetujui' : 'Request ditolak');
                 fetchApprovals();

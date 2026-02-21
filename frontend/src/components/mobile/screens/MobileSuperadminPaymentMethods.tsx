@@ -31,7 +31,7 @@ export default function MobileSuperadminPaymentMethods() {
     const fetchMethods = async () => {
         setLoading(true);
         try {
-            const res = await fetchApi('/payment-methods/admin');
+            const res = await fetchApi('/payment-methods/admin/all');
             if (res.ok) setMethods(await res.json());
         } catch { } finally { setLoading(false); }
     };

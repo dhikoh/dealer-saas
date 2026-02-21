@@ -48,8 +48,8 @@ export default function MobileBilling() {
 
     useEffect(() => {
         Promise.allSettled([
-            fetchApi('/billing/profile'),
-            fetchApi('/billing/invoices'),
+            fetchApi('/billing/my-subscription'),
+            fetchApi('/billing/my-invoices'),
         ]).then(([p, i]) => {
             if (p.status === 'fulfilled' && p.value.ok) p.value.json().then(setProfile);
             if (i.status === 'fulfilled' && i.value.ok) i.value.json().then((d: any) => setInvoices(d?.invoices ?? d ?? []));
@@ -61,7 +61,7 @@ export default function MobileBilling() {
         const fd = new FormData();
         fd.append('proof', file);
         try {
-            const uploadRes = await fetchApi(`/billing/invoices/${invoiceId}/payment-proof`, { method: 'POST', body: fd });
+            const uploadRes = await fetchApi(`/billing/my-invoices/${invoiceId}/upload-proof`, { method: 'POST', body: fd });
             if (uploadRes.ok) {
                 alert('Bukti pembayaran berhasil dikirim!');
                 setSelectedInvoice(null);
@@ -91,8 +91,8 @@ export default function MobileBilling() {
                                 <p className={`text-sm font-black mt-1 ${theme.textMuted}`}>{fmt(profile.monthlyBill)}/bulan</p>
                             </div>
                             <span className={`px-3 py-1.5 rounded-full text-[10px] font-black uppercase ${profile.subscriptionStatus === 'ACTIVE' ? 'bg-green-100 text-green-700' :
-                                    profile.subscriptionStatus === 'TRIAL' ? 'bg-yellow-100 text-yellow-700' :
-                                        'bg-red-100 text-red-700'
+                                profile.subscriptionStatus === 'TRIAL' ? 'bg-yellow-100 text-yellow-700' :
+                                    'bg-red-100 text-red-700'
                                 }`}>{profile.subscriptionStatus}</span>
                         </div>
 

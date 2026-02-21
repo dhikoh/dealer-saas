@@ -7,9 +7,10 @@ import { useMobileContext } from '@/context/MobileContext';
 interface Props {
     user: { name?: string; email?: string; role?: string; tenant?: { name?: string };[key: string]: unknown };
     onLogout: () => void;
+    onTabChange?: (tab: any) => void;
 }
 
-export default function MobileProfile({ user, onLogout }: Props) {
+export default function MobileProfile({ user, onLogout, onTabChange }: Props) {
     const { theme, themeMode, setThemeMode } = useMobileContext();
 
     const displayName = (user?.name as string) ?? 'User';
@@ -17,11 +18,12 @@ export default function MobileProfile({ user, onLogout }: Props) {
     const role = user?.role ?? '';
     const tenantName = (user?.tenant as { name?: string })?.name ?? '';
     const initial = displayName.charAt(0).toUpperCase();
+    const isSuperadmin = role === 'SUPERADMIN';
 
     const menuItems = [
-        { icon: <User className="h-4 w-4" />, label: 'Data Pribadi', href: '/app/profile' },
-        { icon: <Settings className="h-4 w-4" />, label: 'Pengaturan', href: '/app/settings' },
-        { icon: <TrendingUp className="h-4 w-4" />, label: 'Langganan', href: '/app/billing' },
+        { icon: <User className="h-4 w-4" />, label: 'Data Pribadi', tabId: 'settings' },
+        { icon: <Settings className="h-4 w-4" />, label: 'Pengaturan', tabId: 'settings' },
+        ...(!isSuperadmin ? [{ icon: <TrendingUp className="h-4 w-4" />, label: 'Langganan', tabId: 'subscriptions' }] : []),
     ];
 
     return (
@@ -76,9 +78,9 @@ export default function MobileProfile({ user, onLogout }: Props) {
                     <h3 className={`text-[11px] font-black uppercase tracking-widest mb-4 pl-2 ${theme.textMuted}`}>Pengaturan Akun</h3>
                     <div className={`${theme.bgCard} p-2`}>
                         {menuItems.map((item, idx) => (
-                            <a
+                            <button
                                 key={item.label}
-                                href={item.href}
+                                onClick={() => onTabChange && onTabChange(item.tabId)}
                                 className={`w-full flex items-center justify-between p-4 transition-colors ${idx < menuItems.length - 1 ? `border-b ${theme.divider}` : ''}`}
                             >
                                 <div className="flex items-center gap-4">
@@ -88,7 +90,7 @@ export default function MobileProfile({ user, onLogout }: Props) {
                                     <span className={`font-black text-sm ${theme.textMain}`}>{item.label}</span>
                                 </div>
                                 <ChevronRight className={`h-4 w-4 ${theme.textMuted}`} />
-                            </a>
+                            </button>
                         ))}
                     </div>
                 </div>
