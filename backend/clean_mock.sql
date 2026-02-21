@@ -1,0 +1,11 @@
+DELETE FROM "activity_logs";
+DELETE FROM "system_invoices";
+DELETE FROM "transaction_payments";
+DELETE FROM "transactions";
+DELETE FROM "credit_payments";
+DELETE FROM "credits";
+DELETE FROM "vehicle_costs";
+DELETE FROM "stock_transfers";
+DELETE FROM "vehicles";
+DELETE FROM "blacklist_entries";
+DELETE FROM "customers";
