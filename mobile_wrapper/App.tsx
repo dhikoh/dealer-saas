@@ -59,7 +59,7 @@ export default function App() {
                 allowsInlineMediaPlayback
                 mediaPlaybackRequiresUserAction={false}
                 injectedJavaScriptBeforeContentLoaded={INJECTED_JS}
-                applicationNameForUserAgent="OTOHUB-Mobile/1.0"
+                applicationNameForUserAgent="OTOHUB-Mobile/1.0.1"
                 onNavigationStateChange={(state: WebViewNavigation) => setCanGoBack(state.canGoBack)}
                 onLoadEnd={() => setLoading(false)}
                 renderLoading={() => (
