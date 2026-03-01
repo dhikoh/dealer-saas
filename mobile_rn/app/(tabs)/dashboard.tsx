@@ -1,18 +1,21 @@
 import React, { useEffect, useState } from 'react';
-import { View, Text, ScrollView, TouchableOpacity, ActivityIndicator } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { View, Text, ScrollView, ActivityIndicator } from 'react-native';
 import { useTheme } from '../../components/ThemeContext';
 import { useAuth } from '../../components/AuthContext';
 import { vehicleService } from '../../services/vehicle.service';
 import { transactionService } from '../../services/transaction.service';
-import clsx from 'clsx';
+import NeuBox from '../../components/NeuBox';
+import GlassView from '../../components/GlassView';
 import { Bell, Search, TrendingUp, Users, Plus, FileText, ArrowRight, Car, Calculator, DollarSign } from 'lucide-react-native';
+import clsx from 'clsx';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 const fmt = (n: number) => new Intl.NumberFormat('id-ID').format(n);
 
 export default function Dashboard() {
     const { colors, mode } = useTheme();
     const { user } = useAuth();
+    const insets = useSafeAreaInsets();
     const [vehicleStats, setVehicleStats] = useState<any>({ total: 0, available: 0, sold: 0, booked: 0 });
     const [txStats, setTxStats] = useState<any>(null);
     const [recentTx, setRecentTx] = useState<any[]>([]);
@@ -42,115 +45,183 @@ export default function Dashboard() {
         return () => { isMounted = false; };
     }, []);
 
+    const iconColor = mode === 'dark' ? '#E5E7EB' : '#4B5563';
+    const accentColor = mode === 'dark' ? '#00E676' : '#00bfa5';
+
     return (
-        <SafeAreaView className={clsx("flex-1", colors.bgApp)}>
-            {/* Header */}
-            <View className={clsx("px-6 pt-4 pb-6 rounded-b-[40px] z-10", colors.bgHeader)}>
-                <View className="flex-row justify-between items-center mb-6">
+        <View className="flex-1">
+            <ScrollView
+                contentContainerStyle={{ paddingBottom: 120, paddingTop: insets.top + 20 }}
+                showsVerticalScrollIndicator={false}
+            >
+                {/* Header */}
+                <View className="px-6 flex-row justify-between items-center mb-8">
                     <View>
-                        <Text className={clsx("text-sm font-bold opacity-70", colors.textMain)}>Selamat Datang,</Text>
-                        <Text className={clsx("text-2xl font-black tracking-tight", colors.textMain)}>{user?.name || 'User'}</Text>
+                        <Text className={clsx("text-sm font-medium tracking-wide opacity-70 mb-1", colors.textMain)}>
+                            Welcome back,
+                        </Text>
+                        <Text className={clsx("text-3xl font-black tracking-tight", colors.textMain)}>
+                            {user?.name || 'User'}
+                        </Text>
                     </View>
-                    <TouchableOpacity className={clsx("w-12 h-12 rounded-full items-center justify-center", colors.iconContainer)}>
-                        <Bell size={20} color={mode === 'dark' ? '#E5E7EB' : '#1F2937'} />
-                        <View className="absolute top-3 right-3 w-2.5 h-2.5 bg-red-500 rounded-full border-2 border-white dark:border-gray-800" />
-                    </TouchableOpacity>
+                    <NeuBox borderRadius={24} style={{ width: 48, height: 48, alignItems: 'center', justifyContent: 'center' }}>
+                        <Bell size={20} color={iconColor} />
+                        <View className="absolute top-3 right-3 w-2.5 h-2.5 bg-red-500 rounded-full border-2 border-white dark:border-[#1E2228]" />
+                    </NeuBox>
                 </View>
 
-                {/* Summary Cards Carousel */}
-                <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 16, paddingRight: 24 }}>
-                    <SummaryCard label="Total Stok" value={String(vehicleStats.total ?? 0)} icon={Car} colors={colors} mode={mode} />
-                    <SummaryCard label="Tersedia" value={String(vehicleStats.available ?? 0)} icon={Search} colors={colors} mode={mode} />
-                    <SummaryCard label="Terjual" value={String(txStats?.totalSalesCount ?? vehicleStats.sold ?? 0)} icon={TrendingUp} colors={colors} mode={mode} />
-                    {txStats && (
-                        <SummaryCard label="Revenue" value={`${fmt(Number(txStats.totalSalesAmount ?? 0))}`} icon={DollarSign} colors={colors} mode={mode} />
-                    )}
-                </ScrollView>
-            </View>
+                {/* Main Glass Summary (Revenue/Total) */}
+                <View className="px-6 mb-8">
+                    <GlassView intensity={60} borderRadius={32} style={{ padding: 24, overflow: 'hidden' }}>
+                        <Text className={clsx("text-sm font-semibold opacity-80 mb-2", colors.textMain)}>
+                            Total Revenue
+                        </Text>
+                        <Text className={clsx("text-4xl font-black tracking-tighter mb-6", colors.textMain)}>
+                            <Text className={clsx("text-2xl", colors.textMuted)}>Rp </Text>
+                            {fmt(Number(txStats?.totalSalesAmount ?? 0))}
+                        </Text>
 
-            <ScrollView contentContainerStyle={{ paddingBottom: 100 }} showsVerticalScrollIndicator={false}>
-                {/* Quick Actions */}
-                <View className="px-6 mt-6">
-                    <Text className={clsx("text-[11px] font-black uppercase tracking-widest mb-4 pl-2", colors.textMuted)}>Aksi Cepat</Text>
-                    <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 12 }}>
-                        <ActionBtn icon={Plus} label="Tambah" colors={colors} mode={mode} />
-                        <ActionBtn icon={Calculator} label="Simulasi" colors={colors} mode={mode} />
-                        <ActionBtn icon={FileText} label="Transaksi" colors={colors} mode={mode} />
-                        <ActionBtn icon={Users} label="Customer" colors={colors} mode={mode} />
+                        <View className="flex-row justify-between items-center opacity-90">
+                            <View className="flex-row items-center gap-2">
+                                <TrendingUp size={16} color={accentColor} />
+                                <Text className={clsx("text-xs font-bold", colors.textMain)}>
+                                    {txStats?.totalSalesCount ?? vehicleStats.sold ?? 0} Transaksi
+                                </Text>
+                            </View>
+                            <View className="flex-row items-center gap-2">
+                                <Car size={16} color={mode === 'dark' ? '#60A5FA' : '#3B82F6'} />
+                                <Text className={clsx("text-xs font-bold", colors.textMain)}>
+                                    {vehicleStats.available ?? 0} Stok
+                                </Text>
+                            </View>
+                        </View>
+                    </GlassView>
+                </View>
+
+                {/* Quick Actions - Neumorphic Buttons */}
+                <View className="mb-10">
+                    <Text className={clsx("px-8 text-xs font-black uppercase tracking-widest mb-5 opacity-60", colors.textMain)}>
+                        Quick Actions
+                    </Text>
+                    <ScrollView
+                        horizontal
+                        showsHorizontalScrollIndicator={false}
+                        contentContainerStyle={{ paddingHorizontal: 24, gap: 16 }}
+                    >
+                        <ActionBtn icon={Plus} label="Tambah" />
+                        <ActionBtn icon={Calculator} label="Simulasi" />
+                        <ActionBtn icon={FileText} label="Transaksi" />
+                        <ActionBtn icon={Users} label="Customer" />
                     </ScrollView>
                 </View>
 
                 {/* Recent Transactions */}
-                <View className="px-6 mt-8">
-                    <View className="flex-row justify-between items-end mb-4 px-2">
-                        <Text className={clsx("text-[11px] font-black uppercase tracking-widest", colors.textMuted)}>Transaksi Terbaru</Text>
-                        <TouchableOpacity className="flex-row items-center gap-1">
+                <View className="px-6">
+                    <View className="flex-row justify-between items-end mb-6 pl-2">
+                        <Text className={clsx("text-xs font-black uppercase tracking-widest opacity-60", colors.textMain)}>
+                            Recent Transactions
+                        </Text>
+                        <View className="flex-row items-center gap-1">
                             <Text className={clsx("text-xs font-bold", colors.textHighlight)}>Lihat Semua</Text>
-                            <ArrowRight size={12} color={mode === 'dark' ? '#60A5FA' : '#2563EB'} />
-                        </TouchableOpacity>
+                            <ArrowRight size={14} color={mode === 'dark' ? '#60A5FA' : '#2563EB'} />
+                        </View>
                     </View>
-                    <View className="gap-4">
+
+                    <View className="gap-5">
                         {loading ? (
-                            <ActivityIndicator size="small" color={mode === 'dark' ? '#60A5FA' : '#2563EB'} />
+                            <ActivityIndicator size="large" color={accentColor} style={{ marginTop: 20 }} />
                         ) : recentTx.length > 0 ? (
-                            recentTx.map(tx => (
-                                <DraftItem
+                            recentTx.map((tx, idx) => (
+                                <RecentItem
                                     key={tx.id}
-                                    customer={tx.customer?.name || 'Unknown'}
-                                    vehicle={`${tx.vehicle?.make || ''} ${tx.vehicle?.model || ''}`}
-                                    price={`Rp ${fmt(Number(tx.finalPrice))}`}
-                                    status={tx.status}
-                                    colors={colors}
-                                    mode={mode}
+                                    tx={tx}
+                                    isFirst={idx === 0}
                                 />
                             ))
                         ) : (
-                            <View className={clsx("p-6 rounded-3xl items-center", colors.iconContainer)}>
-                                <Text className={clsx("text-xs font-bold", colors.textMuted)}>Belum ada transaksi</Text>
-                            </View>
+                            <NeuBox borderRadius={24} style={{ padding: 32, alignItems: 'center' }}>
+                                <FileText size={40} color={iconColor} opacity={0.3} style={{ marginBottom: 16 }} />
+                                <Text className={clsx("text-sm font-bold opacity-50", colors.textMain)}>
+                                    Belum ada transaksi
+                                </Text>
+                            </NeuBox>
                         )}
                     </View>
                 </View>
             </ScrollView>
-        </SafeAreaView>
+        </View>
     );
 }
 
-const ActionBtn = ({ icon: Icon, label, colors, mode }: { icon: any, label: string, colors: any, mode: any }) => (
-    <View className="items-center gap-3">
-        <TouchableOpacity className={clsx("w-14 h-14 rounded-2xl items-center justify-center", colors.iconContainer)}>
-            <Icon size={24} color={mode === 'dark' ? '#E5E7EB' : '#1F2937'} />
-        </TouchableOpacity>
-        <Text className={clsx("text-[10px] font-black uppercase tracking-widest", colors.textMain)}>{label}</Text>
-    </View>
-);
+const ActionBtn = ({ icon: Icon, label }: { icon: any, label: string }) => {
+    const { colors, mode } = useTheme();
+    const iconColor = mode === 'dark' ? '#00E676' : '#00bfa5';
 
-const SummaryCard = ({ label, value, icon: Icon, colors, mode }: { label: string, value: string, icon: any, colors: any, mode: any }) => (
-    <TouchableOpacity className={clsx("p-5 rounded-3xl w-40", colors.iconContainer)}>
-        <View className="flex-row justify-between items-start mb-4">
-            <View className={clsx("w-10 h-10 rounded-full items-center justify-center", colors.shadowIncome)}>
-                <Icon size={18} color={mode === 'dark' ? '#60A5FA' : '#2563EB'} />
-            </View>
+    return (
+        <View className="items-center gap-3">
+            <NeuBox borderRadius={20} style={{ width: 64, height: 64, alignItems: 'center', justifyContent: 'center' }}>
+                <Icon size={24} color={iconColor} strokeWidth={2.5} />
+            </NeuBox>
+            <Text className={clsx("text-[10px] font-black uppercase tracking-widest opacity-80", colors.textMain)}>
+                {label}
+            </Text>
         </View>
-        <Text className={clsx("text-3xl font-black tracking-tighter", colors.textMain)}>{value}</Text>
-        <Text className={clsx("text-[10px] font-black uppercase tracking-widest mt-1", colors.textMuted)}>{label}</Text>
-    </TouchableOpacity>
-);
+    );
+};
 
-const DraftItem = ({ customer, vehicle, price, status, colors, mode }: { customer: string, vehicle: string, price: string, status: string, colors: any, mode: any }) => (
-    <TouchableOpacity className={clsx("p-4 flex-row items-center gap-4 rounded-3xl", colors.iconContainer)}>
-        <View className={clsx("w-12 h-12 rounded-full items-center justify-center", colors.shadowIncome)}>
-            <FileText size={20} color={mode === 'dark' ? '#60A5FA' : '#2563EB'} />
-        </View>
-        <View className="flex-1">
-            <Text className={clsx("font-black text-sm", colors.textMain)}>{customer}</Text>
-            <Text className={clsx("text-xs font-bold mt-1", colors.textMuted)}>{vehicle}</Text>
-        </View>
-        <View className="items-end">
-            <Text className={clsx("text-sm font-black", colors.textHighlight)}>{price}</Text>
-            <View className={clsx("px-3 py-1 mt-1.5 rounded-lg", colors.shadowIncome)}>
-                <Text className={clsx("text-[9px] font-black uppercase tracking-widest", colors.textMuted)}>{status}</Text>
+const RecentItem = ({ tx, isFirst }: { tx: any, isFirst: boolean }) => {
+    const { colors, mode } = useTheme();
+    const customerName = tx.customer?.name || 'Unknown';
+    const vehicleName = `${tx.vehicle?.make || ''} ${tx.vehicle?.model || ''}`.trim();
+
+    // For first item, use Glass effect to highlight it. Otherwise use NeuBox inset.
+    if (isFirst) {
+        return (
+            <GlassView intensity={40} borderRadius={24} style={{ padding: 20, flexDirection: 'row', alignItems: 'center', gap: 16 }}>
+                <NeuBox borderRadius={16} pressed style={{ width: 48, height: 48, alignItems: 'center', justifyContent: 'center' }}>
+                    <FileText size={20} color={mode === 'dark' ? '#F59E0B' : '#D97706'} />
+                </NeuBox>
+                <View className="flex-1">
+                    <Text className={clsx("font-black text-base mb-1", colors.textMain)}>{customerName}</Text>
+                    <Text className={clsx("text-xs font-bold opacity-60", colors.textMain)}>{vehicleName}</Text>
+                </View>
+                <View className="items-end">
+                    <Text className={clsx("text-sm font-black mb-2", colors.textHighlight)}>
+                        Rp {fmt(Number(tx.finalPrice))}
+                    </Text>
+                    <StatusBadge status={tx.status} />
+                </View>
+            </GlassView>
+        );
+    }
+
+    return (
+        <NeuBox borderRadius={24} style={{ padding: 20, flexDirection: 'row', alignItems: 'center', gap: 16 }}>
+            <NeuBox borderRadius={16} pressed style={{ width: 48, height: 48, alignItems: 'center', justifyContent: 'center' }}>
+                <FileText size={20} color={mode === 'dark' ? '#60A5FA' : '#3B82F6'} />
+            </NeuBox>
+            <View className="flex-1">
+                <Text className={clsx("font-black text-base mb-1", colors.textMain)}>{customerName}</Text>
+                <Text className={clsx("text-xs font-bold opacity-60", colors.textMain)}>{vehicleName}</Text>
             </View>
-        </View>
-    </TouchableOpacity>
-);
+            <View className="items-end">
+                <Text className={clsx("text-sm font-black mb-2", colors.textMain)}>
+                    Rp {fmt(Number(tx.finalPrice))}
+                </Text>
+                <StatusBadge status={tx.status} />
+            </View>
+        </NeuBox>
+    );
+};
+
+const StatusBadge = ({ status }: { status: string }) => {
+    const { colors, mode } = useTheme();
+    // Use an inset box for badge
+    return (
+        <NeuBox pressed borderRadius={8} style={{ paddingHorizontal: 10, paddingVertical: 4 }}>
+            <Text className={clsx("text-[9px] font-black uppercase tracking-widest opacity-70", colors.textMain)}>
+                {status}
+            </Text>
+        </NeuBox>
+    );
+};

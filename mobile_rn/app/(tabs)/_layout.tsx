@@ -1,19 +1,16 @@
 import { Tabs } from 'expo-router';
 import { View } from 'react-native';
-import { useTheme } from '../../components/ThemeContext';
-import clsx from 'clsx';
 import CustomTabBar from '../../components/CustomTabBar';
 
 export default function TabsLayout() {
-    const { colors } = useTheme();
-
     return (
-        <View className={clsx("flex-1", colors.bgApp)}>
+        <View className="flex-1 bg-transparent">
             <Tabs
                 tabBar={props => <CustomTabBar {...props} />}
                 screenOptions={{
                     headerShown: false,
                     tabBarShowLabel: false,
+                    // Critical for floating tab bar to let background and content bleed through behind it
                     sceneStyle: { backgroundColor: 'transparent' }
                 }}
             >
