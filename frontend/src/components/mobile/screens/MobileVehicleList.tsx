@@ -13,7 +13,7 @@ interface Vehicle {
     id: string; make?: string; brand?: string; model: string; variant?: string;
     year: number; color: string; price: number; purchasePrice?: number;
     condition?: string; status: string; stockCode?: string;
-    licensePlate?: string; frameNumber?: string; imageUrl?: string;
+    licensePlate?: string; chassisNumber?: string; imageUrl?: string;
     images?: string;
     // Extended fields
     engineNumber?: string; bpkbNumber?: string; stnkExpiry?: string; taxExpiry?: string;
@@ -25,8 +25,8 @@ interface Vehicle {
 
 const INITIAL_FORM = {
     category: 'CAR', make: '', model: '', variant: '', year: new Date().getFullYear(), color: '',
-    licensePlate: '', frameNumber: '', condition: 'READY',
-    purchasePrice: '', price: '', status: 'AVAILABLE', notes: '',
+    licensePlate: '', chassisNumber: '', condition: 'READY',
+    purchasePrice: '', price: '', status: 'AVAILABLE',
     // New fields matching desktop VehicleForm
     purchaseDate: '', conditionNote: '', isShowroom: true,
     engineNumber: '', bpkbNumber: '', stnkExpiry: '', taxExpiry: '',
@@ -178,9 +178,9 @@ export default function MobileVehicleList() {
             category: cat,
             make: v.make || v.brand || '', model: v.model, variant: v.variant || '',
             year: v.year, color: v.color, licensePlate: v.licensePlate || '',
-            frameNumber: v.frameNumber || '', condition: v.condition || 'READY',
+            chassisNumber: v.chassisNumber || '', condition: v.condition || 'READY',
             purchasePrice: String(v.purchasePrice || ''), price: String(v.price),
-            status: v.status, notes: '',
+            status: v.status,
             // Extended fields
             purchaseDate: v.purchaseDate ? new Date(v.purchaseDate).toISOString().split('T')[0] : '',
             conditionNote: v.conditionNote || '',
@@ -265,11 +265,13 @@ export default function MobileVehicleList() {
                 category: form.category,
                 make: form.make, model: form.model, variant: form.variant,
                 year: Number(form.year), color: form.color,
-                licensePlate: form.licensePlate, frameNumber: form.frameNumber,
+                licensePlate: form.licensePlate || undefined,
+                chassisNumber: form.chassisNumber || undefined,
                 condition: form.condition,
                 purchasePrice: form.purchasePrice ? Number(form.purchasePrice) : undefined,
                 price: Number(form.price),
                 status: form.status,
+                color: form.color || undefined,
                 // Extended fields
                 purchaseDate: form.purchaseDate || undefined,
                 conditionNote: form.conditionNote || undefined,
@@ -297,7 +299,9 @@ export default function MobileVehicleList() {
 
             if (!res.ok) {
                 const err = await res.json();
-                toast.error(err.message || 'Gagal menyimpan');
+                // Show detailed validation errors
+                const msg = Array.isArray(err.message) ? err.message.join('\n') : (err.message || 'Gagal menyimpan');
+                toast.error(msg);
                 return;
             }
 
@@ -515,7 +519,7 @@ export default function MobileVehicleList() {
                                 { label: 'Tahun', value: selected.year },
                                 { label: 'Warna', value: selected.color },
                                 { label: 'Plat', value: selected.licensePlate || '-' },
-                                { label: 'No. Rangka', value: selected.frameNumber || '-' },
+                                { label: 'No. Rangka', value: selected.chassisNumber || '-' },
                                 { label: 'No. Mesin', value: selected.engineNumber || '-' },
                                 { label: 'Kondisi', value: selected.condition || '-' },
                                 { label: 'Status', value: selected.status },
@@ -607,7 +611,7 @@ export default function MobileVehicleList() {
                             {[
                                 { label: 'Warna', key: 'color', placeholder: 'Putih, Hitam, Silver...' },
                                 { label: 'No. Plat', key: 'licensePlate', placeholder: 'B 1234 XYZ' },
-                                { label: 'No. Rangka', key: 'frameNumber', placeholder: 'MHF...' },
+                                { label: 'No. Rangka', key: 'chassisNumber', placeholder: 'MHF...' },
                                 { label: 'No. Mesin', key: 'engineNumber', placeholder: 'Nomor mesin...' },
                             ].map(({ label, key, placeholder }) => (
                                 <div key={key}>
