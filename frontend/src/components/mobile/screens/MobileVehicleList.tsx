@@ -271,7 +271,6 @@ export default function MobileVehicleList() {
                 purchasePrice: form.purchasePrice ? Number(form.purchasePrice) : undefined,
                 price: Number(form.price),
                 status: form.status,
-                color: form.color || undefined,
                 // Extended fields
                 purchaseDate: form.purchaseDate || undefined,
                 conditionNote: form.conditionNote || undefined,
