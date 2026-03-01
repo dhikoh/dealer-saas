@@ -285,6 +285,62 @@ export class TransactionService {
         return result;
     }
 
+    async update(id: string, tenantId: string, data: {
+        type?: string;
+        paymentType?: string;
+        finalPrice?: number;
+        notes?: string;
+        paymentMethod?: string;
+        referenceNumber?: string;
+    }) {
+        const transaction = await this.prisma.transaction.findFirst({
+            where: { id, tenantId, deletedAt: null },
+        });
+
+        if (!transaction) {
+            throw new NotFoundException('Transaksi tidak ditemukan');
+        }
+
+        // Block updates on completed/cancelled transactions
+        if (transaction.status === 'COMPLETED' || transaction.status === 'CANCELLED') {
+            throw new BadRequestException(
+                `Transaksi dengan status ${transaction.status} tidak dapat diedit. Silakan buat transaksi baru.`
+            );
+        }
+
+        // Build update payload
+        const updateData: any = {};
+
+        if (data.type !== undefined) updateData.type = data.type;
+        if (data.paymentType !== undefined) updateData.paymentType = data.paymentType;
+        if (data.notes !== undefined) updateData.notes = data.notes;
+
+        // Recalculate financials if finalPrice changed
+        if (data.finalPrice !== undefined) {
+            const tenant = await this.prisma.tenant.findUnique({
+                where: { id: tenantId },
+                select: { taxPercentage: true },
+            });
+            const finalPrice = Number(data.finalPrice);
+            const { basePrice, taxAmount } = this.calculateFinancials(
+                finalPrice,
+                Number(tenant?.taxPercentage || 0),
+            );
+            updateData.finalPrice = new Decimal(finalPrice);
+            updateData.basePrice = new Decimal(basePrice);
+            updateData.taxAmount = new Decimal(taxAmount);
+        }
+
+        return this.prisma.transaction.update({
+            where: { id },
+            data: updateData,
+            include: {
+                vehicle: { select: { id: true, make: true, model: true } },
+                customer: { select: { id: true, name: true } },
+            },
+        });
+    }
+
     async updateStatus(id: string, tenantId: string, status: string) {
         const transaction = await this.prisma.transaction.findFirst({
             where: { id, tenantId },

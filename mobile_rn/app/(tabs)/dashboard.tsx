@@ -1,28 +1,44 @@
 import React, { useEffect, useState } from 'react';
-import { View, Text, ScrollView, TouchableOpacity, Image } from 'react-native';
+import { View, Text, ScrollView, TouchableOpacity, ActivityIndicator } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useTheme } from '../../components/ThemeContext';
 import { useAuth } from '../../components/AuthContext';
 import { vehicleService } from '../../services/vehicle.service';
+import { transactionService } from '../../services/transaction.service';
 import clsx from 'clsx';
-import { Bell, Search, TrendingUp, Users, Plus, FileText, ArrowRight, Car, Calculator } from 'lucide-react-native';
+import { Bell, Search, TrendingUp, Users, Plus, FileText, ArrowRight, Car, Calculator, DollarSign } from 'lucide-react-native';
+
+const fmt = (n: number) => new Intl.NumberFormat('id-ID').format(n);
 
 export default function Dashboard() {
     const { colors, mode } = useTheme();
     const { user } = useAuth();
-    const [stats, setStats] = useState({ total: 0, available: 0, sold: 0 });
+    const [vehicleStats, setVehicleStats] = useState<any>({ total: 0, available: 0, sold: 0, booked: 0 });
+    const [txStats, setTxStats] = useState<any>(null);
+    const [recentTx, setRecentTx] = useState<any[]>([]);
+    const [loading, setLoading] = useState(true);
 
     useEffect(() => {
         let isMounted = true;
-        const fetchStats = async () => {
+        const fetchAll = async () => {
             try {
-                const data = await vehicleService.getVehicleStats();
-                if (isMounted) setStats(data);
+                const [vStats, tStats, txList] = await Promise.all([
+                    vehicleService.getVehicleStats(),
+                    transactionService.getStats().catch(() => null),
+                    transactionService.getTransactions().catch(() => []),
+                ]);
+                if (isMounted) {
+                    setVehicleStats(vStats);
+                    setTxStats(tStats);
+                    setRecentTx(txList.slice(0, 3));
+                    setLoading(false);
+                }
             } catch (error) {
                 console.error('Failed to fetch dashboard stats', error);
+                if (isMounted) setLoading(false);
             }
         };
-        fetchStats();
+        fetchAll();
         return () => { isMounted = false; };
     }, []);
 
@@ -43,30 +59,12 @@ export default function Dashboard() {
 
                 {/* Summary Cards Carousel */}
                 <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 16, paddingRight: 24 }}>
-                    <SummaryCard
-                        label="Total Stok"
-                        value={stats.total.toString()}
-                        trend="+12%"
-                        icon={Search}
-                        colors={colors}
-                        mode={mode}
-                    />
-                    <SummaryCard
-                        label="Terjual Bulan Ini"
-                        value={stats.sold.toString()}
-                        trend="+8%"
-                        icon={TrendingUp}
-                        colors={colors}
-                        mode={mode}
-                    />
-                    <SummaryCard
-                        label="Tersedia"
-                        value={stats.available.toString()}
-                        trend=""
-                        icon={Users}
-                        colors={colors}
-                        mode={mode}
-                    />
+                    <SummaryCard label="Total Stok" value={String(vehicleStats.total ?? 0)} icon={Car} colors={colors} mode={mode} />
+                    <SummaryCard label="Tersedia" value={String(vehicleStats.available ?? 0)} icon={Search} colors={colors} mode={mode} />
+                    <SummaryCard label="Terjual" value={String(txStats?.totalSalesCount ?? vehicleStats.sold ?? 0)} icon={TrendingUp} colors={colors} mode={mode} />
+                    {txStats && (
+                        <SummaryCard label="Revenue" value={`${fmt(Number(txStats.totalSalesAmount ?? 0))}`} icon={DollarSign} colors={colors} mode={mode} />
+                    )}
                 </ScrollView>
             </View>
 
@@ -75,26 +73,42 @@ export default function Dashboard() {
                 <View className="px-6 mt-6">
                     <Text className={clsx("text-[11px] font-black uppercase tracking-widest mb-4 pl-2", colors.textMuted)}>Aksi Cepat</Text>
                     <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 12 }}>
-                        <ActionBtn icon={Plus} label="Draft Baru" colors={colors} mode={mode} />
+                        <ActionBtn icon={Plus} label="Tambah" colors={colors} mode={mode} />
                         <ActionBtn icon={Calculator} label="Simulasi" colors={colors} mode={mode} />
-                        <ActionBtn icon={FileText} label="Laporan" colors={colors} mode={mode} />
-                        <ActionBtn icon={Users} label="Prospek" colors={colors} mode={mode} />
+                        <ActionBtn icon={FileText} label="Transaksi" colors={colors} mode={mode} />
+                        <ActionBtn icon={Users} label="Customer" colors={colors} mode={mode} />
                     </ScrollView>
                 </View>
 
-                {/* Recent Drafts */}
+                {/* Recent Transactions */}
                 <View className="px-6 mt-8">
                     <View className="flex-row justify-between items-end mb-4 px-2">
-                        <Text className={clsx("text-[11px] font-black uppercase tracking-widest", colors.textMuted)}>Draft Terbaru</Text>
+                        <Text className={clsx("text-[11px] font-black uppercase tracking-widest", colors.textMuted)}>Transaksi Terbaru</Text>
                         <TouchableOpacity className="flex-row items-center gap-1">
                             <Text className={clsx("text-xs font-bold", colors.textHighlight)}>Lihat Semua</Text>
                             <ArrowRight size={12} color={mode === 'dark' ? '#60A5FA' : '#2563EB'} />
                         </TouchableOpacity>
                     </View>
                     <View className="gap-4">
-                        <DraftItem customer="Budi Santoso" vehicle="Honda Brio Satya" price="Rp 185.000.000" status="Hot Prospect" colors={colors} mode={mode} />
-                        <DraftItem customer="Siti Aminah" vehicle="Toyota Avanza G" price="Rp 245.000.000" status="Follow Up" colors={colors} mode={mode} />
-                        <DraftItem customer="Rudi Hermawan" vehicle="Mitsubishi Xpander" price="Rp 290.000.000" status="New Lead" colors={colors} mode={mode} />
+                        {loading ? (
+                            <ActivityIndicator size="small" color={mode === 'dark' ? '#60A5FA' : '#2563EB'} />
+                        ) : recentTx.length > 0 ? (
+                            recentTx.map(tx => (
+                                <DraftItem
+                                    key={tx.id}
+                                    customer={tx.customer?.name || 'Unknown'}
+                                    vehicle={`${tx.vehicle?.make || ''} ${tx.vehicle?.model || ''}`}
+                                    price={`Rp ${fmt(Number(tx.finalPrice))}`}
+                                    status={tx.status}
+                                    colors={colors}
+                                    mode={mode}
+                                />
+                            ))
+                        ) : (
+                            <View className={clsx("p-6 rounded-3xl items-center", colors.iconContainer)}>
+                                <Text className={clsx("text-xs font-bold", colors.textMuted)}>Belum ada transaksi</Text>
+                            </View>
+                        )}
                     </View>
                 </View>
             </ScrollView>
@@ -111,17 +125,12 @@ const ActionBtn = ({ icon: Icon, label, colors, mode }: { icon: any, label: stri
     </View>
 );
 
-const SummaryCard = ({ label, value, trend, icon: Icon, colors, mode }: { label: string, value: string, trend: string, icon: any, colors: any, mode: any }) => (
+const SummaryCard = ({ label, value, icon: Icon, colors, mode }: { label: string, value: string, icon: any, colors: any, mode: any }) => (
     <TouchableOpacity className={clsx("p-5 rounded-3xl w-40", colors.iconContainer)}>
         <View className="flex-row justify-between items-start mb-4">
             <View className={clsx("w-10 h-10 rounded-full items-center justify-center", colors.shadowIncome)}>
                 <Icon size={18} color={mode === 'dark' ? '#60A5FA' : '#2563EB'} />
             </View>
-            {trend ? (
-                <View className={clsx("px-2 py-1 rounded-lg", colors.shadowOutcome)}>
-                    <Text className="text-[9px] font-bold text-green-500">{trend}</Text>
-                </View>
-            ) : null}
         </View>
         <Text className={clsx("text-3xl font-black tracking-tighter", colors.textMain)}>{value}</Text>
         <Text className={clsx("text-[10px] font-black uppercase tracking-widest mt-1", colors.textMuted)}>{label}</Text>

@@ -29,12 +29,16 @@ interface Vehicle {
 
 const INITIAL_FORM = {
     category: 'CAR', make: '', model: '', variant: '', year: new Date().getFullYear(), color: '',
-    licensePlate: '', frameNumber: '', condition: 'BEKAS',
+    licensePlate: '', frameNumber: '', condition: 'READY',
     purchasePrice: '', price: '', status: 'AVAILABLE', notes: '',
 };
 
-const CONDITIONS = ['BARU', 'BEKAS'];
-const STATUSES = ['AVAILABLE', 'SOLD', 'REPAIR'];
+const CONDITIONS = [
+    { value: 'READY', label: 'Siap Jual' },
+    { value: 'REPAIR', label: 'Perbaikan' },
+    { value: 'RESERVED', label: 'Dipesan' },
+];
+const STATUSES = ['AVAILABLE', 'BOOKED', 'SOLD'];
 
 export default function MobileVehicleList() {
     const { theme } = useMobileContext();
@@ -51,7 +55,45 @@ export default function MobileVehicleList() {
     const [deleteTarget, setDeleteTarget] = useState<Vehicle | null>(null);
     const [uploadingImg, setUploadingImg] = useState(false);
 
+    // Master Data State
+    const [brands, setBrands] = useState<any[]>([]);
+    const [availableModels, setAvailableModels] = useState<any[]>([]);
+    const [availableVariants, setAvailableVariants] = useState<string[]>([]);
+
     useEffect(() => { fetchVehicles(); }, []);
+
+    // Fetch brands from master data when category changes
+    useEffect(() => {
+        fetchBrands(form.category);
+    }, [form.category]);
+
+    const fetchBrands = async (category: string) => {
+        try {
+            const res = await fetchApi(`/vehicles/brands/list?category=${category}`);
+            if (res.ok) {
+                const data = await res.json();
+                setBrands(data.data || data || []);
+                setAvailableModels([]);
+                setAvailableVariants([]);
+            }
+        } catch { /* silently fail */ }
+    };
+
+    const handleBrandChange = (brandName: string) => {
+        setForm(f => ({ ...f, make: brandName, model: '', variant: '' }));
+        const selectedBrand = brands.find(b => b.name === brandName);
+        setAvailableModels(selectedBrand?.models || []);
+        setAvailableVariants([]);
+    };
+
+    const handleModelChange = (modelName: string) => {
+        setForm(f => ({ ...f, model: modelName, variant: '' }));
+        const selectedModel = availableModels.find((m: any) => m.name === modelName);
+        try {
+            const variants = selectedModel?.variants ? JSON.parse(selectedModel.variants) : [];
+            setAvailableVariants(Array.isArray(variants) ? variants : []);
+        } catch { setAvailableVariants([]); }
+    };
 
     const fetchVehicles = async () => {
         setLoading(true);
@@ -80,20 +122,43 @@ export default function MobileVehicleList() {
         setForm({ ...INITIAL_FORM });
         setEditingId(null);
         setShowForm(true);
+        fetchBrands('CAR');
     };
 
     const openEdit = (v: Vehicle) => {
+        const cat = (v as any).category || 'CAR';
         setForm({
-            category: 'CAR', // Defaulting to CAR for now as category might not be returned in simple GET
+            category: cat,
             make: v.make || v.brand || '', model: v.model, variant: v.variant || '',
             year: v.year, color: v.color, licensePlate: v.licensePlate || '',
-            frameNumber: v.frameNumber || '', condition: v.condition || 'BEKAS',
+            frameNumber: v.frameNumber || '', condition: v.condition || 'READY',
             purchasePrice: String(v.purchasePrice || ''), price: String(v.price),
             status: v.status, notes: '',
         });
         setEditingId(v.id);
         setSelected(null);
         setShowForm(true);
+        // Load brands for the vehicle's category, then set models/variants
+        fetchBrands(cat).then(() => {
+            // After brands load, set the models for the selected brand
+            // We need a small delay since setBrands is async state
+            setTimeout(() => {
+                setBrands(prev => {
+                    const selectedBrand = prev.find(b => b.name === (v.make || v.brand));
+                    if (selectedBrand) {
+                        setAvailableModels(selectedBrand.models || []);
+                        const selectedModel = (selectedBrand.models || []).find((m: any) => m.name === v.model);
+                        if (selectedModel?.variants) {
+                            try {
+                                const variants = JSON.parse(selectedModel.variants);
+                                setAvailableVariants(Array.isArray(variants) ? variants : []);
+                            } catch { setAvailableVariants([]); }
+                        }
+                    }
+                    return prev;
+                });
+            }, 100);
+        });
     };
 
     const handleSave = async () => {
@@ -182,10 +247,10 @@ export default function MobileVehicleList() {
                 </div>
                 {/* Status Filter */}
                 <div className="flex gap-2 overflow-x-auto hide-scrollbar pb-3">
-                    {['ALL', 'AVAILABLE', 'SOLD', 'REPAIR'].map(s => (
+                    {['ALL', 'AVAILABLE', 'BOOKED', 'SOLD'].map(s => (
                         <button key={s} onClick={() => setStatusFilter(s)}
                             className={`px-4 py-2 rounded-xl text-xs font-bold whitespace-nowrap shrink-0 ${statusFilter === s ? theme.btnPrimary : theme.btnSecondary}`}>
-                            {s === 'ALL' ? 'Semua' : s === 'AVAILABLE' ? 'Tersedia' : s === 'SOLD' ? 'Terjual' : 'Servis'}
+                            {s === 'ALL' ? 'Semua' : s === 'AVAILABLE' ? 'Tersedia' : s === 'BOOKED' ? 'Dipesan' : 'Terjual'}
                         </button>
                     ))}
                 </div>
@@ -299,7 +364,7 @@ export default function MobileVehicleList() {
                         <div className="space-y-3">
                             <div>
                                 <label className="block text-sm font-medium text-gray-600 mb-1">Kategori *</label>
-                                <select value={form.category} onChange={e => setForm({ ...form, category: e.target.value })}
+                                <select value={form.category} onChange={e => { setForm({ ...form, category: e.target.value, make: '', model: '', variant: '' }); }}
                                     className="w-full px-4 py-2.5 rounded-xl bg-[#ecf0f3] shadow-[3px_3px_6px_#cbced1,-3px_-3px_6px_#ffffff] focus:outline-none focus:ring-2 focus:ring-[#00bfa5] text-gray-800 text-sm">
                                     <option value="CAR">Mobil (CAR)</option>
                                     <option value="MOTORCYCLE">Motor (MOTORCYCLE)</option>
@@ -308,10 +373,42 @@ export default function MobileVehicleList() {
                                     <option value="OTHER">Lainnya (OTHER)</option>
                                 </select>
                             </div>
+                            {/* Merek — Dropdown from Master Data */}
+                            <div>
+                                <label className="block text-sm font-medium text-gray-600 mb-1">Merek *</label>
+                                <select value={form.make} onChange={e => handleBrandChange(e.target.value)}
+                                    className="w-full px-4 py-2.5 rounded-xl bg-[#ecf0f3] shadow-[3px_3px_6px_#cbced1,-3px_-3px_6px_#ffffff] focus:outline-none focus:ring-2 focus:ring-[#00bfa5] text-gray-800 text-sm">
+                                    <option value="">-- Pilih Merek --</option>
+                                    {brands.map((b: any) => <option key={b.id} value={b.name}>{b.name}</option>)}
+                                </select>
+                            </div>
+                            {/* Model — Dropdown from selected Brand's models */}
+                            <div>
+                                <label className="block text-sm font-medium text-gray-600 mb-1">Model *</label>
+                                <select value={form.model} onChange={e => handleModelChange(e.target.value)}
+                                    disabled={!form.make}
+                                    className="w-full px-4 py-2.5 rounded-xl bg-[#ecf0f3] shadow-[3px_3px_6px_#cbced1,-3px_-3px_6px_#ffffff] focus:outline-none focus:ring-2 focus:ring-[#00bfa5] text-gray-800 text-sm disabled:opacity-50">
+                                    <option value="">-- Pilih Model --</option>
+                                    {availableModels.map((m: any) => <option key={m.id} value={m.name}>{m.name}</option>)}
+                                </select>
+                            </div>
+                            {/* Varian — Dropdown from selected Model's variants */}
+                            <div>
+                                <label className="block text-sm font-medium text-gray-600 mb-1">Varian</label>
+                                {availableVariants.length > 0 ? (
+                                    <select value={form.variant} onChange={e => setForm({ ...form, variant: e.target.value })}
+                                        className="w-full px-4 py-2.5 rounded-xl bg-[#ecf0f3] shadow-[3px_3px_6px_#cbced1,-3px_-3px_6px_#ffffff] focus:outline-none focus:ring-2 focus:ring-[#00bfa5] text-gray-800 text-sm">
+                                        <option value="">-- Pilih Varian --</option>
+                                        {availableVariants.map(v => <option key={v} value={v}>{v}</option>)}
+                                    </select>
+                                ) : (
+                                    <input type="text" value={form.variant} onChange={e => setForm({ ...form, variant: e.target.value })}
+                                        placeholder="Ketik varian manual..."
+                                        className="w-full px-4 py-2.5 rounded-xl bg-[#ecf0f3] shadow-[inset_3px_3px_6px_#cbced1,inset_-3px_-3px_6px_#ffffff] focus:outline-none focus:ring-2 focus:ring-[#00bfa5] text-gray-800 text-sm" />
+                                )}
+                            </div>
+                            {/* Remaining text fields */}
                             {[
-                                { label: 'Merek *', key: 'make', placeholder: 'Toyota, Honda, Suzuki...' },
-                                { label: 'Model *', key: 'model', placeholder: 'Avanza, Jazz, Ertiga...' },
-                                { label: 'Varian', key: 'variant', placeholder: 'G, S, E, VVT-i...' },
                                 { label: 'Warna', key: 'color', placeholder: 'Putih, Hitam, Silver...' },
                                 { label: 'No. Plat', key: 'licensePlate', placeholder: 'B 1234 XYZ' },
                                 { label: 'No. Rangka', key: 'frameNumber', placeholder: 'MHF...' },
@@ -333,7 +430,7 @@ export default function MobileVehicleList() {
                                     <label className="block text-sm font-medium text-gray-600 mb-1">Kondisi</label>
                                     <select value={form.condition} onChange={e => setForm({ ...form, condition: e.target.value })}
                                         className="w-full px-4 py-2.5 rounded-xl bg-[#ecf0f3] shadow-[3px_3px_6px_#cbced1,-3px_-3px_6px_#ffffff] focus:outline-none focus:ring-2 focus:ring-[#00bfa5] text-gray-800 text-sm">
-                                        {CONDITIONS.map(c => <option key={c} value={c}>{c}</option>)}
+                                        {CONDITIONS.map(c => <option key={c.value} value={c.value}>{c.label}</option>)}
                                     </select>
                                 </div>
                             </div>
@@ -353,7 +450,7 @@ export default function MobileVehicleList() {
                                 <label className="block text-sm font-medium text-gray-600 mb-1">Status</label>
                                 <select value={form.status} onChange={e => setForm({ ...form, status: e.target.value })}
                                     className="w-full px-4 py-2.5 rounded-xl bg-[#ecf0f3] shadow-[3px_3px_6px_#cbced1,-3px_-3px_6px_#ffffff] focus:outline-none focus:ring-2 focus:ring-[#00bfa5] text-gray-800 text-sm">
-                                    {STATUSES.map(s => <option key={s} value={s}>{s === 'AVAILABLE' ? 'Tersedia' : s === 'SOLD' ? 'Terjual' : 'Service'}</option>)}
+                                    {STATUSES.map(s => <option key={s} value={s}>{s === 'AVAILABLE' ? 'Tersedia' : s === 'BOOKED' ? 'Dipesan' : 'Terjual'}</option>)}
                                 </select>
                             </div>
                         </div>

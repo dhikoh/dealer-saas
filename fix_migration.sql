@@ -1,1 +1,0 @@
-DELETE FROM _prisma_migrations WHERE migration_name='20260219090000_add_max_customers_to_plan';

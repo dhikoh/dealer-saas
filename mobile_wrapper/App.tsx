@@ -3,11 +3,12 @@ import {
     StyleSheet,
     View,
     ActivityIndicator,
-    StatusBar,
     BackHandler,
     Platform,
 } from 'react-native';
-import { WebView, WebViewNavigation } from 'react-native-webview';
+import { StatusBar } from 'expo-status-bar';
+import WebView from 'react-native-webview';
+import type { WebViewNavigation } from 'react-native-webview/lib/WebViewTypes';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 // URL target untuk Webview Mobile OTOHUB
@@ -26,7 +27,7 @@ const INJECTED_JS = `
 `;
 
 export default function App() {
-    const webViewRef = useRef<WebView>(null);
+    const webViewRef = useRef(null);
     const [loading, setLoading] = useState(true);
     const [canGoBack, setCanGoBack] = useState(false);
 
@@ -35,7 +36,7 @@ export default function App() {
         if (Platform.OS !== 'android') return;
         const onBack = () => {
             if (canGoBack && webViewRef.current) {
-                webViewRef.current.goBack();
+                (webViewRef.current as any).goBack();
                 return true;
             }
             return false;
@@ -46,7 +47,7 @@ export default function App() {
 
     return (
         <SafeAreaView style={styles.container} edges={['top', 'left', 'right']}>
-            <StatusBar barStyle="dark-content" backgroundColor="#E0E5EC" />
+            <StatusBar style="dark" backgroundColor="#E0E5EC" />
 
             <WebView
                 ref={webViewRef}

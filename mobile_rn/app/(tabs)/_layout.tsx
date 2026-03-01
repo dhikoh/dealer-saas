@@ -14,12 +14,15 @@ export default function TabsLayout() {
                 screenOptions={{
                     headerShown: false,
                     tabBarShowLabel: false,
-                    sceneStyle: { backgroundColor: 'transparent' } // Important for neumorphic bg
+                    sceneStyle: { backgroundColor: 'transparent' }
                 }}
             >
                 <Tabs.Screen name="dashboard" />
                 <Tabs.Screen name="vehicles" />
+                <Tabs.Screen name="transactions" />
                 <Tabs.Screen name="credit" />
+                <Tabs.Screen name="more" />
+                <Tabs.Screen name="superadmin" />
                 <Tabs.Screen name="profile" />
             </Tabs>
         </View>

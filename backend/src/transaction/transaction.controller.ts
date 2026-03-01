@@ -2,6 +2,7 @@ import {
     Controller,
     Get,
     Post,
+    Put,
     Patch,
     Delete,
     Body,
@@ -12,6 +13,7 @@ import {
 } from '@nestjs/common';
 import { TransactionService } from './transaction.service';
 import { CreateTransactionDto } from './dto/create-transaction.dto';
+import { UpdateTransactionDto } from './dto/update-transaction.dto';
 import { UpdateStatusDto } from './dto/update-status.dto';
 import { ActiveTenant } from '../common/decorators/active-tenant.decorator';
 
@@ -48,6 +50,11 @@ export class TransactionController {
     @Post()
     create(@Body() data: CreateTransactionDto, @Request() req, @ActiveTenant() tenantId: string) {
         return this.transactionService.create(tenantId, req.user.sub, data);
+    }
+
+    @Put(':id')
+    update(@Param('id') id: string, @Body() data: UpdateTransactionDto, @ActiveTenant() tenantId: string) {
+        return this.transactionService.update(id, tenantId, data);
     }
 
     @Patch(':id/status')

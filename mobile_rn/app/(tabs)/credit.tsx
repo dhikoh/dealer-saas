@@ -1,16 +1,18 @@
 import React, { useState } from 'react';
 import { View, Text, TextInput, TouchableOpacity, ScrollView } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { Calculator, ChevronDown } from 'lucide-react-native';
+import { Calculator } from 'lucide-react-native';
 import { useTheme } from '../../components/ThemeContext';
 import clsx from 'clsx';
 
+const fmt = (n: number) => new Intl.NumberFormat('id-ID').format(n);
+
 export default function CreditScreen() {
     const { colors, mode } = useTheme();
-    const [price, setPrice] = useState('25000000');
-    const [dp, setDp] = useState('5000000');
+    const [price, setPrice] = useState('250000000');
+    const [dp, setDp] = useState('50000000');
     const [tenor, setTenor] = useState('24');
-    const [rate, setRate] = useState('15');
+    const [rate, setRate] = useState('5');
     const [result, setResult] = useState<any>(null);
 
     const calculate = () => {
@@ -24,8 +26,11 @@ export default function CreditScreen() {
         const totalCredit = principal + totalInterest;
         const monthly = Math.round(totalCredit / t);
 
-        setResult({ monthly, principal, totalInterest });
+        setResult({ monthly, principal, totalInterest, totalCredit });
     };
+
+    // Preset tenors for quick selection
+    const tenorPresets = [12, 24, 36, 48, 60];
 
     return (
         <SafeAreaView className={clsx("flex-1", colors.bgApp)}>
@@ -39,7 +44,7 @@ export default function CreditScreen() {
                     <Text className={clsx("text-[11px] font-black uppercase tracking-widest mb-2", colors.textMuted)}>Harga OTR</Text>
                     <Text className={clsx("text-4xl font-black tracking-tighter", colors.textMain)}>
                         <Text className="text-lg">Rp </Text>
-                        {parseFloat(price).toLocaleString('id-ID')}
+                        {fmt(parseFloat(price) || 0)}
                     </Text>
                 </View>
 
@@ -48,14 +53,38 @@ export default function CreditScreen() {
                     <InputGroup label="Harga Kendaraan (Rp)" value={price} onChange={setPrice} colors={colors} mode={mode} />
                     <InputGroup label="Uang Muka (Rp)" value={dp} onChange={setDp} colors={colors} mode={mode} />
 
-                    <View className="flex-row gap-4">
-                        <View className="flex-1">
-                            <InputGroup label="Tenor (Bulan)" value={tenor} onChange={setTenor} colors={colors} mode={mode} />
+                    {/* Tenor Presets */}
+                    <View>
+                        <Text className={clsx("text-[10px] font-black uppercase tracking-widest mb-2 pl-2", colors.textMuted)}>
+                            Tenor (Bulan)
+                        </Text>
+                        <View className="flex-row gap-2 mb-2">
+                            {tenorPresets.map(t => (
+                                <TouchableOpacity key={t} onPress={() => setTenor(String(t))}
+                                    className={clsx("flex-1 py-3 rounded-xl items-center",
+                                        Number(tenor) === t ? colors.btnPrimary : colors.shadowOutcome)}>
+                                    <Text className={clsx("text-xs font-black",
+                                        Number(tenor) === t ? colors.textHighlight : colors.textMuted)}>
+                                        {t}
+                                    </Text>
+                                </TouchableOpacity>
+                            ))}
                         </View>
-                        <View className="flex-1">
-                            <InputGroup label="Bunga (%)" value={rate} onChange={setRate} colors={colors} mode={mode} />
-                        </View>
+                        <TextInput
+                            value={tenor}
+                            onChangeText={setTenor}
+                            keyboardType="numeric"
+                            placeholder="Tenor custom..."
+                            placeholderTextColor={mode === 'dark' ? '#6B7280' : '#94A3B8'}
+                            className={clsx(
+                                "w-full px-5 py-4 rounded-2xl text-sm font-black",
+                                colors.shadowIncome,
+                                mode === 'dark' ? 'bg-[#2A2D32] text-gray-200' : 'bg-[#E0E5EC] text-slate-700'
+                            )}
+                        />
                     </View>
+
+                    <InputGroup label="Bunga per Tahun (%)" value={rate} onChange={setRate} colors={colors} mode={mode} />
                 </View>
 
                 <TouchableOpacity
@@ -70,22 +99,24 @@ export default function CreditScreen() {
                     <View className={clsx("mt-8 p-6 rounded-3xl items-center", colors.iconContainer)}>
                         <Text className={clsx("text-[11px] font-black uppercase tracking-widest mb-2", colors.textMuted)}>Angsuran Per Bulan</Text>
                         <Text className={clsx("text-3xl font-black tracking-tighter", colors.textHighlight)}>
-                            Rp {result.monthly.toLocaleString('id-ID')}
+                            Rp {fmt(result.monthly)}
                         </Text>
 
                         <View className={clsx("w-full pt-6 mt-6 border-t", mode === 'dark' ? 'border-gray-700' : 'border-gray-200')}>
-                            <View className="flex-row justify-between mb-2">
-                                <Text className={clsx("text-xs font-black uppercase tracking-wider", colors.textMuted)}>Pokok Hutang</Text>
-                                <Text className={clsx("font-black text-sm", colors.textMain)}>Rp {result.principal.toLocaleString('id-ID')}</Text>
-                            </View>
-                            <View className="flex-row justify-between">
-                                <Text className={clsx("text-xs font-black uppercase tracking-wider", colors.textMuted)}>Total Bunga</Text>
-                                <Text className={clsx("font-black text-sm", colors.textMain)}>Rp {result.totalInterest.toLocaleString('id-ID')}</Text>
-                            </View>
+                            {[
+                                { label: 'Pokok Hutang', value: result.principal },
+                                { label: 'Total Bunga', value: result.totalInterest },
+                                { label: 'Total Kredit', value: result.totalCredit },
+                                { label: 'Uang Muka', value: parseFloat(dp) || 0 },
+                            ].map((row, i) => (
+                                <View key={i} className="flex-row justify-between mb-2">
+                                    <Text className={clsx("text-xs font-black uppercase tracking-wider", colors.textMuted)}>{row.label}</Text>
+                                    <Text className={clsx("font-black text-sm", colors.textMain)}>Rp {fmt(Math.round(row.value))}</Text>
+                                </View>
+                            ))}
                         </View>
                     </View>
                 )}
-
             </ScrollView>
         </SafeAreaView>
     );
