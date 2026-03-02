@@ -5,9 +5,12 @@ import Constants from 'expo-constants';
 // CRITICAL FIX: Never hardcode API URL in production code.
 // Use EAS environment variables via app.config.js / eas.json secrets.
 // Falls back to localhost for local dev only.
+// Production API URL — same backend as webapp (oto.modula.click)
+// Can be overridden via EAS secret: API_URL or EXPO_PUBLIC_API_URL
 const API_URL =
     (Constants.expoConfig?.extra?.apiUrl as string) ??
-    'http://192.168.1.10:3000';
+    process.env.EXPO_PUBLIC_API_URL ??
+    'https://api.oto.modula.click';
 
 export { API_URL };
 
