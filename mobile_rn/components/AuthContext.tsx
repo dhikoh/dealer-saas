@@ -5,7 +5,7 @@ import { useRouter, useSegments } from 'expo-router';
 import { UserProfile } from '../constants/types';
 
 interface AuthContextType {
-    user: UserProfile | null;   // HIGH FIX: Typed as UserProfile, not `any`
+    user: UserProfile | null;
     isLoading: boolean;
     login: (email: string, password: string) => Promise<void>;
     logout: () => Promise<void>;
@@ -26,20 +26,18 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     const router = useRouter();
     const segments = useSegments();
 
-    // EFFECT 1: Bootstrap auth state ONCE on mount.
-    // Uses isMounted flag to prevent state updates after unmount (React StrictMode safe).
+    // Bootstrap auth state on mount — check for persisted token
     useEffect(() => {
         let isMounted = true;
         const checkUser = async () => {
             try {
                 const token = await SecureStore.getItemAsync('auth_token');
                 if (token && isMounted) {
-                    // HIGH: getProfile() response safely typed via UserProfile
                     const profile = await authService.getProfile();
                     if (isMounted) setUser(profile);
                 }
             } catch {
-                // Token invalid or network error — clear token, force login
+                // Token invalid — clear it and stay on login
                 if (isMounted) {
                     await SecureStore.deleteItemAsync('auth_token');
                     setUser(null);
@@ -52,31 +50,36 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         return () => { isMounted = false; };
     }, []);
 
-    // EFFECT 2: Navigation guard — only fires on auth STATE change (not on every tab switch)
-    // FIX: `segments` excluded from deps — it changes on every tab navigation and would
-    //      cause router.replace() to fire on every tab change → navigation loop.
+    // Navigation guard — fires ONLY when auth state changes (not on every render)
+    // FIX: Do NOT navigate during isLoading to prevent flicker on cold start
     useEffect(() => {
         if (isLoading) return;
 
         const inTabsGroup = segments[0] === '(tabs)';
+        const onLoginScreen = !segments[0] || segments[0] === 'index';
 
-        if (!user && inTabsGroup) {
-            router.replace('/');
-        } else if (user && !inTabsGroup) {
+        // If logged in but still on login screen → go to dashboard
+        if (user && (onLoginScreen || !inTabsGroup)) {
             router.replace('/(tabs)/dashboard');
+        }
+        // If NOT logged in but somehow in tabs → go to login
+        else if (!user && inTabsGroup) {
+            router.replace('/');
         }
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [user, isLoading]);
 
     const login = useCallback(async (email: string, password: string) => {
         const profile = await authService.login(email, password);
-        // auth.service.login now returns UserProfile directly
         setUser(profile);
+        // Navigation is handled by the useEffect above — do NOT navigate here
+        // to avoid double navigation race condition
     }, []);
 
     const logout = useCallback(async () => {
         await authService.logout();
         setUser(null);
+        // Navigation guard useEffect will redirect to '/' after user becomes null
     }, []);
 
     const value = useMemo(

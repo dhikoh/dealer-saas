@@ -1,25 +1,35 @@
 import { Stack } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
-import { ThemeProvider } from '../components/ThemeContext';
+import { ThemeProvider, useTheme } from '../components/ThemeContext';
 import { AuthProvider } from '../components/AuthContext';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
-import PremiumBackground from '../components/PremiumBackground';
-import '../global.css';
+import { View } from 'react-native';
+
+// Inner wrapper that reads theme safely after provider is mounted
+function ThemedRoot() {
+    const { mode } = useTheme();
+    const bgColor = mode === 'dark' ? '#1E2228' : '#E0E5EC';
+
+    return (
+        <View style={{ flex: 1, backgroundColor: bgColor }}>
+            <AuthProvider>
+                <Stack screenOptions={{
+                    headerShown: false,
+                    // CRITICAL FIX: Remove transparent — transparent causes blank screen in release APK
+                    contentStyle: { backgroundColor: bgColor },
+                    animation: 'fade',
+                }} />
+                <StatusBar style={mode === 'dark' ? 'light' : 'dark'} />
+            </AuthProvider>
+        </View>
+    );
+}
 
 export default function RootLayout() {
     return (
         <SafeAreaProvider>
             <ThemeProvider>
-                <PremiumBackground>
-                    <AuthProvider>
-                        <Stack screenOptions={{
-                            headerShown: false,
-                            contentStyle: { backgroundColor: 'transparent' },
-                            animation: 'fade' // smoother transitions between root screens
-                        }} />
-                        <StatusBar style="dark" />
-                    </AuthProvider>
-                </PremiumBackground>
+                <ThemedRoot />
             </ThemeProvider>
         </SafeAreaProvider>
     );

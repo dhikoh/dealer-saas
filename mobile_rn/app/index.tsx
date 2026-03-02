@@ -4,9 +4,7 @@ import {
     Alert, KeyboardAvoidingView, Platform, ScrollView, Dimensions, StatusBar
 } from 'react-native';
 import { useAuth } from '../components/AuthContext';
-import { useRouter } from 'expo-router';
 import { API_URL } from '../services/api';
-import * as SecureStore from 'expo-secure-store';
 
 const { width } = Dimensions.get('window');
 
@@ -152,7 +150,6 @@ type FormType = 'login' | 'signup' | 'forgot';
 
 export default function AuthScreen() {
     const { login } = useAuth();
-    const router = useRouter();
 
     const [activeForm, setActiveForm] = useState<FormType>('login');
     const [isLoading, setIsLoading] = useState(false);
@@ -196,7 +193,7 @@ export default function AuthScreen() {
         setIsLoading(true);
         try {
             await login(email, loginPassword);
-            router.replace('/(tabs)/dashboard');
+            // Navigation handled automatically by AuthContext navigation guard
         } catch (err: any) {
             const msg = err?.response?.data?.message || err?.message || 'Login gagal';
             Alert.alert('Login Gagal', msg);
