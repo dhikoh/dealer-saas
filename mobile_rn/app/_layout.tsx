@@ -4,6 +4,7 @@ import { ThemeProvider, useTheme } from '../components/ThemeContext';
 import { AuthProvider } from '../components/AuthContext';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { View } from 'react-native';
+import '../global.css'; // CRITICAL: required for NativeWind className to work across all screens
 
 // Inner wrapper that reads theme safely after provider is mounted
 function ThemedRoot() {

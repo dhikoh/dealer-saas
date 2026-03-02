@@ -1,5 +1,5 @@
 import React from 'react';
-import { StyleSheet, ViewStyle, StyleProp, View } from 'react-native';
+import { StyleSheet, ViewStyle, StyleProp, View, Platform } from 'react-native';
 import { BlurView } from 'expo-blur';
 import { useTheme } from './ThemeContext';
 
@@ -20,9 +20,33 @@ export default function GlassView({
 }: GlassViewProps) {
     const { mode } = useTheme();
 
-    // Auto tint based on theme if not specified
     const activeTint = tint || (mode === 'dark' ? 'dark' : 'light');
 
+    // Android fallback: BlurView doesn't work reliably on Android < API 31.
+    // Use a semi-transparent background instead to maintain the glass look.
+    const androidFallbackBg = mode === 'dark'
+        ? 'rgba(42, 45, 50, 0.92)'
+        : 'rgba(224, 229, 236, 0.92)';
+
+    const borderColor = mode === 'dark'
+        ? 'rgba(255,255,255,0.1)'
+        : 'rgba(255,255,255,0.6)';
+
+    if (Platform.OS === 'android') {
+        return (
+            <View style={[
+                styles.container,
+                { borderRadius, backgroundColor: androidFallbackBg, borderColor, borderWidth: 1 },
+                style
+            ]}>
+                <View style={styles.content}>
+                    {children}
+                </View>
+            </View>
+        );
+    }
+
+    // iOS: Full BlurView glass effect
     return (
         <View style={[styles.container, { borderRadius }, style]}>
             <BlurView
@@ -30,14 +54,10 @@ export default function GlassView({
                 tint={activeTint}
                 style={[StyleSheet.absoluteFill, { borderRadius }]}
             />
-            {/* Subtle border to give the "glass edge" effect */}
             <View style={[
                 StyleSheet.absoluteFill,
                 styles.glassBorder,
-                {
-                    borderRadius,
-                    borderColor: mode === 'dark' ? 'rgba(255,255,255,0.1)' : 'rgba(255,255,255,0.3)'
-                }
+                { borderRadius, borderColor }
             ]} />
             <View style={styles.content}>
                 {children}
@@ -49,17 +69,16 @@ export default function GlassView({
 const styles = StyleSheet.create({
     container: {
         overflow: 'hidden',
-        // Slight shadow to separate glass from background
         shadowColor: '#000',
-        shadowOffset: { width: 0, height: 10 },
-        shadowOpacity: 0.1,
-        shadowRadius: 20,
-        elevation: 5,
+        shadowOffset: { width: 0, height: 8 },
+        shadowOpacity: 0.12,
+        shadowRadius: 16,
+        elevation: 6,
     },
     glassBorder: {
         borderWidth: 1,
         zIndex: 1,
-        pointerEvents: 'none', // Allow clicks to pass through border
+        pointerEvents: 'none',
     },
     content: {
         flex: 1,

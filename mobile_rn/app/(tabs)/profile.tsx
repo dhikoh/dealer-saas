@@ -26,7 +26,12 @@ export default function ProfileScreen() {
     const handleLogout = async () => {
         Alert.alert('Keluar', 'Yakin ingin keluar?', [
             { text: 'Batal', style: 'cancel' },
-            { text: 'Keluar', style: 'destructive', onPress: async () => { await logout(); router.replace('/'); } }
+            {
+                text: 'Keluar', style: 'destructive', onPress: async () => {
+                    await logout();
+                    // AuthContext navigation guard auto-redirects to '/' when user becomes null
+                }
+            }
         ]);
     };
 
