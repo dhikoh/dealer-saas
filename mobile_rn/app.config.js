@@ -45,7 +45,7 @@ module.exports = ({ config }) => ({
     // Set via: eas secret:create --scope project --name API_URL --value https://your-backend.com
     // Or locally: create .env with EXPO_PUBLIC_API_URL=http://192.168.x.x:3000
     extra: {
-        apiUrl: process.env.API_URL ?? process.env.EXPO_PUBLIC_API_URL ?? 'https://api.oto.modula.click',
+        apiUrl: process.env.API_URL ?? process.env.EXPO_PUBLIC_API_URL ?? 'https://dealer.modula.click',
         eas: {
             projectId: '9c51af6f-a1a6-459d-b101-a603e2764895',
         },
