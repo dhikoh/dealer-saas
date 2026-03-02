@@ -3,37 +3,40 @@ import * as SecureStore from 'expo-secure-store';
 import { UserProfile } from '../constants/types';
 
 export const authService = {
-    // Login: stores token and returns UserProfile in one flow.
-    // HIGH FIX: Previously returned response.data (raw) and then required a
-    // separate getProfile() call in AuthContext — causing 2 API calls on login.
-    // Now: login → store token → fetch profile → return profile. Single flow.
+    // Login: stores token and returns UserProfile.
+    // Backend at dealer.modula.click returns { access_token, user } (snake_case)
+    // NOT accessToken (camelCase) — confirmed from webapp auth/page.tsx line 160:
+    //   localStorage.setItem('access_token', data.access_token)
     login: async (email: string, password: string): Promise<UserProfile> => {
         const response = await api.post('/auth/login', { email, password });
 
-        // FIX: Safe optional chain — don't crash if backend changes response shape
-        const token = response.data?.accessToken;
+        // Backend returns access_token (snake_case), NOT accessToken
+        const token =
+            response.data?.access_token ??
+            response.data?.accessToken ??
+            response.data?.token;
+
         if (!token) {
-            throw new Error('Login failed: no accessToken in response');
+            console.error('[Auth] Response keys:', Object.keys(response.data || {}));
+            throw new Error('Login gagal: tidak ada token dalam respons backend');
         }
 
         await SecureStore.setItemAsync('auth_token', token);
 
-        // Fetch profile immediately after login so caller gets UserProfile
+        // Fetch full profile immediately after storing token
         return authService.getProfile();
     },
 
     getProfile: async (): Promise<UserProfile> => {
         const response = await api.get('/auth/me');
-        // HIGH FIX: Safe access with fallback — crash prevention if API shape changes
         const data = response.data;
         if (!data || typeof data !== 'object') {
-            throw new Error('Invalid profile response');
+            throw new Error('Respons profil tidak valid dari backend');
         }
         return data as UserProfile;
     },
 
     logout: async (): Promise<void> => {
-        // FIX: deleteItemAsync is idempotent — safe to call even if key doesn't exist
         await SecureStore.deleteItemAsync('auth_token');
     },
 };
